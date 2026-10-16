@@ -1,0 +1,9 @@
+node_modules/
+.turbo/
+.next/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+.DS_Store
