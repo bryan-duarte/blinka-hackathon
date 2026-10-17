@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "dependencies": {
+    "yaml": "^2.6.0"
+  },
+  "scripts": {
+    "log-search": "node scripts/log-search.js",
+    "openapi": "node scripts/openapi-explore.mjs"
+  }
+}
