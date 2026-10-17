@@ -12,9 +12,9 @@ importers:
         specifier: ^2.5.0
         version: 2.11.9
 
-  apps/api: {}
+  backend: {}
 
-  apps/web:
+  frontend:
     dependencies:
       next:
         specifier: ^16.4.2

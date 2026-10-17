@@ -1,0 +1,10 @@
+{
+  "name": "@blinka/backend",
+  "private": true,
+  "scripts": {
+    "dev": "uv run uvicorn api.app:app --reload --port 8000",
+    "build": "uv sync",
+    "lint": "uv run ruff check . && uv run ruff format --check .",
+    "format": "uv run ruff format . && uv run ruff check --fix ."
+  }
+}

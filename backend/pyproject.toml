@@ -1,0 +1,50 @@
+[project]
+name = "blinka-backend"
+version = "0.1.0"
+description = "Blinka backend — modular monolith"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic[email]>=2",
+    "pydantic-settings>=2",
+    "sqlalchemy[asyncio]>=2.0",
+    "psycopg[binary,pool]>=3.2",
+    "alembic>=1.14",
+    "deepagents>=0.7",
+    "langgraph>=1.0",
+    "langgraph-checkpoint-postgres>=2",
+    "langchain-openai>=1.0",
+    "aioboto3>=13",
+    "pyjwt>=2.10",
+    "bcrypt>=4",
+    "structlog>=25",
+    "python-multipart>=0.0.20",
+    "pypdf>=5",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11",
+    "pytest>=9",
+    "pytest-asyncio>=1.4",
+    "httpx>=0.28",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "clients", "contracts", "core", "modules"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
