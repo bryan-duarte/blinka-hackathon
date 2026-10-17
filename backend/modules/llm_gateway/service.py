@@ -1,8 +1,8 @@
 from typing import TypeVar, get_args
 
+from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ValidationError
 
 from contracts.llm import ModelKind
@@ -23,16 +23,22 @@ logger = get_logger(__name__)
 class LlmGatewayService:
     def __init__(self, settings: LlmSettings) -> None:
         self._settings = settings
+        configured_model_names = {
+            model_name
+            for model_name in (settings.model, settings.main_model, settings.payments_model)
+            if model_name
+        }
+        self._chat_models: dict[str, BaseChatModel] = {
+            model_name: self._build_chat_model(model_name) for model_name in configured_model_names
+        }
+
+    def default_model(self) -> BaseChatModel:
+        return self._chat_models[self._settings.model]
 
     def model(self, kind: ModelKind) -> BaseChatModel:
         if kind not in MODEL_KINDS:
             raise ModelNotConfiguredError
-        return ChatOpenAI(
-            model=self._model_name(kind),
-            base_url=self._settings.base_url,
-            api_key=self._settings.api_key.get_secret_value(),
-            temperature=DETERMINISTIC_TEMPERATURE,
-        )
+        return self._chat_models[self._model_name(kind)]
 
     async def extract(
         self,
@@ -81,6 +87,18 @@ class LlmGatewayService:
         raise StructuredExtractionError
 
     def _model_name(self, kind: ModelKind) -> str:
-        if kind == "main":
-            return self._settings.main_model
-        return self._settings.payments_model
+        override_model_name = (
+            self._settings.main_model if kind == "main" else self._settings.payments_model
+        )
+        return override_model_name or self._settings.model
+
+    def _build_chat_model(self, model_name: str) -> BaseChatModel:
+        return ChatAnthropic(
+            model=model_name,
+            base_url=self._settings.base_url,
+            api_key=self._settings.api_key,
+            max_tokens=self._settings.max_tokens,
+            timeout=self._settings.timeout_s,
+            max_retries=self._settings.max_retries,
+            temperature=DETERMINISTIC_TEMPERATURE,
+        )

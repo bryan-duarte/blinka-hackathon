@@ -11,6 +11,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from contracts.auth import CurrentUser
 from contracts.invoices import InvoiceData, InvoiceParseResult
 from contracts.payments import RunStatus
+from contracts.prompts import PromptId
 from core.agents import last_reply_text, thread_config
 from core.logging_config import get_logger
 from modules.invoice_ingestor.errors import InvoiceParseError
@@ -20,6 +21,7 @@ from modules.payments.repository import RunsRepository
 if TYPE_CHECKING:
     from clients.invoice_ingestor import InvoiceIngestorClient
     from clients.llm import LlmGatewayClient
+    from clients.prompts import PromptsClient
     from clients.sessions import SessionsClient
 
 logger = get_logger(__name__)
@@ -59,6 +61,7 @@ class PaymentRunDependencies:
     payments_checkpointer: BaseCheckpointSaver | None
     invoice_ingestor: "InvoiceIngestorClient"
     sessions: "SessionsClient"
+    prompts: "PromptsClient"
 
 
 async def run_execution(
@@ -98,7 +101,10 @@ async def _pay_invoice(
     invoice = _require_invoice(parse_result)
     await repository.insert_event(run_id, "invoice_parsed", invoice.model_dump(mode="json"))
     agent = build_payment_agent(
-        dependencies.llm_gateway.model("payments"), dependencies.payments_checkpointer, invoice
+        dependencies.llm_gateway.model("payments"),
+        dependencies.payments_checkpointer,
+        invoice,
+        dependencies.prompts.get_text_prompt(PromptId.PAYMENT_AGENT),
     )
     agent_state = await agent.ainvoke(
         {"messages": [HumanMessage(content=_seed_message(invoice))]},

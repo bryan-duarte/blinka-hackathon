@@ -1,3 +1,7 @@
+from contracts.invoices import InvoiceData
+from contracts.prompts import PromptId
+from modules.prompts.base import Prompt
+
 INVOICE_EXTRACTION_PROMPT = """You extract structured invoice data from file content.
 
 Return ONLY a JSON object matching this schema, with no extra fields:
@@ -17,3 +21,11 @@ Rules:
 - currency is the ISO 4217 code (e.g. "USD", "EUR").
 - If the document is not an invoice, or lacks vendor/number/total, fail — do not guess.
 """
+
+
+class InvoiceExtractionPrompt(Prompt):
+    id = PromptId.INVOICE_EXTRACTION
+    response_schema = InvoiceData
+
+    def get_text_prompt(self) -> str:
+        return INVOICE_EXTRACTION_PROMPT

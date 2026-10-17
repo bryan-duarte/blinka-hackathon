@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from deepagents import create_deep_agent
+from langchain.agents.structured_output import ToolStrategy
 from langchain_core.messages import (
     AIMessageChunk,
     BaseMessage,
@@ -16,26 +17,29 @@ from langgraph.graph.state import CompiledStateGraph
 
 from contracts.auth import CurrentUser
 from contracts.chat import ChatRequest, ChatResponse, ChatStreamEvent, PreparedChat
+from contracts.prompts import HelloWorldReport, PromptId
 from core.agents import last_reply_text, message_text, thread_config
 from core.logging_config import get_logger
-from modules.orchestrator.errors import AgentProviderError
+from modules.orchestrator.errors import AgentProviderError, MissingStructuredResponseError
 from modules.orchestrator.tools import (
     INITIATE_PAYMENTS_TOOL_NAME,
     build_initiate_payments_tool,
     extract_run_id,
 )
-from modules.prompts import get_prompt
 
 if TYPE_CHECKING:
     from clients.files import FilesClient
     from clients.llm import LlmGatewayClient
     from clients.payments import PaymentsClient
+    from clients.prompts import PromptsClient
     from clients.sessions import SessionsClient
+    from clients.tools import ToolsClient
 
 logger = get_logger(__name__)
 
 FILE_CONTEXT_PREAMBLE = "Attached file context for this request:"
 STREAM_EVENTS_VERSION = "v2"
+STRUCTURED_RESPONSE_KEY = "structured_response"
 
 
 class OrchestratorService:
@@ -45,12 +49,16 @@ class OrchestratorService:
         sessions: "SessionsClient",
         files: "FilesClient",
         payments: "PaymentsClient",
+        prompts: "PromptsClient",
+        tools: "ToolsClient",
         agent_checkpointer: BaseCheckpointSaver | None,
     ) -> None:
         self._llm = llm
         self._sessions = sessions
         self._files = files
         self._payments = payments
+        self._prompts = prompts
+        self._tools = tools
         self._checkpointer = agent_checkpointer
 
     async def prepare(self, user: CurrentUser, request: ChatRequest) -> PreparedChat:
@@ -93,6 +101,23 @@ class OrchestratorService:
             return
         yield ChatStreamEvent(type="done", data={"session_id": str(prepared.session_id)})
 
+    async def hello_world(self) -> HelloWorldReport:
+        hello_world_task = self._prompts.get_text_prompt(PromptId.HELLO_WORLD)
+        agent = self._build_hello_world_agent()
+        try:
+            agent_state = await agent.ainvoke(
+                {"messages": [HumanMessage(content=hello_world_task)]}
+            )
+        except Exception as agent_error:
+            logger.exception("hello_world_agent_failed")
+            raise AgentProviderError from agent_error
+        report = agent_state.get(STRUCTURED_RESPONSE_KEY)
+        if not isinstance(report, HelloWorldReport):
+            logger.error("hello_world_report_missing", report_type=type(report).__name__)
+            raise MissingStructuredResponseError
+        logger.info("hello_world_completed", tools_called=report.tools_called)
+        return report
+
     async def _file_context(self, user: CurrentUser, file_ids: list[UUID]) -> str:
         if not file_ids:
             return ""
@@ -102,9 +127,17 @@ class OrchestratorService:
         initiate_payments = build_initiate_payments_tool(self._payments, user, session_id)
         return create_deep_agent(
             model=self._llm.model("main"),
-            system_prompt=get_prompt("main_agent"),
+            system_prompt=self._prompts.get_text_prompt(PromptId.MAIN_AGENT),
             tools=[initiate_payments],
             checkpointer=self._checkpointer,
+        )
+
+    def _build_hello_world_agent(self) -> CompiledStateGraph:
+        report_schema = self._prompts.get_response_schema(PromptId.HELLO_WORLD)
+        return create_deep_agent(
+            model=self._llm.default_model(),
+            tools=self._tools.hello_world_tools(),
+            response_format=ToolStrategy(report_schema),
         )
 
 

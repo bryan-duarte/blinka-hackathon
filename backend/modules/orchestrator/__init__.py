@@ -1,4 +1,13 @@
-from modules.orchestrator.errors import AgentProviderError, OrchestratorError
+from modules.orchestrator.errors import (
+    AgentProviderError,
+    MissingStructuredResponseError,
+    OrchestratorError,
+)
 from modules.orchestrator.service import OrchestratorService
 
-__all__ = ["AgentProviderError", "OrchestratorError", "OrchestratorService"]
+__all__ = [
+    "AgentProviderError",
+    "MissingStructuredResponseError",
+    "OrchestratorError",
+    "OrchestratorService",
+]

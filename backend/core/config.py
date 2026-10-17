@@ -19,10 +19,14 @@ class LlmSettings(BaseSettings):
         env_prefix="BLINKA_LLM__", env_file=".env", extra="ignore", frozen=True
     )
 
-    base_url: str = "https://openrouter.ai/api/v1"
+    base_url: str = "https://openrouter.ai/api"
     api_key: SecretStr = Field(validation_alias="OPENROUTER_API_KEY", default=SecretStr(""))
-    main_model: str = "anthropic/claude-sonnet-4.5"
-    payments_model: str = "anthropic/claude-haiku-4.5"
+    model: str = "anthropic/claude-haiku-5.5"
+    main_model: str | None = None
+    payments_model: str | None = None
+    max_tokens: int = 8192
+    timeout_s: float = 120
+    max_retries: int = 2
 
 
 class StorageSettings(BaseSettings):

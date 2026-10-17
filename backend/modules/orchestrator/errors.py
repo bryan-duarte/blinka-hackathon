@@ -4,3 +4,7 @@ class OrchestratorError(Exception):
 
 class AgentProviderError(OrchestratorError):
     pass
+
+
+class MissingStructuredResponseError(AgentProviderError):
+    pass

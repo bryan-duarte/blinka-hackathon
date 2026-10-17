@@ -5,7 +5,6 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 
 from contracts.invoices import InvoiceData
-from modules.prompts import get_prompt
 
 PAYMENTS_AGENT_NAME = "payments"
 
@@ -34,11 +33,12 @@ def build_payment_agent(
     llm: BaseChatModel,
     payments_checkpointer: BaseCheckpointSaver | None,
     invoice: InvoiceData,
+    system_prompt: str,
 ) -> CompiledStateGraph:
     tools = [build_invoice_context_tool(invoice), execute_payment]
     return create_deep_agent(
         model=llm,
-        system_prompt=get_prompt("payment_agent"),
+        system_prompt=system_prompt,
         tools=tools,
         checkpointer=payments_checkpointer,
     )

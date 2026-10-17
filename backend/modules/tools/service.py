@@ -1,6 +1,8 @@
-class ToolsService:
-    """Future home of the shared tool registry.
+from langchain_core.tools import BaseTool
 
-    `initiate_payments` currently lives inline in `modules/orchestrator/tools.py`
-    and migrates here when a second tool needs the same seam.
-    """
+from modules.tools.hello_world import get_random_token, get_system_profile
+
+
+class ToolsService:
+    def hello_world_tools(self) -> list[BaseTool]:
+        return [get_random_token, get_system_profile]

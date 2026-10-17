@@ -8,6 +8,7 @@ from clients.llm import LlmGatewayClient
 from clients.mcp import McpGatewayClient
 from clients.orchestrator import OrchestratorClient
 from clients.payments import PaymentsClient
+from clients.prompts import PromptsClient
 from clients.sessions import SessionsClient
 from clients.tools import ToolsClient
 from core.config import Settings
@@ -21,6 +22,7 @@ from modules.mcp_gateway import McpGatewayService
 from modules.orchestrator import OrchestratorService
 from modules.payments import ExecutionRegistry, PaymentsService, RunsRepository
 from modules.payments.runner import PaymentRunDependencies
+from modules.prompts import PROMPTS, PromptsService
 from modules.sessions import (
     SessionsImmutableRepository,
     SessionsMutableRepository,
@@ -37,6 +39,7 @@ class Clients:
     guardrails: GuardrailsClient
     llm: LlmGatewayClient
     mcp: McpGatewayClient
+    prompts: PromptsClient
     tools: ToolsClient
     sessions: SessionsClient
     orchestrator: OrchestratorClient
@@ -45,6 +48,7 @@ class Clients:
 
 async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpointers) -> Clients:
     llm = LlmGatewayClient(LlmGatewayService(settings.llm))
+    prompts = PromptsClient(PromptsService(PROMPTS))
     guardrails = GuardrailsClient(GuardrailsService(settings.guardrails_enforce))
     mcp = McpGatewayClient(McpGatewayService())
     tools = ToolsClient(ToolsService())
@@ -65,7 +69,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
     files = FilesClient(files_service)
 
     invoices_repository = InvoicesRepository(product_sessionmaker)
-    invoice_ingestor_service = InvoiceIngestorService(files, llm, invoices_repository)
+    invoice_ingestor_service = InvoiceIngestorService(files, llm, prompts, invoices_repository)
     invoice_ingestor = InvoiceIngestorClient(invoice_ingestor_service)
 
     sessions_service = SessionsService(
@@ -82,6 +86,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         payments_checkpointer=checkpointers.payments,
         invoice_ingestor=invoice_ingestor,
         sessions=sessions,
+        prompts=prompts,
     )
     payments_service = PaymentsService(runs_repository, registry, run_dependencies, files)
     payments = PaymentsClient(payments_service)
@@ -91,6 +96,8 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         sessions=sessions,
         files=files,
         payments=payments,
+        prompts=prompts,
+        tools=tools,
         agent_checkpointer=checkpointers.agent,
     )
     orchestrator = OrchestratorClient(orchestrator_service)
@@ -102,6 +109,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         guardrails=guardrails,
         llm=llm,
         mcp=mcp,
+        prompts=prompts,
         tools=tools,
         sessions=sessions,
         orchestrator=orchestrator,

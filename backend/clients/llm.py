@@ -17,6 +17,9 @@ class LlmGatewayClient:
     def __init__(self, service: "LlmGatewayService") -> None:
         self._service = service
 
+    def default_model(self) -> "BaseChatModel":
+        return self._service.default_model()
+
     def model(self, kind: ModelKind) -> "BaseChatModel":
         return self._service.model(kind)
 

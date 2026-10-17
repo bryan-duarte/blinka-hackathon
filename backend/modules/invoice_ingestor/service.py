@@ -5,15 +5,16 @@ from uuid import UUID
 from contracts.auth import CurrentUser
 from contracts.files import FileParseStatus
 from contracts.invoices import InvoiceData, InvoiceParseResult
+from contracts.prompts import PromptId
 from core.agents import MessageContent
 from core.logging_config import get_logger
 from modules.invoice_ingestor.errors import InvoiceParseError
-from modules.invoice_ingestor.prompts import INVOICE_EXTRACTION_PROMPT
 from modules.invoice_ingestor.repository import InvoicesRepository
 
 if TYPE_CHECKING:
     from clients.files import FilesClient
     from clients.llm import LlmGatewayClient
+    from clients.prompts import PromptsClient
 
 logger = get_logger(__name__)
 
@@ -27,10 +28,12 @@ class InvoiceIngestorService:
         self,
         files: "FilesClient",
         llm: "LlmGatewayClient",
+        prompts: "PromptsClient",
         repository: InvoicesRepository,
     ) -> None:
         self._files = files
         self._llm = llm
+        self._prompts = prompts
         self._repository = repository
 
     async def parse(self, owner: CurrentUser, file_id: UUID) -> InvoiceParseResult:
@@ -51,7 +54,7 @@ class InvoiceIngestorService:
     async def _extract_invoice(self, mime: str, content: bytes) -> InvoiceData:
         return await self._llm.extract(
             model_kind="main",
-            system=INVOICE_EXTRACTION_PROMPT,
+            system=self._prompts.get_text_prompt(PromptId.INVOICE_EXTRACTION),
             user_content=_build_user_content(mime, content),
             schema=InvoiceData,
         )
@@ -65,9 +68,8 @@ def _build_user_content(mime: str, content: bytes) -> MessageContent:
         {"type": "text", "text": PDF_EXTRACTION_INSTRUCTION},
         {
             "type": "file",
-            "file": {
-                "filename": PDF_UPLOAD_FILENAME,
-                "file_data": f"data:{PDF_MIME};base64,{encoded_pdf}",
-            },
+            "base64": encoded_pdf,
+            "mime_type": PDF_MIME,
+            "filename": PDF_UPLOAD_FILENAME,
         },
     ]

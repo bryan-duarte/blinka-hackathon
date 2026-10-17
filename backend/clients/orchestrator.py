@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from contracts.auth import CurrentUser
 from contracts.chat import ChatRequest, ChatResponse, ChatStreamEvent, PreparedChat
+from contracts.prompts import HelloWorldReport
 
 if TYPE_CHECKING:
     from modules.orchestrator.service import OrchestratorService
@@ -22,3 +23,6 @@ class OrchestratorClient:
         self, user: CurrentUser, prepared: PreparedChat, message: str
     ) -> AsyncIterator[ChatStreamEvent]:
         return self._service.stream_chat(user, prepared, message)
+
+    async def hello_world(self) -> HelloWorldReport:
+        return await self._service.hello_world()
