@@ -1,5 +1,10 @@
 import { useId, useState } from "react";
-import { SECTION_HEADING_CLASS } from "@/components/settings/styles";
+import {
+  LABEL_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+  SECTION_HEADING_CLASS,
+} from "@/components/settings/styles";
 import { ApiError, HTTP_CONFLICT, api } from "@/lib/api";
 
 type ReviewActionsProps = {
@@ -43,7 +48,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-line bg-sunken p-4">
+    <div className="flex flex-col gap-4 border-t border-line pt-6">
       <div className="space-y-1">
         <h3 className={SECTION_HEADING_CLASS}>Tu decisión</h3>
         <p className="text-sm text-muted">
@@ -51,8 +56,8 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           antes de pagar, así que la factura puede quedar frenada.
         </p>
       </div>
-      <div className="space-y-1">
-        <label htmlFor={noteId} className="text-xs font-medium text-ink">
+      <div className="flex flex-col gap-2">
+        <label htmlFor={noteId} className={LABEL_CLASS}>
           Nota para el registro (obligatoria)
         </label>
         <textarea
@@ -64,7 +69,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           rows={2}
           disabled={isBusy}
           placeholder="Ej.: confirmado con el proveedor por teléfono"
-          className="block w-full resize-y rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-60"
+          className="block w-full resize-y rounded border border-line bg-panel px-4 py-2 text-sm leading-[1.4] text-ink placeholder:text-muted transition-colors focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-accent disabled:opacity-60"
         />
         <p className="text-right text-xs text-muted tabular-nums">
           {note.length}/{NOTE_MAX_LENGTH}
@@ -72,6 +77,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
       </div>
       {actionError && (
         <p role="alert" className="text-sm text-danger">
+          <span aria-hidden>✕ </span>
           {actionError}
         </p>
       )}
@@ -80,7 +86,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           type="button"
           onClick={() => resolve("approve")}
           disabled={!hasValidNote || isBusy}
-          className="h-10 rounded-md bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className={PRIMARY_BUTTON_CLASS}
         >
           {pendingAction === "approve" ? "Aprobando..." : "Aprobar pago"}
         </button>
@@ -88,7 +94,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           type="button"
           onClick={() => resolve("reject")}
           disabled={!hasValidNote || isBusy}
-          className="h-10 rounded-md border border-danger/40 bg-panel px-4 text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className={SECONDARY_BUTTON_CLASS}
         >
           {pendingAction === "reject" ? "Rechazando..." : "Rechazar"}
         </button>

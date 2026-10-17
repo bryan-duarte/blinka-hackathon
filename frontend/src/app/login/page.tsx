@@ -1,29 +1,69 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { type FormEvent, Suspense, useState } from "react";
+import { Wordmark } from "@/components/brand/Wordmark";
+import {
+  INPUT_CLASS,
+  LABEL_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+} from "@/components/settings/styles";
 import { api, tokenStore } from "@/lib/api";
 
 type AuthMode = "login" | "register";
 
-const MODE_COPY: Record<AuthMode, { title: string; submit: string; toggle: string }> = {
+const MODE_COPY: Record<AuthMode, { title: string; hint: string; submit: string; pending: string; toggle: string }> = {
   login: {
-    title: "Ingresar",
-    submit: "Ingresar",
-    toggle: "¿No tienes cuenta? Crear cuenta",
+    title: "Inicia sesión",
+    hint: "Usa el correo de tu equipo de finanzas.",
+    submit: "Entrar",
+    pending: "Entrando...",
+    toggle: "Crear una cuenta",
   },
   register: {
-    title: "Crear cuenta",
+    title: "Crea tu cuenta",
+    hint: "La contraseña debe tener al menos 8 caracteres.",
     submit: "Crear cuenta",
-    toggle: "¿Ya tienes cuenta? Ingresar",
+    pending: "Creando cuenta...",
+    toggle: "Ya tengo cuenta",
   },
 };
 
 const MIN_PASSWORD_LENGTH = 8;
+const REGISTER_MODE_PARAM = "register";
 
 export default function LoginPage() {
+  return (
+    <main className="grid min-h-screen md:grid-cols-2">
+      <section className="hidden flex-col justify-between border-r border-line bg-panel p-10 md:flex">
+        <Link href="/" className="self-start rounded focus-visible:outline-2 focus-visible:outline-accent">
+          <Wordmark />
+        </Link>
+        <div className="flex max-w-[480px] flex-col gap-6">
+          <h2 className="text-[48px] leading-[1.03] font-light tracking-[-0.96px] text-ink">
+            Las facturas de hoy ya están revisadas.
+          </h2>
+          <p className="text-[22px] leading-[1.4] tracking-[-0.22px] text-muted">
+            Entra para ver qué pagó el agente, qué frenó y qué espera tu decisión.
+          </p>
+        </div>
+        <p className="text-xs text-muted">© 2026 Blinka</p>
+      </section>
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+    </main>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<AuthMode>(
+    searchParams.get("mode") === REGISTER_MODE_PARAM ? "register" : "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,61 +87,60 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <p className="text-sm font-semibold tracking-tight text-accent">Blinka Inbox</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{copy.title}</h1>
-        <form
-          onSubmit={submit}
-          className="mt-6 space-y-4 rounded-lg border border-line bg-panel p-5"
-        >
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">Correo</span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">Contraseña</span>
-            <input
-              type="password"
-              required
-              minLength={mode === "register" ? MIN_PASSWORD_LENGTH : undefined}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="h-10 w-full rounded-md border border-line bg-panel px-3 text-sm text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20"
-            />
-          </label>
-          {formError && (
-            <p role="alert" className="text-sm text-danger">
-              {formError}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="h-10 w-full rounded-md bg-accent text-sm font-medium text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? "Enviando..." : copy.submit}
-          </button>
-        </form>
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "login" ? "register" : "login");
-            setFormError(null);
-          }}
-          className="mt-4 rounded text-sm text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          {copy.toggle}
-        </button>
+    <section className="flex flex-col justify-center gap-8 px-4 py-12 md:px-24">
+      <Link href="/" className="self-start rounded focus-visible:outline-2 focus-visible:outline-accent md:hidden">
+        <Wordmark />
+      </Link>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-[32px] leading-[1.1] font-light tracking-[-0.64px] text-ink">{copy.title}</h1>
+        <p className="text-sm text-muted">{copy.hint}</p>
       </div>
-    </main>
+      <form onSubmit={submit} className="flex max-w-md flex-col gap-6">
+        <label className="flex flex-col gap-2">
+          <span className={LABEL_CLASS}>Correo</span>
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className={INPUT_CLASS}
+          />
+        </label>
+        <label className="flex flex-col gap-2">
+          <span className={LABEL_CLASS}>Contraseña</span>
+          <input
+            type="password"
+            required
+            minLength={mode === "register" ? MIN_PASSWORD_LENGTH : undefined}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className={INPUT_CLASS}
+          />
+        </label>
+        {formError && (
+          <p role="alert" className="text-sm text-danger">
+            <span aria-hidden>✕ </span>
+            {formError}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={isSubmitting} className={`${PRIMARY_BUTTON_CLASS} h-12 flex-1`}>
+            {isSubmitting ? copy.pending : copy.submit}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "login" ? "register" : "login");
+              setFormError(null);
+            }}
+            className={`${SECONDARY_BUTTON_CLASS} h-12 flex-1`}
+          >
+            {copy.toggle}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }

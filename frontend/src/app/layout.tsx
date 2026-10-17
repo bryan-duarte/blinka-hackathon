@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter_Tight } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["300", "400"],
+  variable: "--font-inter-tight",
+});
 
 export const metadata: Metadata = {
-  title: "Blinka Inbox",
-  description: "Next.js + FastAPI monorepo",
+  title: "Blinka",
+  description: "Agente de pagos que decide qué facturas pagar dentro de tus reglas.",
 };
 
 export default function RootLayout({
@@ -15,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={inter.variable}>
+    <html lang="es" className={interTight.variable}>
       <body className="antialiased">{children}</body>
     </html>
   );

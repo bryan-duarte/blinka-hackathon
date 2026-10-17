@@ -22,24 +22,26 @@ type DecisionCardProps = {
 const CHECKER_RULE_PREFIX = "CHK";
 const PERCENT = 100;
 
-const VERDICT_CHIP: Record<Verdict, string> = {
-  pay: "bg-success-soft text-success",
-  hold: "bg-danger-soft text-danger",
-  review: "bg-warning-soft text-warning",
+const VERDICT_CHIP: Record<Verdict, { className: string; glyph: string }> = {
+  pay: { className: "border-transparent bg-sunken text-nav-ink", glyph: "✓" },
+  hold: { className: "border-night bg-panel text-night", glyph: "✕" },
+  review: { className: "border-transparent bg-accent-wash text-accent", glyph: "!" },
 };
 
-const EFFECT_ROW: Record<RuleEffect, { stripe: string; glyph: string; glyphColor: string; label: string }> = {
-  hold: { stripe: "border-l-danger", glyph: "✕", glyphColor: "text-danger", label: "Bloquea" },
-  review: { stripe: "border-l-warning", glyph: "!", glyphColor: "text-warning", label: "Revisar" },
-  pass: { stripe: "border-l-line", glyph: "✓", glyphColor: "text-success", label: "Cumple" },
+const EFFECT_ROW: Record<RuleEffect, { glyph: string; glyphColor: string; label: string }> = {
+  hold: { glyph: "✕", glyphColor: "text-danger", label: "Bloquea" },
+  review: { glyph: "!", glyphColor: "text-accent", label: "Revisar" },
+  pass: { glyph: "✓", glyphColor: "text-muted", label: "Cumple" },
 };
+
+const RULE_ROW_CLASS = "grid grid-cols-[1rem_minmax(0,1fr)] gap-4 border-t border-line py-4";
 
 const EFFECT_ORDER: Record<RuleEffect, number> = { hold: 0, review: 1, pass: 2 };
 
 const DISCLOSURE_SUMMARY_CLASS =
   "cursor-pointer list-none rounded text-sm text-muted select-none hover:text-ink focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden";
 
-const DUPLICATE_CHIP = "bg-sunken text-muted";
+const DUPLICATE_CHIP = { className: "border-line bg-panel text-muted", glyph: "" };
 
 export function DecisionCard({ decision, onResolved, onSelectEmail }: DecisionCardProps) {
   const policyRules = decision.rule_results.filter((rule) => !isCheckerRule(rule));
@@ -50,7 +52,7 @@ export function DecisionCard({ decision, onResolved, onSelectEmail }: DecisionCa
   const passingRules = policyRules.filter((rule) => rule.effect === "pass");
 
   return (
-    <section className="flex flex-col gap-5 rounded-md border border-line bg-panel p-4 md:p-5">
+    <section className="flex flex-col gap-6">
       <VerdictHeader decision={decision} />
       {decision.duplicate_of_bill_id && (
         <DuplicateLink originalBillId={decision.duplicate_of_bill_id} onSelectEmail={onSelectEmail} />
@@ -82,24 +84,25 @@ export function DecisionCard({ decision, onResolved, onSelectEmail }: DecisionCa
 
 function VerdictHeader({ decision }: { decision: BillDecisionView }) {
   const decidedBy = decision.actor === "human" ? "Decisión de una persona" : "Decisión del agente";
-  const chipClass = decision.status === "duplicate" ? DUPLICATE_CHIP : VERDICT_CHIP[decision.verdict];
+  const chip = decision.status === "duplicate" ? DUPLICATE_CHIP : VERDICT_CHIP[decision.verdict];
   return (
     <header className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className={EYEBROW_CLASS}>{decidedBy}</p>
         <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${chipClass}`}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-normal ${chip.className}`}
         >
+          {chip.glyph && <span aria-hidden>{chip.glyph}</span>}
           {verdictLabel(decision)}
         </span>
       </div>
-      <p className="text-[15px] leading-relaxed text-ink">{decision.explanation}</p>
+      <p className="text-base leading-[1.4] text-ink">{decision.explanation}</p>
       {decision.note && (
         <p className="text-sm text-muted">
           Nota: <span className="text-ink">{decision.note}</span>
         </p>
       )}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-line pt-3 text-sm sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-line py-4 text-sm sm:grid-cols-4">
         <Fact label="Beneficiario" value={decision.payee_name} />
         <Fact
           label="Monto"
@@ -135,14 +138,14 @@ function Fact({ label, value, numeric = false }: { label: string; value: string 
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className={`mt-0.5 truncate text-ink ${numeric ? "tabular-nums" : ""}`}>{value ?? "Sin dato"}</dd>
+      <dd className={`mt-1 truncate text-base text-ink ${numeric ? "tabular-nums" : ""}`}>{value ?? "Sin dato"}</dd>
     </div>
   );
 }
 
 function RuleList({ rules }: { rules: RuleResult[] }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className="flex flex-col">
       {rules.map((rule) => (
         <RuleRow key={rule.rule_id} rule={rule} />
       ))}
@@ -154,12 +157,12 @@ function RuleRow({ rule }: { rule: RuleResult }) {
   const row = EFFECT_ROW[rule.effect];
   const evidenceEntries = Object.entries(rule.evidence);
   return (
-    <li className={`flex gap-3 rounded-sm border-l-2 bg-sunken/60 px-3 py-2 ${row.stripe}`}>
-      <span aria-hidden className={`w-3 shrink-0 pt-px text-center text-sm font-medium ${row.glyphColor}`}>
+    <li className={RULE_ROW_CLASS}>
+      <span aria-hidden className={`text-center text-sm font-normal ${row.glyphColor}`}>
         {row.glyph}
       </span>
       <div className="min-w-0 space-y-0.5">
-        <p className="text-sm leading-relaxed text-ink">
+        <p className="text-sm leading-[1.4] text-ink">
           <span className="sr-only">{row.label}: </span>
           {rule.reason}
         </p>
@@ -190,9 +193,9 @@ function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
   return (
     <div className="space-y-2">
       <h3 className={EYEBROW_CLASS}>Datos leídos de la factura</h3>
-      <dl className="divide-y divide-line rounded-md border border-line">
+      <dl className="divide-y divide-line border-y border-line">
         {readFields.map((readField) => (
-          <div key={readField.field} className="grid gap-1 px-3 py-2 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
+          <div key={readField.field} className="grid gap-1 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
             <dt className="text-xs text-muted sm:pt-0.5">{readField.label}</dt>
             <dd className="min-w-0 space-y-1">
               <p className="text-sm break-words text-ink tabular-nums">{readField.value}</p>
@@ -219,10 +222,10 @@ function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
       <p className="text-xs text-muted">
         Un segundo modelo revisa las facturas que pasan las reglas. Solo puede enviar a revisión, nunca aprobar.
       </p>
-      <ul className="space-y-1.5">
+      <ul className="flex flex-col">
         {rules.map((rule) => (
-          <li key={rule.rule_id} className="flex gap-3 rounded-sm border border-line px-3 py-2">
-            <span aria-hidden className={`w-3 shrink-0 text-center text-sm ${EFFECT_ROW[rule.effect].glyphColor}`}>
+          <li key={rule.rule_id} className={RULE_ROW_CLASS}>
+            <span aria-hidden className={`text-center text-sm ${EFFECT_ROW[rule.effect].glyphColor}`}>
               {EFFECT_ROW[rule.effect].glyph}
             </span>
             <div className="min-w-0 space-y-0.5">
@@ -268,14 +271,14 @@ function DuplicateLink({
   }
 
   return (
-    <div className="rounded-md border border-line bg-sunken px-3 py-2 text-sm">
+    <div className="rounded border border-line bg-panel px-4 py-3 text-sm">
       <button
         type="button"
         onClick={openOriginal}
         disabled={isLoading}
-        className="rounded font-medium text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+        className="rounded font-normal text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
       >
-        {isLoading ? "Abriendo..." : "Ver la factura original"}
+        {isLoading ? "Abriendo..." : "Ver la factura original ›"}
       </button>
       {message && (
         <p role="alert" className="mt-1 text-muted">
@@ -313,7 +316,7 @@ function DecisionHistory({ billId }: { billId: string }) {
           </div>
         )}
         {history && (
-          <ol className="space-y-2 border-l border-line pl-3">
+          <ol className="space-y-2 border-l border-line pl-4">
             {history.map((entry) => (
               <li key={`${entry.decided_at}-${entry.actor}`} className="text-sm">
                 <p className="text-ink">

@@ -1,36 +1,61 @@
 @import "tailwindcss";
 
 /*
-  Direction: DESIGN.md. Warm paper canvas, ink headlines, muted supporting
-  text, hairline rules, one cobalt accent for actions and focus, Inter with
-  tabular numerals for money. Danger and warning are app-only state colors.
+  Direction: DESIGN.md. Cobalt-ink ledger on warm paper: paper canvas, white
+  raised surfaces, ink text, 1px line rules, one cobalt for actions and focus,
+  weight 300 type with tabular numerals, 4px corners, no shadows.
+  The guide allows no extra hues, so the status roles below (success,
+  warning, danger) are mapped onto the monochrome palette: "needs a person"
+  is cobalt, "paid" is neutral gray, "held or blocked" is night.
 */
 @theme {
   --color-canvas: #f7f7f4;
   --color-panel: #ffffff;
   --color-sunken: #f0f2f4;
+  --color-sunken-hover: #e9ecf2;
   --color-line: #dedfdc;
+  --color-selection: #dce2ef;
+  --color-soft-edge: #e0e6f0;
   --color-ink: #1c253a;
+  --color-ink-hover: #334360;
+  --color-nav-ink: #505563;
   --color-muted: #656975;
+  --color-quiet: #929ba8;
   --color-accent: #2a4bd0;
   --color-accent-hover: #2342bd;
   --color-accent-wash: #f3f5fd;
-  --color-danger: oklch(0.52 0.19 27);
-  --color-danger-soft: oklch(0.96 0.03 27);
-  --color-warning: oklch(0.55 0.13 70);
-  --color-warning-soft: oklch(0.96 0.05 85);
-  --color-success: #007456;
-  --color-success-soft: oklch(0.96 0.04 165);
+  --color-route-wash: #2a4bd00c;
+  --color-night: #111720;
+  --color-dark-focus: #b9c8ff;
+
+  --color-warning: #2a4bd0;
+  --color-warning-soft: #f3f5fd;
+  --color-success: #505563;
+  --color-success-soft: #f0f2f4;
+  --color-danger: #111720;
+  --color-danger-soft: #f0f2f4;
+
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+
+  --font-weight-medium: 400;
+  --font-weight-semibold: 400;
+  --font-weight-bold: 400;
+
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
 @theme inline {
-  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter-tight), "Inter Tight", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  font-feature-settings: "ss01" on, "tnum" on;
 }
 
 @media (prefers-reduced-motion: reduce) {

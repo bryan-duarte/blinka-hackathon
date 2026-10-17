@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SECONDARY_BUTTON_CLASS } from "@/components/settings/styles";
 import { ApiError, api } from "@/lib/api";
 import type {
   ConnectableProvider,
@@ -63,21 +64,21 @@ export function ConnectionBar({ connections, onUnauthorized }: ConnectionBarProp
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {visibleConnections.map((connection) => (
-        <span
-          key={connection.connection_id}
-          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1 text-xs text-muted"
-        >
+      {visibleConnections.map((connection) => {
+        const isActive = connection.status === "active";
+        return (
           <span
-            aria-hidden
-            className={`size-1.5 rounded-full ${connection.status === "active" ? "bg-success" : "bg-danger"}`}
-          />
-          <span className="font-medium text-ink">
-            {PROVIDER_LABELS[connection.provider as ConnectableProvider]}
+            key={connection.connection_id}
+            className={`mr-2 inline-flex items-center gap-1 text-xs ${isActive ? "text-muted" : "text-danger"}`}
+          >
+            <span aria-hidden className={isActive ? "text-accent" : undefined}>
+              {isActive ? "✓" : "✕"}
+            </span>
+            {PROVIDER_LABELS[connection.provider as ConnectableProvider]}{" "}
+            {STATUS_LABELS[connection.status]}
           </span>
-          {STATUS_LABELS[connection.status]}
-        </span>
-      ))}
+        );
+      })}
       {CONNECTABLE_PROVIDERS.filter(
         (provider) => !activeProviders.has(provider),
       ).map((provider) => (
@@ -86,7 +87,7 @@ export function ConnectionBar({ connections, onUnauthorized }: ConnectionBarProp
           type="button"
           disabled={connectingProvider !== null}
           onClick={() => connect(provider)}
-          className="h-9 rounded-md border border-line bg-panel px-3 text-sm font-medium text-ink transition-colors hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${SECONDARY_BUTTON_CLASS} h-9 px-4`}
         >
           {connectingProvider === provider
             ? "Redirigiendo..."
@@ -95,6 +96,7 @@ export function ConnectionBar({ connections, onUnauthorized }: ConnectionBarProp
       ))}
       {connectError && (
         <p role="alert" className="text-sm text-danger">
+          <span aria-hidden>✕ </span>
           {connectError}
         </p>
       )}

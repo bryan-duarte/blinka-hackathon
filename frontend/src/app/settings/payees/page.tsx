@@ -452,7 +452,7 @@ function PayeeDialog({
       ref={dialogRef}
       onClose={onClose}
       aria-labelledby="payee-dialog-title"
-      className="m-auto w-[min(36rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel p-0 text-ink shadow-xl backdrop:bg-ink/30"
+      className="m-auto w-[min(36rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel p-0 text-ink backdrop:bg-ink/30"
     >
       <form onSubmit={save} className="space-y-4 p-5">
         <h2 id="payee-dialog-title" className={SECTION_HEADING_CLASS}>

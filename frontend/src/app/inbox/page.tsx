@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConsoleShell, ConsoleTopBar } from "@/components/console/ConsoleShell";
 import { ConnectionBar } from "@/components/inbox/ConnectionBar";
 import { EmailDetail } from "@/components/inbox/EmailDetail";
 import { EmailList, EmailListSkeleton } from "@/components/inbox/EmailList";
+import { InboxMetrics } from "@/components/inbox/InboxMetrics";
+import { PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import type {
+  BudgetUsageView,
   InboxEmailDetail,
   InboxEmailView,
   MailboxConnectionView,
@@ -17,9 +20,6 @@ import { PENDING_STATUSES } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 4000;
 const IDLE_POLL_INTERVAL_MS = 15000;
-
-const HEADER_LINK_CLASS =
-  "flex h-9 items-center rounded-md px-3 text-sm text-muted hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-accent";
 
 const SIMULATION_OPTIONS: { kind: SimulatedEmailKind; label: string }[] = [
   { kind: "invoice_usd", label: "Factura normal de ACME (USD)" },
@@ -44,14 +44,16 @@ type InboxFilter = "all" | "review";
 type InboxSnapshot = {
   emails: InboxEmailView[];
   selectedEmail: InboxEmailDetail | null;
+  budgets: BudgetUsageView[];
 };
 
 async function fetchInboxSnapshot(selectedEmailId: string | null): Promise<InboxSnapshot> {
-  const [emails, selectedEmail] = await Promise.all([
+  const [emails, selectedEmail, budgets] = await Promise.all([
     api.emails(),
     selectedEmailId ? api.email(selectedEmailId) : Promise.resolve(null),
+    api.budgets(),
   ]);
-  return { emails, selectedEmail };
+  return { emails, selectedEmail, budgets };
 }
 
 export default function InboxPage() {
@@ -59,6 +61,7 @@ export default function InboxPage() {
   const simulateMenuRef = useRef<HTMLDetailsElement>(null);
   const [connections, setConnections] = useState<MailboxConnectionView[]>([]);
   const [emails, setEmails] = useState<InboxEmailView[] | null>(null);
+  const [budgets, setBudgets] = useState<BudgetUsageView[] | null>(null);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<InboxEmailDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -71,6 +74,9 @@ export default function InboxPage() {
   const reviewCount = reviewEmails.length;
   const hasPendingEmails = (emails ?? []).some((email) => PENDING_STATUSES.has(email.status));
   const isReviewQueueEmpty = isReviewFilter && visibleEmails?.length === 0;
+  const caption = emails
+    ? `${emails.length} correos · ${reviewCount} en revisión`
+    : "Cargando correos...";
 
   const handleUnauthorized = useCallback(
     (error: unknown): boolean => {
@@ -104,6 +110,7 @@ export default function InboxPage() {
           if (isCancelled) return;
           setEmails(snapshot.emails);
           setSelectedEmail(snapshot.selectedEmail);
+          setBudgets(snapshot.budgets);
           setLoadError(null);
         })
         .catch((error: unknown) => {
@@ -136,33 +143,29 @@ export default function InboxPage() {
     }
   }
 
-  function logout() {
-    tokenStore.clear();
-    router.replace("/login");
-  }
-
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line bg-panel">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
-          <h1 className="text-base font-[450] tracking-[-0.02em] text-ink">Blinka Inbox</h1>
-          <div className="flex flex-wrap items-center gap-2">
+    <ConsoleShell>
+      <ConsoleTopBar
+        title="Bandeja"
+        caption={caption}
+        actions={
+          <>
             <ConnectionBar connections={connections} onUnauthorized={handleUnauthorized} />
             <details ref={simulateMenuRef} className="relative">
               <summary
                 aria-disabled={isSimulating}
-                className="flex h-9 cursor-pointer list-none items-center rounded-md bg-accent px-3 text-sm font-medium text-white transition-colors select-none hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden"
+                className={`${PRIMARY_BUTTON_CLASS} h-9 cursor-pointer list-none px-4 select-none [&::-webkit-details-marker]:hidden`}
               >
                 {isSimulating ? "Simulando..." : "Simular correo"}
               </summary>
-              <ul className="absolute left-0 z-10 mt-1 max-h-[70vh] w-72 overflow-y-auto md:right-0 md:left-auto rounded-md border border-line bg-panel py-1 shadow-lg">
+              <ul className="absolute left-0 z-10 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded border border-line bg-panel py-1 md:right-0 md:left-auto">
                 {SIMULATION_OPTIONS.map((option) => (
                   <li key={option.kind}>
                     <button
                       type="button"
                       disabled={isSimulating}
                       onClick={() => simulate(option.kind)}
-                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:opacity-50"
+                      className="block w-full px-4 py-2 text-left text-sm text-ink hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:opacity-50"
                     >
                       {option.label}
                     </button>
@@ -170,94 +173,81 @@ export default function InboxPage() {
                 ))}
               </ul>
             </details>
-            <Link href="/bills" className={HEADER_LINK_CLASS}>
-              Cola de revisión
-            </Link>
-            <Link href="/settings/policy" className={HEADER_LINK_CLASS}>
-              Configuración
-            </Link>
-            <button
-              type="button"
-              onClick={logout}
-              className="h-9 rounded-md px-3 text-sm text-muted hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              Salir
-            </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {loadError && (
-        <p role="alert" className="bg-danger-soft px-4 py-2 text-center text-sm text-danger">
+        <p role="alert" className="border-b border-line bg-danger-soft px-4 py-2 text-sm text-danger md:px-8">
+          <span aria-hidden>✕ </span>
           {loadError}
         </p>
       )}
 
-      <main className="mx-auto grid w-full max-w-6xl flex-1 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:gap-6 md:px-6 md:py-6">
-        <section
-          aria-label="Correos"
-          className={`overflow-hidden bg-panel md:rounded-lg md:border md:border-line ${selectedEmailId ? "hidden md:block" : ""}`}
-        >
-          <div
-            role="group"
-            aria-label="Filtrar correos"
-            className="flex gap-1.5 border-b border-line px-4 py-2.5"
+      <InboxMetrics emails={emails} budgets={budgets} />
+
+      <div className="flex flex-1 flex-col gap-4 px-4 py-6 md:px-8">
+        <div role="group" aria-label="Filtrar correos" className="flex gap-1">
+          <FilterTab label="Todos" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
+          <FilterTab
+            label="En revisión"
+            count={reviewCount}
+            isActive={isReviewFilter}
+            onSelect={() => setInboxFilter("review")}
+          />
+        </div>
+        <main className="grid flex-1 items-start gap-8 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
+          <section
+            aria-label="Correos"
+            className={`overflow-hidden rounded-lg border border-line bg-panel ${selectedEmailId ? "hidden md:block" : ""}`}
           >
-            <FilterChip
-              label="Todos"
-              isActive={inboxFilter === "all"}
-              onSelect={() => setInboxFilter("all")}
-            />
-            <FilterChip
-              label={`En revisión${reviewCount ? ` (${reviewCount})` : ""}`}
-              isActive={isReviewFilter}
-              onSelect={() => setInboxFilter("review")}
-            />
-          </div>
-          {visibleEmails === null ? (
-            <EmailListSkeleton />
-          ) : isReviewQueueEmpty ? (
-            <p className="px-5 py-10 text-center text-sm text-muted">
-              No hay facturas esperando una decisión.
-            </p>
-          ) : (
-            <EmailList
-              emails={visibleEmails}
-              selectedEmailId={selectedEmailId}
-              onSelect={setSelectedEmailId}
-            />
-          )}
-        </section>
-        <section
-          aria-label="Detalle del correo"
-          className={`bg-panel md:rounded-lg md:border md:border-line ${selectedEmailId ? "" : "hidden md:block"}`}
-        >
-          {selectedEmail && selectedEmail.email_id === selectedEmailId ? (
-            <EmailDetail
-              email={selectedEmail}
-              onBack={() => setSelectedEmailId(null)}
-              onDecisionChanged={() => setRefreshCount((count) => count + 1)}
-              onSelectEmail={setSelectedEmailId}
-            />
-          ) : (
-            <p className="p-7 text-sm text-muted">
-              {selectedEmailId
-                ? "Cargando correo..."
-                : "Selecciona un correo para ver la decisión del agente."}
-            </p>
-          )}
-        </section>
-      </main>
-    </div>
+            {visibleEmails === null ? (
+              <EmailListSkeleton />
+            ) : isReviewQueueEmpty ? (
+              <p className="px-6 py-12 text-sm text-muted">
+                No hay facturas esperando una decisión.
+              </p>
+            ) : (
+              <EmailList
+                emails={visibleEmails}
+                selectedEmailId={selectedEmailId}
+                onSelect={setSelectedEmailId}
+              />
+            )}
+          </section>
+          <section
+            aria-label="Detalle del correo"
+            className={selectedEmailId ? "" : "hidden md:block"}
+          >
+            {selectedEmail && selectedEmail.email_id === selectedEmailId ? (
+              <EmailDetail
+                email={selectedEmail}
+                onBack={() => setSelectedEmailId(null)}
+                onDecisionChanged={() => setRefreshCount((count) => count + 1)}
+                onSelectEmail={setSelectedEmailId}
+              />
+            ) : (
+              <p className="py-4 text-sm text-muted">
+                {selectedEmailId
+                  ? "Cargando correo..."
+                  : "Selecciona un correo para ver la decisión del agente."}
+              </p>
+            )}
+          </section>
+        </main>
+      </div>
+    </ConsoleShell>
   );
 }
 
-function FilterChip({
+function FilterTab({
   label,
+  count,
   isActive,
   onSelect,
 }: {
   label: string;
+  count?: number;
   isActive: boolean;
   onSelect: () => void;
 }) {
@@ -266,9 +256,10 @@ function FilterChip({
       type="button"
       aria-pressed={isActive}
       onClick={onSelect}
-      className={`h-8 rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "text-muted hover:bg-sunken hover:text-ink"}`}
+      className={`min-h-10 rounded px-3 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "text-ink hover:bg-sunken"}`}
     >
       {label}
+      {count ? <span className="ml-2 text-accent">{count}</span> : null}
     </button>
   );
 }
