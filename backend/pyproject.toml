@@ -24,6 +24,7 @@ dependencies = [
     "composio==0.28.0",
     "composio-client==2.0.0rc17",
     "httpx>=0.28",
+    "defusedxml>=0.7.1",
 ]
 
 [dependency-groups]

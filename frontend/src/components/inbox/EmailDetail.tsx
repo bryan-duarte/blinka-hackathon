@@ -1,8 +1,11 @@
 import { DecisionCard } from "@/components/bills/DecisionCard";
+import { EvidenceSection } from "@/components/files/EvidenceSection";
 import { EYEBROW_CLASS, PAGE_HEADING_CLASS } from "@/components/settings/styles";
 import { formatDateTime } from "@/lib/format";
 import type { InboxEmailDetail, InboxEmailStatus } from "@/lib/types";
 import { PENDING_STATUSES } from "@/lib/types";
+import { RunTimeline } from "./RunTimeline";
+import { SourceBadge } from "./SourceBadge";
 import { StatusBadge } from "./StatusBadge";
 
 type EmailDetailProps = {
@@ -33,10 +36,13 @@ export function EmailDetail({ email, onBack, onDecisionChanged, onSelectEmail }:
         ← Volver
       </button>
       <header className="flex flex-col gap-2">
-        <p className={EYEBROW_CLASS}>
-          {email.sender}
-          {email.received_at && ` · ${formatDateTime(email.received_at)}`}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <SourceBadge type={email.source_type} showsLabel />
+          <p className={EYEBROW_CLASS}>
+            {email.sender}
+            {email.received_at && ` · ${formatDateTime(email.received_at)}`}
+          </p>
+        </div>
         <div className="flex items-start justify-between gap-4">
           <h2 className={PAGE_HEADING_CLASS}>{email.subject || "(sin asunto)"}</h2>
           <StatusBadge status={email.status} />
@@ -50,6 +56,7 @@ export function EmailDetail({ email, onBack, onDecisionChanged, onSelectEmail }:
       <pre className="max-h-96 overflow-auto rounded border border-line bg-panel p-4 font-sans text-sm leading-[1.4] whitespace-pre-wrap text-ink">
         {email.body || "(cuerpo vacío)"}
       </pre>
+      <EvidenceSection evidence={email.evidence} />
     </article>
   );
 }
@@ -69,7 +76,8 @@ function ResultCard({
         <div aria-hidden className="h-1 w-full animate-pulse rounded bg-accent-wash" />
         {email.status === "analyzing"
           ? "El agente está evaluando la factura contra las reglas..."
-          : "Revisando el correo con guardrails..."}
+          : "Revisando el correo y escaneando adjuntos con AWS..."}
+        {email.run_id && <RunTimeline runId={email.run_id} />}
       </section>
     );
   }
@@ -77,7 +85,7 @@ function ResultCard({
     return (
       <section className={NOTICE_CLASS}>
         <h3 className={`${NOTICE_TITLE_CLASS} text-danger`}>
-          <span aria-hidden>✕ </span>Bloqueado por guardrails
+          <span aria-hidden>✕ </span>Bloqueado antes de evaluar
         </h3>
         <ul className="flex flex-col gap-1">
           {email.violations.map((violation) => (
@@ -108,6 +116,19 @@ function ResultCard({
         <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Correo repetido</h3>
         <p className="text-sm text-muted">
           Este mismo correo ya se había recibido. No se volvió a evaluar ni a pagar.
+        </p>
+      </section>
+    );
+  }
+  if (email.status === "no_info") {
+    return (
+      <section className={NOTICE_CLASS}>
+        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>
+          <span aria-hidden>! </span>Sin datos legibles
+        </h3>
+        <p className="text-sm text-muted">
+          No se pudo leer la información de la factura. Ningún método de extracción produjo datos, así
+          que el agente no tomó una decisión.
         </p>
       </section>
     );

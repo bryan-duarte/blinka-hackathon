@@ -1,7 +1,6 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
-from hashlib import sha256
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -14,6 +13,7 @@ from contracts.bills import (
     BillSourceView,
     BillStatus,
 )
+from contracts.files import EvidenceFileView, EvidenceIntakeStatus
 from contracts.payments import (
     BillDecisionView,
     BillDetail,
@@ -34,6 +34,7 @@ from contracts.payments import (
 )
 from core.background import ExecutionRegistry
 from core.logging_config import get_logger
+from modules.files import FileQuarantinedError, UnsafeArchiveError
 from modules.payments.budget import CATEGORY_SCOPE_PREFIX, GLOBAL_SCOPE, PAYEE_SCOPE_PREFIX
 from modules.payments.context_builder import parse_candidate, rebuild_context
 from modules.payments.dependencies import PaymentRunDependencies
@@ -45,7 +46,12 @@ from modules.payments.errors import (
 from modules.payments.fx import current_period
 from modules.payments.repository import RunsRepository
 from modules.payments.rules import decide
-from modules.payments.runner import NOT_A_BILL_STEP, PAYMENTS_AGENT_NAME, run_execution
+from modules.payments.runner import (
+    EXTRACTION_FAILED_STEP,
+    NOT_A_BILL_STEP,
+    PAYMENTS_AGENT_NAME,
+    run_execution,
+)
 from modules.payments.settlement import (
     RESTART_INTERRUPTION_EXPLANATION,
     fail_closed,
@@ -61,6 +67,9 @@ INTERRUPTED_BILL_STATUSES = (BillStatus.DECIDING, BillStatus.APPROVING)
 REVIEW_WAIVED_EFFECTS = frozenset({RuleEffect.REVIEW})
 REJECTION_EXPLANATION_PREFIX = "Rechazada por una persona: "
 NO_RESERVED_USD = Decimal("0")
+QUARANTINED_INTAKE_STATUSES = frozenset(
+    {EvidenceIntakeStatus.MALWARE, EvidenceIntakeStatus.SCAN_FAILED}
+)
 
 
 class PaymentsService:
@@ -78,6 +87,7 @@ class PaymentsService:
 
     async def start_run(self, trigger: PaymentRunTrigger, owner: CurrentUser) -> PaymentRunAccepted:
         source = await self._dependencies.bills.get_source(owner.user_id, trigger.bill_source_id)
+        await self._repository.link_source_files(source.source_id, trigger.evidence)
         previous_run = await self._decided_run(source)
         if previous_run is not None:
             return PaymentRunAccepted(
@@ -109,7 +119,11 @@ class PaymentsService:
         body_text: str = "",
         session_id: UUID | None = None,
     ) -> PaymentRunAccepted:
-        stored_file = await self._files.read_bytes(owner, file_id)
+        intake = await self._files.ingest_stored_file(owner, file_id)
+        if intake.status in QUARANTINED_INTAKE_STATUSES:
+            raise FileQuarantinedError
+        if intake.status is EvidenceIntakeStatus.UNREADABLE:
+            raise UnsafeArchiveError
         registration = await self._dependencies.bills.register_source(
             BillSourceIntake(
                 owner_id=owner.user_id,
@@ -117,12 +131,16 @@ class PaymentsService:
                 source_ref=source_ref,
                 sender=owner.email,
                 body_text=body_text,
-                file_id=file_id,
-                attachment_sha256=sha256(stored_file.content).hexdigest(),
+                file_id=intake.primary_file_id,
+                attachment_sha256=intake.primary_sha256,
             )
         )
         accepted = await self.start_run(
-            PaymentRunTrigger(bill_source_id=registration.source.source_id, session_id=session_id),
+            PaymentRunTrigger(
+                bill_source_id=registration.source.source_id,
+                session_id=session_id,
+                evidence=intake.evidence if registration.is_new else [],
+            ),
             owner,
         )
         is_duplicate = not registration.is_new or accepted.duplicate
@@ -134,14 +152,16 @@ class PaymentsService:
             raise RunNotFoundError
         events = await self._repository.list_events(run_id)
         decision = await self._bill_decision(owner, run.bill_id) if run.bill_id else None
-        is_bill = _is_bill(run, events)
+        source_ids = [run.bill_source_id] if run.bill_source_id else []
         return PaymentRunStatus(
             run_id=run.run_id,
             status=run.status,
             error=run.error,
             events=events,
             decision=decision,
-            is_bill=is_bill,
+            is_bill=_is_bill(run, events),
+            extraction_failed=_has_step(events, EXTRACTION_FAILED_STEP),
+            evidence=await self._evidence(owner, source_ids),
         )
 
     async def list_bills(
@@ -169,6 +189,7 @@ class PaymentsService:
             history=[_to_decision_view(bill, decision) for decision in history],
             sources=[_to_source_view(source) for source in sources],
             payment=_to_payment_view(payment) if payment else None,
+            evidence=await self._evidence(owner, [source.source_id for source in sources]),
         )
 
     async def approve(
@@ -273,6 +294,12 @@ class PaymentsService:
     async def shutdown(self) -> None:
         await self._registry.shutdown()
 
+    async def _evidence(
+        self, owner: CurrentUser, bill_source_ids: list[UUID]
+    ) -> list[EvidenceFileView]:
+        evidence_links = await self._repository.list_evidence(bill_source_ids)
+        return await self._files.evidence_views(owner, evidence_links)
+
     async def _decided_run(self, source: BillSourceRecord) -> PaymentRunRecord | None:
         if source.bill_id is None:
             return None
@@ -302,8 +329,12 @@ class PaymentsService:
         return decision_view
 
 
+def _has_step(events: list[PaymentRunEvent], step: str) -> bool:
+    return any(event.step == step for event in events)
+
+
 def _is_bill(run: PaymentRunRecord, events: list[PaymentRunEvent]) -> bool | None:
-    if any(event.step == NOT_A_BILL_STEP for event in events):
+    if _has_step(events, NOT_A_BILL_STEP):
         return False
     if run.bill_id is not None:
         return True

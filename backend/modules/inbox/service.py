@@ -15,7 +15,7 @@ from contracts.inbox import (
     SimulatedEmailKind,
 )
 from contracts.mail_gateway import MailAccountStatus, MailProvider
-from contracts.payments import BillDecisionView, RunStatus, Verdict
+from contracts.payments import BillDecisionView, PaymentRunStatus, RunStatus, Verdict
 from core.background import ExecutionRegistry
 from core.logging_config import get_logger
 from modules.inbox.errors import EmailMissingError, MailboxConnectionMissingError
@@ -146,7 +146,8 @@ class InboxService:
         record = await self._repository.get_email(email_id, owner.user_id)
         if record is None:
             raise EmailMissingError
-        status, decision, error = await self._resolve_status(owner, record)
+        run = await self._linked_run(owner, record)
+        status, decision, error = _resolve_status(record, run)
         email_view = _to_email_view(record, status, decision)
         return InboxEmailDetail(
             **dict(email_view),
@@ -154,6 +155,7 @@ class InboxService:
             violations=record.violations,
             error=error,
             run_id=record.run_id,
+            evidence=run.evidence if run else [],
         )
 
     async def fail_unfinished(self, reason: str) -> None:
@@ -165,25 +167,36 @@ class InboxService:
         await self._registry.shutdown()
 
     async def _to_view(self, owner: CurrentUser, record: InboxEmailRecord) -> InboxEmailView:
-        status, decision, _ = await self._resolve_status(owner, record)
+        run = await self._linked_run(owner, record) if _is_waiting_on_run(record) else None
+        status, decision, _ = _resolve_status(record, run)
         return _to_email_view(record, status, decision)
 
-    async def _resolve_status(
+    async def _linked_run(
         self, owner: CurrentUser, record: InboxEmailRecord
-    ) -> tuple[InboxEmailStatus, BillDecisionView | None, str | None]:
-        is_waiting_on_run = (
-            record.status == InboxEmailStatus.ANALYZING and record.run_id is not None
-        )
-        if not is_waiting_on_run:
-            return record.status, None, record.error
-        run = await self._dependencies.payments.get_run(record.run_id, owner)
-        if run.decision is not None:
-            return _decision_status(run.decision), run.decision, None
-        if run.status == RunStatus.FAILED:
-            return InboxEmailStatus.ERROR, None, run.error
-        if run.status != RunStatus.COMPLETED:
-            return InboxEmailStatus.ANALYZING, None, None
-        return InboxEmailStatus.NO_INVOICE, None, None
+    ) -> PaymentRunStatus | None:
+        if record.run_id is None:
+            return None
+        return await self._dependencies.payments.get_run(record.run_id, owner)
+
+
+def _is_waiting_on_run(record: InboxEmailRecord) -> bool:
+    return record.status == InboxEmailStatus.ANALYZING and record.run_id is not None
+
+
+def _resolve_status(
+    record: InboxEmailRecord, run: PaymentRunStatus | None
+) -> tuple[InboxEmailStatus, BillDecisionView | None, str | None]:
+    if run is None or not _is_waiting_on_run(record):
+        return record.status, None, record.error
+    if run.decision is not None:
+        return _decision_status(run.decision), run.decision, None
+    if run.status == RunStatus.FAILED:
+        return InboxEmailStatus.ERROR, None, run.error
+    if run.status != RunStatus.COMPLETED:
+        return InboxEmailStatus.ANALYZING, None, None
+    if run.extraction_failed:
+        return InboxEmailStatus.NO_INFO, None, None
+    return InboxEmailStatus.NO_INVOICE, None, None
 
 
 def _decision_status(decision: BillDecisionView) -> InboxEmailStatus:

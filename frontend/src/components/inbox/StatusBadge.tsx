@@ -15,6 +15,7 @@ const BADGES: Record<InboxEmailStatus, { label: string; glyph: string; className
   review: { label: "En revisión", glyph: "!", className: NEEDS_ACTION },
   duplicate: { label: "Duplicado", glyph: "", className: NEUTRAL },
   no_invoice: { label: "Sin factura", glyph: "", className: NEUTRAL },
+  no_info: { label: "Sin datos", glyph: "!", className: NEUTRAL },
   error: { label: "Error", glyph: "✕", className: STOPPED },
 };
 

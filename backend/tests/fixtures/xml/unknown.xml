@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfse:CompNfse xmlns:nfse="http://www.abrasf.org.br/nfse.xsd">
+  <nfse:Prestador><nfse:RazaoSocial>Rio Servicos Ltda</nfse:RazaoSocial></nfse:Prestador>
+  <nfse:ValorServicos>1500.00</nfse:ValorServicos>
+</nfse:CompNfse>

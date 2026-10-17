@@ -24,6 +24,8 @@ const IDLE_POLL_INTERVAL_MS = 15000;
 const SIMULATION_OPTIONS: { kind: SimulatedEmailKind; label: string }[] = [
   { kind: "invoice_usd", label: "Factura normal de ACME (USD)" },
   { kind: "invoice_usd_pdf", label: "La misma factura de ACME en PDF" },
+  { kind: "invoice_zip_xml", label: "Factura electrónica chilena en ZIP (XML + PDF)" },
+  { kind: "scanned_pdf", label: "Factura escaneada sin texto" },
   { kind: "aws_card", label: "Factura de AWS con tarjeta registrada" },
   { kind: "person_cuenta_cobro", label: "Cuenta de cobro de una contratista" },
   { kind: "person_cuenta_cobro_second", label: "Segunda cuenta de cobro del mes" },

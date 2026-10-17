@@ -12,6 +12,7 @@ class BillSourceType(StrEnum):
     CHAT = "chat"
     UPLOAD = "upload"
     TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
 
 
 UPLOAD_SOURCE_REF_PREFIX = "upload:"

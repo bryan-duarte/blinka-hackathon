@@ -13,7 +13,13 @@ from core.db import Checkpointers, build_pools
 from core.logging_config import configure_logging, get_logger
 from modules.auth.errors import EmailTakenError, InvalidCredentialsError
 from modules.bills.errors import BillMissingError, BillSourceMissingError, BillStateConflictError
-from modules.files.errors import FileMissingError, StorageError
+from modules.files.errors import (
+    FileMissingError,
+    FileQuarantinedError,
+    StorageError,
+    UnsafeArchiveError,
+    UnsupportedFileError,
+)
 from modules.guardrails.errors import GuardrailRejectionError, GuardrailUnavailableError
 from modules.inbox.errors import EmailMissingError, MailboxConnectionMissingError
 from modules.mail_gateway.errors import (
@@ -38,7 +44,7 @@ from modules.sessions.errors import SessionMissingError
 logger = get_logger(__name__)
 
 RESTART_INTERRUPTION_REASON = "interrupted by restart"
-PAYMENT_DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
+DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
     PolicyMissingError: (status.HTTP_404_NOT_FOUND, "payment policy not configured"),
     PayeeMissingError: (status.HTTP_404_NOT_FOUND, "payee not found"),
     IdentifierMissingError: (status.HTTP_404_NOT_FOUND, "identifier not found"),
@@ -52,6 +58,15 @@ PAYMENT_DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
     PayeeInUseError: (status.HTTP_409_CONFLICT, "payee has bills; blacklist it instead"),
     BillStateConflictError: (status.HTTP_409_CONFLICT, "bill is not in the expected state"),
     BillNotReviewableError: (status.HTTP_409_CONFLICT, "bill is not awaiting review"),
+    FileQuarantinedError: (status.HTTP_403_FORBIDDEN, "file did not pass the malware scan"),
+    UnsupportedFileError: (
+        status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        "file content does not match its type",
+    ),
+    UnsafeArchiveError: (
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "archive could not be safely expanded",
+    ),
 }
 
 
@@ -68,7 +83,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await checkpointers.open()
     try:
         clients = await build_clients(settings, pools, checkpointers)
-        await clients.files.ensure_bucket()
         await clients.payments.fail_unfinished(RESTART_INTERRUPTION_REASON)
         await clients.payments.recover_unfinished_payments()
         await clients.inbox.fail_unfinished(RESTART_INTERRUPTION_REASON)
@@ -113,7 +127,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(EmailMissingError, _reject_missing_email)
     app.add_exception_handler(MailboxAlreadyConnectedError, _reject_connected_mailbox)
     app.add_exception_handler(MailProviderError, _reject_mail_provider_down)
-    for error_type, (status_code, detail) in PAYMENT_DOMAIN_ERROR_RESPONSES.items():
+    for error_type, (status_code, detail) in DOMAIN_ERROR_RESPONSES.items():
         app.add_exception_handler(error_type, partial(_reject_domain_error, status_code, detail))
     app.include_router(api_router)
     return app

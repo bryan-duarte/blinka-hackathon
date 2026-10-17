@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from clients.auth import AuthClient
 from clients.bills import BillsClient
+from clients.document_vision import DocumentVisionClient
 from clients.files import FilesClient
 from clients.guardrails import GuardrailsClient
 from clients.inbox import InboxClient
@@ -20,7 +21,13 @@ from core.config import Settings
 from core.db import Checkpointers, Pools
 from modules.auth import AuthService, UsersRepository
 from modules.bills import BillsRepository, BillsService
-from modules.files import FilesRepository, FilesService, ObjectStorageBackend
+from modules.document_vision import TextractExpenseReader
+from modules.files import (
+    FilesRepository,
+    FilesService,
+    MalwareScanService,
+    ObjectStorageBackend,
+)
 from modules.guardrails import BedrockGuardrailBackend, GuardrailsService
 from modules.inbox import InboxDependencies, InboxRepository, InboxService
 from modules.invoice_ingestor import InvoiceIngestorService
@@ -84,13 +91,15 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
     auth_service = AuthService(UsersRepository(product_sessionmaker), settings.jwt)
     auth = AuthClient(auth_service)
 
+    storage_settings = settings.storage
     storage = ObjectStorageBackend(
-        endpoint_url=settings.storage.endpoint_url,
-        bucket=settings.storage.bucket,
-        access_key_id=settings.storage.access_key_id,
-        secret_access_key=settings.storage.secret_access_key.get_secret_value(),
+        storage_settings.bucket, storage_settings.aws_profile, storage_settings.region
     )
-    files_service = FilesService(FilesRepository(product_sessionmaker), storage)
+    files_service = FilesService(
+        FilesRepository(product_sessionmaker),
+        storage,
+        MalwareScanService(storage, storage_settings),
+    )
     files = FilesClient(files_service)
 
     payment_policy = PaymentPolicyClient(
@@ -98,7 +107,12 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
     )
     bills = BillsClient(BillsService(BillsRepository(product_sessionmaker)))
 
-    invoice_ingestor = InvoiceIngestorClient(InvoiceIngestorService(files, llm, prompts))
+    document_vision = DocumentVisionClient(
+        TextractExpenseReader(settings.textract.aws_profile, settings.textract.region)
+    )
+    invoice_ingestor = InvoiceIngestorClient(
+        InvoiceIngestorService(files, llm, prompts, document_vision)
+    )
 
     sessions_service = SessionsService(
         SessionsMutableRepository(product_sessionmaker),

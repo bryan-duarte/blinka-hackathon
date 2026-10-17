@@ -41,20 +41,6 @@ services:
       retries: 10
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports: ["9000:9000", "9001:9001"]
-    volumes: [minio-data:/data]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      retries: 10
-    restart: unless-stopped
-
   backend:
     build: ./backend
     env_file: ./backend/.env
@@ -62,17 +48,14 @@ services:
       BLINKA_PRODUCT_DATABASE_URL: postgresql://blinka:blinka@postgres-product:5432/blinka_product
       BLINKA_AGENT_DATABASE_URL: postgresql://blinka:blinka@postgres-agent:5432/blinka_agent
       BLINKA_PAYMENTS_DATABASE_URL: postgresql://blinka:blinka@postgres-payments:5432/blinka_payments
-      BLINKA_STORAGE__ENDPOINT_URL: http://minio:9000
     ports: ["8000:8000"]
     depends_on:
       postgres-product: {condition: service_healthy}
       postgres-agent: {condition: service_healthy}
       postgres-payments: {condition: service_healthy}
-      minio: {condition: service_healthy}
     restart: unless-stopped
 
 volumes:
   product-data: {}
   agent-data: {}
   payments-data: {}
-  minio-data: {}

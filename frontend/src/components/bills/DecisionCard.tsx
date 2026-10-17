@@ -11,12 +11,14 @@ import type {
   RuleResult,
   Verdict,
 } from "@/lib/types";
+import { BillProvenance } from "./BillProvenance";
 import { ReviewActions } from "./ReviewActions";
 
 type DecisionCardProps = {
   decision: BillDecisionView;
   onResolved: () => void;
   onSelectEmail: (emailId: string) => void;
+  showsProvenance?: boolean;
 };
 
 const CHECKER_RULE_PREFIX = "CHK";
@@ -43,7 +45,12 @@ const DISCLOSURE_SUMMARY_CLASS =
 
 const DUPLICATE_CHIP = { className: "border-line bg-panel text-muted", glyph: "" };
 
-export function DecisionCard({ decision, onResolved, onSelectEmail }: DecisionCardProps) {
+export function DecisionCard({
+  decision,
+  onResolved,
+  onSelectEmail,
+  showsProvenance = false,
+}: DecisionCardProps) {
   const policyRules = decision.rule_results.filter((rule) => !isCheckerRule(rule));
   const checkerRules = decision.rule_results.filter(isCheckerRule);
   const failingRules = policyRules
@@ -53,6 +60,7 @@ export function DecisionCard({ decision, onResolved, onSelectEmail }: DecisionCa
 
   return (
     <section className="flex flex-col gap-6">
+      {showsProvenance && <BillProvenance billId={decision.bill_id} />}
       <VerdictHeader decision={decision} />
       {decision.duplicate_of_bill_id && (
         <DuplicateLink originalBillId={decision.duplicate_of_bill_id} onSelectEmail={onSelectEmail} />

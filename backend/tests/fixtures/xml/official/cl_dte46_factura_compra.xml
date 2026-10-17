@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<EnvioDTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sii.cl/SiiDte EnvioDTE_v10.xsd" version="1.0">
+<SetDTE ID="SetDoc">
+ <Caratula version="1.0">
+  <RutEmisor>97975000-5</RutEmisor>
+  <RutEnvia>7880442-4</RutEnvia>
+  <RutReceptor>60803000-K</RutReceptor>
+  <FchResol>2003-09-02</FchResol>
+  <NroResol>0</NroResol>
+  <TmstFirmaEnv>2003-10-13T09:33:22</TmstFirmaEnv>
+  <SubTotDTE>
+   <TpoDTE>46</TpoDTE>
+   <NroDTE>1</NroDTE>
+  </SubTotDTE>
+ </Caratula>
+<DTE version="1.0">
+	<Documento ID="F60T46">
+		<Encabezado>
+			<IdDoc>
+				<TipoDTE>46</TipoDTE>
+				<Folio>60</Folio>
+				<FchEmis>2003-10-13</FchEmis>
+			</IdDoc>
+			<Emisor>
+				<RUTEmisor>97975000-5</RUTEmisor>
+				<RznSoc>RUT DE PRUEBA</RznSoc>
+				<GiroEmis>Insumos de Computacion</GiroEmis>
+				<Acteco>31341</Acteco>
+				<CdgSIISucur>1234</CdgSIISucur>
+				<DirOrigen>Teatinos 120, Piso 4</DirOrigen>
+				<CmnaOrigen>Santiago</CmnaOrigen>
+				<CiudadOrigen>Santiago</CiudadOrigen>
+			</Emisor>
+			<Receptor>
+				<RUTRecep>77777777-7</RUTRecep>
+				<RznSocRecep>PROVEEDOR SIN FACTURA LTDA</RznSocRecep>
+				<GiroRecep>COMPUTACION</GiroRecep>
+				<DirRecep>SAN DIEGO 2222</DirRecep>
+				<CmnaRecep>LA FLORIDA</CmnaRecep>
+				<CiudadRecep>SANTIAGO</CiudadRecep>
+			</Receptor>
+			<Totales>
+				<MntNeto>100000</MntNeto>
+				<TasaIVA>19</TasaIVA>
+				<IVA>19000</IVA>
+				<ImptoReten><TipoImp>15</TipoImp><TasaImp>19</TasaImp><MontoImp>19000</MontoImp></ImptoReten><MntTotal>100000</MntTotal>
+			</Totales>
+		</Encabezado>
+		<Detalle>
+			<NroLinDet>1</NroLinDet>
+			<CdgItem>
+				<TpoCodigo>INT1</TpoCodigo>
+				<VlrCodigo>011</VlrCodigo>
+			</CdgItem>
+			<NmbItem>Parlantes Multimedia 180W.</NmbItem>
+			<DscItem/>
+			<QtyItem>20</QtyItem>
+			<PrcItem>4500</PrcItem>
+			<MontoItem>90000</MontoItem>
+		</Detalle>
+		<Detalle>
+			<NroLinDet>2</NroLinDet>
+			<CdgItem>
+				<TpoCodigo>INT1</TpoCodigo>
+				<VlrCodigo>0231</VlrCodigo>
+			</CdgItem>
+			<NmbItem>Mouse Inalambrico PS/2</NmbItem>
+			<DscItem/>
+			<QtyItem>1</QtyItem>
+			<PrcItem>5000</PrcItem>
+			<MontoItem>5000</MontoItem>
+		</Detalle>
+		<Detalle>
+			<NroLinDet>3</NroLinDet>
+			<CdgItem>
+				<TpoCodigo>INT1</TpoCodigo>
+				<VlrCodigo>1515</VlrCodigo>
+			</CdgItem>
+			<NmbItem>Caja de Diskettes 10 Unidades</NmbItem>
+			<DscItem/>
+			<QtyItem>5</QtyItem>
+			<PrcItem>1000</PrcItem>
+			<MontoItem>5000</MontoItem>
+		</Detalle>
+		<TED version="1.0">
+			<DD>
+				<RE>97975000-5</RE>
+				<TD>46</TD>
+				<F>60</F>
+				<FE>2003-10-13</FE>
+				<RR>77777777-7</RR>
+				<RSR>PROVEEDOR SIN FACTURA LTDA</RSR>
+				<MNT>119000</MNT>
+				<IT1>Parlantes Multimedia 180W.</IT1>
+				<CAF version="1.0">
+					<DA>
+						<RE>97975000-5</RE>
+						<RS>RUT DE PRUEBA</RS>
+						<TD>46</TD>
+						<RNG>
+							<D>1</D>
+							<H>200</H>
+						</RNG>
+						<FA>2003-09-04</FA>
+						<RSAPK>
+							<M>0a4O6Kbx8Qj3K4iWSP4w7KneZYeJ+g/prihYtIEolKt3cykSxl1zO8vSXu397QhTmsX7SBEudTUx++2zDXBhZw==</M>
+							<E>Aw==</E>
+						</RSAPK>
+						<IDK>100</IDK>
+					</DA>
+					<FRMA algoritmo="SHA1withRSA">g1AQX0sy8NJugX52k2hTJEZAE9Cuul6pqYBdFxj1N17umW7zG/hAavCALKByHzdYAfZ3LhGTXCai5zNxOo4lDQ==</FRMA>
+				</CAF>
+				<TSTED>2003-10-13T09:33:20</TSTED>
+			</DD>
+			<FRMT algoritmo="SHA1withRSA">GbmDcS9e/jVC2LsLIe1iRV12Bf6lxsILtbQiCkh6mbjckFCJ7fj/kakFTS06Jo8i
+S4HXvJj3oYZuey53Krniew==</FRMT>
+		</TED>
+		<TmstFirma>2003-10-13T09:33:20</TmstFirma>
+	</Documento>
+</DTE>
+</SetDTE></EnvioDTE>

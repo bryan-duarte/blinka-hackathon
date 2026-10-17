@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Mapping
+from pathlib import PurePath
 from uuid import UUID
 
 import httpx
@@ -13,6 +14,7 @@ from composio.exceptions import (
 )
 from composio_client import APIError
 
+from contracts.files import EVIDENCE_MIME_BY_EXTENSION
 from contracts.mail_gateway import (
     FetchedAttachment,
     FetchedEmail,
@@ -55,7 +57,6 @@ CURRENT_MAILBOX_USER = "me"
 GMAIL_INBOX_LABEL = "INBOX"
 OUTLOOK_INBOX_FOLDER = "inbox"
 OUTLOOK_FULL_RESPONSE_DETAIL = "full"
-PDF_MIME = "application/pdf"
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 ATTACHMENT_DOWNLOAD_TIMEOUT_SECONDS = 30
 SDK_ERRORS = (ComposioError, APIError, httpx.HTTPError)
@@ -178,12 +179,11 @@ class MailGatewayService:
             data_keys=sorted(trigger_data),
             attachment_keys=[sorted(attachment) for attachment in attachment_list],
         )
-        pdf_attachment = gmail.first_pdf_attachment(attachment_list)
-        attachments = []
-        if pdf_attachment is not None:
-            attachment_id, filename = pdf_attachment
-            attachment = await self._download_gmail_attachment(event, attachment_id, filename)
-            attachments = [attachment] if attachment is not None else []
+        downloaded_attachments = [
+            await self._download_gmail_attachment(event, attachment_id, filename)
+            for attachment_id, filename in gmail.evidence_attachments(attachment_list)
+        ]
+        attachments = [attachment for attachment in downloaded_attachments if attachment]
         return FetchedEmail(
             sender=trigger_data.get("sender") or "",
             subject=trigger_data.get("subject") or "",
@@ -227,8 +227,7 @@ class MailGatewayService:
         message = outlook.graph_response(message_data)
         attachments = []
         if message.get("hasAttachments"):
-            attachment = await self._outlook_pdf_attachment(event)
-            attachments = [attachment] if attachment is not None else []
+            attachments = await self._outlook_evidence_attachments(event)
         return FetchedEmail(
             sender=outlook.sender(message),
             subject=message.get("subject") or "",
@@ -237,17 +236,20 @@ class MailGatewayService:
             attachments=attachments,
         )
 
-    async def _outlook_pdf_attachment(self, event: MailTriggerEvent) -> FetchedAttachment | None:
+    async def _outlook_evidence_attachments(
+        self, event: MailTriggerEvent
+    ) -> list[FetchedAttachment]:
         attachments_data = await self._execute_tool(
             OUTLOOK_LIST_ATTACHMENTS_TOOL,
             {"message_id": event.message_id, "response_detail": OUTLOOK_FULL_RESPONSE_DETAIL},
             event,
             self._settings.outlook_toolkit_version,
         )
-        attachment = outlook.first_pdf_attachment(attachments_data)
-        if attachment is None:
-            return None
-        return _sized_attachment(attachment.filename, attachment.content)
+        sized_attachments = [
+            _sized_attachment(attachment.filename, attachment.content)
+            for attachment in outlook.evidence_attachments(attachments_data)
+        ]
+        return [attachment for attachment in sized_attachments if attachment]
 
     async def _execute_tool(
         self, tool_slug: str, arguments: dict, event: MailTriggerEvent, version: str
@@ -299,4 +301,5 @@ def _sized_attachment(filename: str, content: bytes) -> FetchedAttachment | None
     if len(content) > MAX_ATTACHMENT_BYTES:
         logger.info("mail_attachment_skipped", filename=filename, size_bytes=len(content))
         return None
-    return FetchedAttachment(filename=filename, mime=PDF_MIME, content=content)
+    mime = EVIDENCE_MIME_BY_EXTENSION[PurePath(filename).suffix.lower()]
+    return FetchedAttachment(filename=filename, mime=mime, content=content)

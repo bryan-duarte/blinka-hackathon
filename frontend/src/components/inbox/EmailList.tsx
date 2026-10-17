@@ -1,5 +1,6 @@
 import { formatMoney, formatRelative, isForeignCurrency } from "@/lib/format";
 import type { InboxEmailView } from "@/lib/types";
+import { SourceBadge } from "./SourceBadge";
 import { StatusBadge } from "./StatusBadge";
 
 type EmailListProps = {
@@ -35,8 +36,11 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
               className={`block w-full border-l-2 px-6 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${isSelected ? "border-accent bg-route-wash" : "border-transparent hover:bg-sunken"}`}
             >
               <div className="flex items-baseline justify-between gap-4">
-                <span className={`truncate text-sm font-normal ${isSelected ? "text-accent" : "text-ink"}`}>
-                  {email.sender || "Remitente desconocido"}
+                <span className="flex min-w-0 items-center gap-2">
+                  <SourceBadge type={email.source_type} />
+                  <span className={`truncate text-sm font-normal ${isSelected ? "text-accent" : "text-ink"}`}>
+                    {email.sender || "Remitente desconocido"}
+                  </span>
                 </span>
                 <span className="shrink-0 text-xs text-muted">
                   {email.received_at

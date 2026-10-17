@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica.xsd" xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <Clave>86da4c8038a14de9984f5b85be87f953000000000000000000</Clave>
+  <FechaEmision>2025-10-28T12:14:26</FechaEmision>
+  <Emisor>
+    <TipoIdentificacion>01</TipoIdentificacion>
+    <NumeroIdentificacion>123456789</NumeroIdentificacion>
+    <Nombre>Mi Empresa S.A.</Nombre>
+    <NombreComercial>Mi Tienda</NombreComercial>
+    <Ubicacion>
+      <Provincia>San José</Provincia>
+      <Canton>San José</Canton>
+      <Distrito>Carmen</Distrito>
+      <Barrio>Catedral</Barrio>
+      <DireccionExacta>Av. Central, 100m al este</DireccionExacta>
+    </Ubicacion>
+  </Emisor>
+  <Receptor>
+    <TipoIdentificacion>01</TipoIdentificacion>
+    <NumeroIdentificacion>78789798</NumeroIdentificacion>
+    <Nombre>test</Nombre>
+  </Receptor>
+  <DetalleServicio>
+    <LineaDetalle>
+      <NumeroLinea>1</NumeroLinea>
+      <CodigoProducto>1</CodigoProducto>
+      <CodigoUnidadMedida>Unid</CodigoUnidadMedida>
+      <Cantidad>1</Cantidad>
+      <Detalle>test</Detalle>
+      <PrecioUnitario>1</PrecioUnitario>
+      <MontoTotalLinea>1</MontoTotalLinea>
+      <Impuesto>
+        <Codigo>01</Codigo>
+        <Tarifa>13</Tarifa>
+        <Monto>0.13</Monto>
+      </Impuesto>
+    </LineaDetalle>
+  </DetalleServicio>
+  <ResumenFactura>
+    <TotalServGravados>1</TotalServGravados>
+    <TotalImpuesto>0.13</TotalImpuesto>
+    <TotalFactura>1.13</TotalFactura>
+  </ResumenFactura>
+</FacturaElectronica>

@@ -63,6 +63,7 @@ export default function ReviewQueuePage() {
               decision={bill}
               onResolved={loadBills}
               onSelectEmail={() => router.push("/inbox")}
+              showsProvenance
             />
           </article>
         ))}

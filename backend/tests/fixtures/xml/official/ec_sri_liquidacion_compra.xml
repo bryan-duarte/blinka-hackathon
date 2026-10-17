@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<liquidacionCompra id="comprobante" version="1.1.0">
+    <infoTributaria>
+        <ambiente>1</ambiente> <!-- 1=Pruebas, 2=Producción -->
+        <tipoEmision>1</tipoEmision>
+        <razonSocial>MI EMPRESA S.A.</razonSocial>
+        <nombreComercial>MI EMPRESA</nombreComercial>
+        <ruc>1790012345001</ruc>
+        <claveAcceso>1234567890123456789012345678901234567890123456789</claveAcceso>
+        <codDoc>03</codDoc> <!-- 03 = Liquidación de Compras -->
+        <estab>001</estab>
+        <ptoEmi>001</ptoEmi>
+        <secuencial>000000123</secuencial>
+        <dirMatriz>Av. Siempre Viva 123</dirMatriz>
+    </infoTributaria>
+
+    <infoLiquidacionCompra>
+        <fechaEmision>13/09/2025</fechaEmision>
+        <dirEstablecimiento>Av. Siempre Viva 123</dirEstablecimiento>
+        <tipoIdentificacionProveedor>05</tipoIdentificacionProveedor> <!-- 05=CEDULA, 04=RUC -->
+        <razonSocialProveedor>Proveedor de Prueba</razonSocialProveedor>
+        <identificacionProveedor>0102030405</identificacionProveedor>
+        <totalSinImpuestos>100.00</totalSinImpuestos>
+        <totalDescuento>0.00</totalDescuento>
+        <totalConImpuestos>
+            <totalImpuesto>
+                <codigo>2</codigo> <!-- IVA -->
+                <codigoPorcentaje>2</codigoPorcentaje> <!-- 12% -->
+                <baseImponible>100.00</baseImponible>
+                <valor>12.00</valor>
+            </totalImpuesto>
+        </totalConImpuestos>
+        <importeTotal>112.00</importeTotal>
+        <moneda>DOLAR</moneda>
+    </infoLiquidacionCompra>
+
+    <detalles>
+        <detalle>
+            <codigoPrincipal>PROD001</codigoPrincipal>
+            <descripcion>Producto de ejemplo</descripcion>
+            <cantidad>10.00</cantidad>
+            <precioUnitario>10.00</precioUnitario>
+            <descuento>0.00</descuento>
+            <precioTotalSinImpuesto>100.00</precioTotalSinImpuesto>
+            <impuestos>
+                <impuesto>
+                    <codigo>2</codigo>
+                    <codigoPorcentaje>2</codigoPorcentaje>
+                    <tarifa>12.00</tarifa>
+                    <baseImponible>100.00</baseImponible>
+                    <valor>12.00</valor>
+                </impuesto>
+            </impuestos>
+        </detalle>
+    </detalles>
+
+    <infoAdicional>
+        <campoAdicional nombre="Email">proveedor@correo.com</campoAdicional>
+        <campoAdicional nombre="Telefono">0999999999</campoAdicional>
+    </infoAdicional>
+</liquidacionCompra>

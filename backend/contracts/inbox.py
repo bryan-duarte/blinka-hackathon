@@ -4,6 +4,8 @@ from typing import Literal
 from uuid import UUID
 
 from contracts._base import ApiModel, StrictModel
+from contracts.bills import BillSourceType
+from contracts.files import EvidenceFileView
 from contracts.guardrails import GuardrailViolation
 from contracts.mail_gateway import MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView
@@ -19,12 +21,15 @@ class InboxEmailStatus(StrEnum):
     REVIEW = "review"
     DUPLICATE = "duplicate"
     NO_INVOICE = "no_invoice"
+    NO_INFO = "no_info"
     ERROR = "error"
 
 
 class SimulatedEmailKind(StrEnum):
     INVOICE_USD = "invoice_usd"
     INVOICE_USD_PDF = "invoice_usd_pdf"
+    INVOICE_ZIP_XML = "invoice_zip_xml"
+    SCANNED_PDF = "scanned_pdf"
     INVOICE_CLP = "invoice_clp"
     AWS_CARD = "aws_card"
     AWS_IMPERSONATION = "aws_impersonation"
@@ -97,6 +102,7 @@ class InboxEmailView(ApiModel):
     received_at: datetime | None
     status: InboxEmailStatus
     decision: BillDecisionView | None = None
+    source_type: BillSourceType = BillSourceType.EMAIL
 
 
 class InboxEmailDetail(InboxEmailView):
@@ -104,3 +110,4 @@ class InboxEmailDetail(InboxEmailView):
     violations: list[GuardrailViolation] = []
     error: str | None = None
     run_id: UUID | None = None
+    evidence: list[EvidenceFileView] = []

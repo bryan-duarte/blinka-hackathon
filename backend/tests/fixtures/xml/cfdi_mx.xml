@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="A" Folio="1024" Fecha="2026-10-01T10:15:00" Moneda="MXN" SubTotal="10000.00" Total="11600.00" TipoDeComprobante="I">
+  <cfdi:Emisor Rfc="SDA010203AB1" Nombre="Servicios Digitales Aztec SA de CV" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BLI990101XX0" Nombre="Blinka Inc" UsoCFDI="G03"/>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital UUID="6F1D9E4A-1B2C-4D3E-8F90-112233445566"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>

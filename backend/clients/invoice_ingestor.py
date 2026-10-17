@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from contracts.auth import CurrentUser
 from contracts.bills import BillDocument
-from contracts.payment_candidates import BillClassification, PaymentCandidateBase
+from contracts.payment_candidates import BillClassification, CandidateExtraction
 from contracts.payment_policy import PayeeKind
 
 if TYPE_CHECKING:
@@ -18,5 +18,5 @@ class InvoiceIngestorClient:
 
     async def extract_candidate(
         self, owner: CurrentUser, document: BillDocument, kind: PayeeKind
-    ) -> PaymentCandidateBase:
+    ) -> CandidateExtraction:
         return await self._service.extract_candidate(owner, document, kind)

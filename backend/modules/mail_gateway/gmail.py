@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
+from pathlib import PurePath
 
-PDF_MIME = "application/pdf"
-PDF_EXTENSION = ".pdf"
+from contracts.files import EVIDENCE_MIME_BY_EXTENSION
+from contracts.mail_gateway import MAX_EVIDENCE_ATTACHMENTS
+
 S3_URL_KEY = "s3url"
 MILLISECONDS_PER_SECOND = 1000
 ATTACHMENT_ID_KEYS = ("attachmentId", "attachment_id")
 FILENAME_KEYS = ("filename", "name")
-MIME_KEYS = ("mimeType", "mimetype")
 
 
 def message_id(trigger_data: dict) -> str:
@@ -25,15 +26,15 @@ def parse_timestamp(raw_timestamp: object) -> datetime | None:
         return None
 
 
-def first_pdf_attachment(attachment_list: list[dict]) -> tuple[str, str] | None:
+def evidence_attachments(attachment_list: list[dict]) -> list[tuple[str, str]]:
+    selected_attachments: list[tuple[str, str]] = []
     for attachment in attachment_list:
         attachment_id = _first_present(attachment, ATTACHMENT_ID_KEYS)
         filename = _first_present(attachment, FILENAME_KEYS)
-        mime = _first_present(attachment, MIME_KEYS)
-        is_pdf = mime == PDF_MIME or filename.lower().endswith(PDF_EXTENSION)
-        if attachment_id and is_pdf:
-            return attachment_id, filename
-    return None
+        is_evidence_file = PurePath(filename).suffix.lower() in EVIDENCE_MIME_BY_EXTENSION
+        if attachment_id and is_evidence_file:
+            selected_attachments.append((attachment_id, filename))
+    return selected_attachments[:MAX_EVIDENCE_ATTACHMENTS]
 
 
 def find_s3url(tool_output: object) -> str | None:

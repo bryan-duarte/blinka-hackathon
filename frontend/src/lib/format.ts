@@ -8,6 +8,8 @@ const relativeFormatter = new Intl.RelativeTimeFormat("es", {
 });
 
 const MS_PER_SECOND = 1000;
+const BYTES_PER_KILOBYTE = 1024;
+const BYTES_PER_MEGABYTE = BYTES_PER_KILOBYTE * 1024;
 
 export const USD_CURRENCY = "USD";
 export const CURRENCY_CODE_LENGTH = 3;
@@ -44,4 +46,12 @@ export function formatMoney(amount: string | number, currency: string | null): s
 
 export function isForeignCurrency(currency: string | null): boolean {
   return currency !== null && currency !== USD_CURRENCY;
+}
+
+const sizeFormatter = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
+
+export function formatBytes(sizeBytes: number): string {
+  if (sizeBytes >= BYTES_PER_MEGABYTE) return `${sizeFormatter.format(sizeBytes / BYTES_PER_MEGABYTE)} MB`;
+  if (sizeBytes >= BYTES_PER_KILOBYTE) return `${sizeFormatter.format(sizeBytes / BYTES_PER_KILOBYTE)} KB`;
+  return `${sizeBytes} B`;
 }

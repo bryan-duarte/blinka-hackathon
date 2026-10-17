@@ -34,10 +34,21 @@ class StorageSettings(BaseSettings):
         env_prefix="BLINKA_STORAGE__", env_file=".env", extra="ignore", frozen=True
     )
 
-    endpoint_url: str = "http://localhost:9000"
-    bucket: str = "blinka-files"
-    access_key_id: str = "minioadmin"
-    secret_access_key: SecretStr = SecretStr("minioadmin")
+    bucket: str = "blinka-evidence"
+    region: str = "us-east-1"
+    aws_profile: str | None = "panoptico"
+    malware_scan_enabled: bool = True
+    scan_timeout_seconds: float = 60
+    scan_poll_interval_seconds: float = 2
+
+
+class TextractSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_TEXTRACT__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    aws_profile: str | None = "panoptico"
+    region: str = "us-east-1"
 
 
 class GuardrailsSettings(BaseSettings):
@@ -97,6 +108,7 @@ class Settings(BaseSettings):
     jwt: JwtSettings = Field(default_factory=JwtSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
+    textract: TextractSettings = Field(default_factory=TextractSettings)
     guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)
     composio: ComposioSettings = Field(default_factory=ComposioSettings)
     log_format: Literal["console", "json"] = "console"

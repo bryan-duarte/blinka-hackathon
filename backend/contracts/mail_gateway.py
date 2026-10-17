@@ -4,6 +4,8 @@ from typing import Literal
 
 from contracts._base import ApiModel, StrictModel
 
+MAX_EVIDENCE_ATTACHMENTS = 10
+
 
 class MailProvider(StrEnum):
     GMAIL = "gmail"

@@ -30,11 +30,14 @@ export type InboxEmailStatus =
   | "review"
   | "duplicate"
   | "no_invoice"
+  | "no_info"
   | "error";
 
 export type SimulatedEmailKind =
   | "invoice_usd"
   | "invoice_usd_pdf"
+  | "invoice_zip_xml"
+  | "scanned_pdf"
   | "invoice_clp"
   | "aws_card"
   | "aws_impersonation"
@@ -109,6 +112,9 @@ type PaymentCandidateBase = {
   due_date: string | null;
   invoice_number: string | null;
   description: string | null;
+  payee_country: string | null;
+  issuer_tax_country: string | null;
+  bank_account_country: string | null;
   bank_account: string | null;
   payee_email: string | null;
   category: PaymentCategory | null;
@@ -134,7 +140,6 @@ export type PaymentCandidate =
       kind: "company";
       legal_name: string | null;
       tax_id: string | null;
-      country: string | null;
       purchase_order: string | null;
     });
 
@@ -170,9 +175,44 @@ export type PaymentView = {
   executed_at: string | null;
 };
 
+export type BillSourceType = "email" | "chat" | "upload" | "telegram" | "whatsapp";
+
+export type FileScanStatus = "pending" | "clean" | "threat" | "unsupported" | "failed" | "disabled";
+
+export type EvidenceRole = "archive" | "primary" | "secondary";
+
+export type EvidenceFileView = {
+  file_id: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  role: EvidenceRole;
+  scan_status: FileScanStatus;
+  created_at: string;
+};
+
+export type RunStatus = "pending" | "running" | "completed" | "failed";
+
+export type PaymentRunEvent = {
+  step: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PaymentRunStatus = {
+  run_id: string;
+  status: RunStatus;
+  error: string | null;
+  events: PaymentRunEvent[];
+  decision: BillDecisionView | null;
+  is_bill: boolean | null;
+  extraction_failed: boolean;
+  evidence: EvidenceFileView[];
+};
+
 export type BillSourceView = {
   source_id: string;
-  source_type: "email" | "chat" | "upload" | "telegram";
+  source_type: BillSourceType;
   source_ref: string;
   sender: string;
   file_id: string | null;
@@ -186,6 +226,7 @@ export type BillDetail = {
   history: BillDecisionView[];
   sources: BillSourceView[];
   payment: PaymentView | null;
+  evidence: EvidenceFileView[];
 };
 
 export type BudgetUsageView = {
@@ -271,6 +312,7 @@ export type InboxEmailView = {
   received_at: string | null;
   status: InboxEmailStatus;
   decision: BillDecisionView | null;
+  source_type: BillSourceType;
 };
 
 export type InboxEmailDetail = InboxEmailView & {
@@ -278,6 +320,7 @@ export type InboxEmailDetail = InboxEmailView & {
   violations: GuardrailViolation[];
   error: string | null;
   run_id: string | null;
+  evidence: EvidenceFileView[];
 };
 
 export const PENDING_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([

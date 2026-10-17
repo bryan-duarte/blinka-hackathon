@@ -1,6 +1,8 @@
 from typing import Annotated
+from urllib.parse import quote
+from uuid import UUID
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 
 from api.deps import ClientsDep, CurrentUserDep
 from contracts.files import FileUploadResult
@@ -27,4 +29,20 @@ async def upload_file(
         )
     return await clients.files.upload(
         user, file.filename or DEFAULT_UPLOAD_FILENAME, file.content_type or "", file_content
+    )
+
+
+@files_router.get("/{file_id}/content")
+async def file_content(file_id: UUID, user: CurrentUserDep, clients: ClientsDep) -> Response:
+    stored_content = await clients.files.read_cleared_bytes(user, file_id)
+    encoded_filename = quote(stored_content.file.filename, safe="")
+    return Response(
+        content=stored_content.content,
+        media_type=stored_content.file.mime,
+        headers={
+            "Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox",
+            "Cache-Control": "private, no-store",
+        },
     )

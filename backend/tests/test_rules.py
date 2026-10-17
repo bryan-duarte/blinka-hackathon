@@ -352,3 +352,43 @@ def test_rule_crash_fails_closed(monkeypatch):
     monkeypatch.setattr(rules, "RULES", (("R02", _crashing_rule), *rules.RULES[2:]))
 
     assert decide(_context()).verdict is Verdict.REVIEW
+
+
+def _person_candidate(national_id: str, issuer_tax_country: str | None) -> PersonCandidate:
+    base_fields = _candidate().model_dump(
+        exclude={
+            "kind",
+            "provider_domain",
+            "service_account_id",
+            "billing_period_start",
+            "billing_period_end",
+        }
+    )
+    return PersonCandidate(
+        **{**base_fields, "issuer_tax_country": issuer_tax_country},
+        national_id=national_id,
+        concept="honorarios",
+    )
+
+
+def _tax_identity_effect(candidate: ServiceCandidate | PersonCandidate) -> RuleEffect:
+    evaluation = decide(_context(candidate))
+    return next(result.effect for result in evaluation.results if result.rule_id == "R18")
+
+
+def test_tax_id_contradicting_the_invoice_standard_goes_to_review():
+    candidate = _person_candidate("900123456", issuer_tax_country="MX")
+
+    assert _tax_identity_effect(candidate) is RuleEffect.REVIEW
+
+
+def test_tax_id_matching_the_invoice_standard_passes():
+    candidate = _person_candidate("EKU9003173C9", issuer_tax_country="MX")
+
+    assert _tax_identity_effect(candidate) is RuleEffect.PASS
+
+
+def test_tax_identity_rule_does_not_apply_without_tax_country():
+    candidate = _person_candidate("900123456", issuer_tax_country=None)
+
+    assert _tax_identity_effect(candidate) is RuleEffect.PASS

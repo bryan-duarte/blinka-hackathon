@@ -16,6 +16,7 @@ from contracts.payment_policy import (
 )
 from contracts.payments import RuleEffect, RuleResult, Verdict
 from core.logging_config import get_logger
+from core.tax_jurisdictions import tax_id_fits_country
 from modules.payments.budget import budget_charges, describe_scope
 from modules.payments.fx import names_currency_explicitly
 from modules.payments.presentation import bill_label, format_usd, mask_account
@@ -65,6 +66,7 @@ RULE_NAMES = {
     "R13": "tope_autopago",
     "R14": "presupuesto_disponible",
     "R17": "coincide_con_acuerdo",
+    "R18": "identidad_tributaria_consistente",
     "CHK1": "servicio_coincide",
     "CHK2": "suplantacion",
     "CHK3": "monto_habitual",
@@ -322,6 +324,28 @@ def _kind_matches(context: DecisionContext) -> RuleResult:
     )
 
 
+def _tax_identity_consistent(context: DecisionContext) -> RuleResult:
+    candidate = context.candidate
+    tax_id = getattr(candidate, "tax_id", None) or getattr(candidate, "national_id", None)
+    tax_country = candidate.issuer_tax_country
+    if not tax_country or not tax_id:
+        return rule_result(
+            "R18", RuleEffect.PASS, "No aplica: sin país tributario o sin identificador."
+        )
+    evidence = {"identificador": tax_id, "pais_tributario": tax_country}
+    if tax_id_fits_country(tax_id, tax_country) is False:
+        return rule_result(
+            "R18",
+            RuleEffect.REVIEW,
+            f"El identificador tributario {tax_id} no tiene el formato de {tax_country}, "
+            "el país del estándar de la factura.",
+            evidence,
+        )
+    return rule_result(
+        "R18", RuleEffect.PASS, f"Identificador tributario coherente con {tax_country}.", evidence
+    )
+
+
 def _category_allowed(context: DecisionContext) -> RuleResult:
     category = context.candidate.category
     if category is None:
@@ -532,4 +556,5 @@ RULES: tuple[tuple[str, Rule], ...] = (
     ("R13", _auto_pay_max),
     ("R14", _budget_available),
     ("R17", _matches_agreement),
+    ("R18", _tax_identity_consistent),
 )

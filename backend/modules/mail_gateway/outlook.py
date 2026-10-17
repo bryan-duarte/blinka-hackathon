@@ -2,11 +2,11 @@ import base64
 import html
 import re
 from datetime import datetime
+from pathlib import PurePath
 
-from contracts.mail_gateway import FetchedAttachment
+from contracts.files import EVIDENCE_MIME_BY_EXTENSION
+from contracts.mail_gateway import MAX_EVIDENCE_ATTACHMENTS, FetchedAttachment
 
-PDF_MIME = "application/pdf"
-PDF_EXTENSION = ".pdf"
 HTML_CONTENT_TYPE = "html"
 FILE_ATTACHMENT_ODATA_SUFFIX = "fileAttachment"
 RESPONSE_DATA_KEY = "response_data"
@@ -41,19 +41,23 @@ def received_at(message: dict) -> datetime | None:
         return None
 
 
-def first_pdf_attachment(attachments_data: dict) -> FetchedAttachment | None:
+def evidence_attachments(attachments_data: dict) -> list[FetchedAttachment]:
+    selected_attachments = []
     for attachment in graph_response(attachments_data).get("value") or []:
         filename = attachment.get("name") or ""
+        evidence_mime = EVIDENCE_MIME_BY_EXTENSION.get(PurePath(filename).suffix.lower())
         is_file_attachment = (attachment.get("@odata.type") or "").endswith(
             FILE_ATTACHMENT_ODATA_SUFFIX
         )
-        is_pdf = attachment.get("contentType") == PDF_MIME or filename.lower().endswith(
-            PDF_EXTENSION
+        is_downloadable_evidence = (
+            is_file_attachment and evidence_mime is not None and attachment.get("contentBytes")
         )
-        if is_file_attachment and is_pdf and attachment.get("contentBytes"):
-            return FetchedAttachment(
-                filename=filename,
-                mime=PDF_MIME,
-                content=base64.b64decode(attachment["contentBytes"]),
+        if is_downloadable_evidence:
+            selected_attachments.append(
+                FetchedAttachment(
+                    filename=filename,
+                    mime=evidence_mime,
+                    content=base64.b64decode(attachment["contentBytes"]),
+                )
             )
-    return None
+    return selected_attachments[:MAX_EVIDENCE_ATTACHMENTS]

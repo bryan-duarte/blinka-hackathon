@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<DTE xmlns="http://www.sii.cl/SiiDte" version="1.0">
+  <Documento ID="F33T5532">
+    <Encabezado>
+      <IdDoc>
+        <TipoDTE>33</TipoDTE>
+        <Folio>5532</Folio>
+        <FchEmis>2026-10-02</FchEmis>
+        <FchVenc>2026-11-01</FchVenc>
+      </IdDoc>
+      <Emisor>
+        <RUTEmisor>76543210-K</RUTEmisor>
+        <RznSoc>Servicios del Sur SpA</RznSoc>
+      </Emisor>
+      <Totales>
+        <MntNeto>420000</MntNeto>
+        <IVA>79800</IVA>
+        <MntTotal>499800</MntTotal>
+      </Totales>
+    </Encabezado>
+  </Documento>
+</DTE>

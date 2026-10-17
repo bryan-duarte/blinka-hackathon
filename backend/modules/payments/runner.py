@@ -8,6 +8,7 @@ from contracts.payment_candidates import BillClassification, PaymentCandidateBas
 from contracts.payment_policy import PayeeMatch, PaymentPolicy
 from contracts.payments import DecisionActor, DecisionRecord, RunStatus, Verdict
 from core.logging_config import get_logger
+from modules.invoice_ingestor import InvoiceParseError
 from modules.payments.checker import apply_checker, run_checker
 from modules.payments.context_builder import build_context
 from modules.payments.dependencies import PaymentRunDependencies
@@ -26,6 +27,7 @@ STARTED_STEP = "started"
 CLASSIFIED_STEP = "classified"
 NOT_A_BILL_STEP = "not_a_bill"
 EXTRACTED_STEP = "extracted"
+EXTRACTION_FAILED_STEP = "extraction_failed"
 CLAIMED_STEP = "claimed"
 DECIDED_STEP = "decided"
 DECISION_FAILED_STEP = "decision_failed"
@@ -44,6 +46,7 @@ async def run_execution(
     repository = dependencies.repository
     await repository.insert_event(run_id, STARTED_STEP, {})
     await repository.update_status(run_id, RunStatus.RUNNING)
+    await repository.attach_run_to_evidence(bill_source_id, run_id)
     try:
         decision = await _decide_source(run_id, owner, bill_source_id, dependencies)
         await repository.insert_event(run_id, COMPLETED_STEP, {})
@@ -81,10 +84,30 @@ async def _decide_source(
     if not is_payable_bill:
         await repository.insert_event(run_id, NOT_A_BILL_STEP, {"reason": classification.reason})
         return None
-    candidate = await dependencies.invoice_ingestor.extract_candidate(
-        owner, document, classification.kind
+    try:
+        extraction = await dependencies.invoice_ingestor.extract_candidate(
+            owner, document, classification.kind
+        )
+    except InvoiceParseError as extraction_error:
+        await repository.insert_event(
+            run_id,
+            EXTRACTION_FAILED_STEP,
+            {"reason": str(extraction_error), "methods_tried": extraction_error.methods_tried},
+        )
+        logger.info("payment_run_no_info", run_id=run_id)
+        return None
+    candidate = extraction.candidate
+    await repository.insert_event(
+        run_id,
+        EXTRACTED_STEP,
+        {
+            **candidate.model_dump(mode="json"),
+            "method": extraction.method,
+            "document_origin": (
+                extraction.origin.model_dump(mode="json") if extraction.origin else None
+            ),
+        },
     )
-    await repository.insert_event(run_id, EXTRACTED_STEP, candidate.model_dump(mode="json"))
     policy = await dependencies.policy.get_policy(owner)
     match = await dependencies.policy.match_payee(owner.user_id, candidate, source.sender)
     claim = await dependencies.bills.claim_bill(

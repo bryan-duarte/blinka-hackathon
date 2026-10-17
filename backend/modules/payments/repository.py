@@ -1,14 +1,20 @@
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from contracts.files import EvidenceLink, EvidenceRole
 from contracts.payments import PaymentRunEvent, PaymentRunRecord, RunStatus
 from modules.payments.errors import RunTriggerError
-from modules.payments.models import ACTIVE_RUN_STATUSES, AgentRun, AgentRunEvent
+from modules.payments.models import ACTIVE_RUN_STATUSES, AgentRun, AgentRunEvent, AgentRunFileRow
 
 RUN_EVENT_LIST_LIMIT = 100
+EVIDENCE_ROLE_DISPLAY_ORDER = case(
+    {EvidenceRole.PRIMARY.value: 0, EvidenceRole.SECONDARY.value: 1},
+    value=AgentRunFileRow.role,
+    else_=2,
+)
 
 
 class RunsRepository:
@@ -110,6 +116,48 @@ class RunsRepository:
             PaymentRunEvent(step=event.step, payload=event.payload, created_at=event.created_at)
             for event in events
         ]
+
+    async def link_source_files(self, bill_source_id: UUID, evidence: list[EvidenceLink]) -> None:
+        if not evidence:
+            return
+        statement = (
+            insert(AgentRunFileRow)
+            .values(
+                [
+                    {"bill_source_id": bill_source_id, "file_id": link.file_id, "role": link.role}
+                    for link in evidence
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=["bill_source_id", "file_id"])
+        )
+        async with self._sessionmaker() as session:
+            await session.execute(statement)
+            await session.commit()
+
+    async def attach_run_to_evidence(self, bill_source_id: UUID, run_id: UUID) -> None:
+        statement = (
+            update(AgentRunFileRow)
+            .where(
+                AgentRunFileRow.bill_source_id == bill_source_id,
+                AgentRunFileRow.run_id.is_(None),
+            )
+            .values(run_id=run_id)
+        )
+        async with self._sessionmaker() as session:
+            await session.execute(statement)
+            await session.commit()
+
+    async def list_evidence(self, bill_source_ids: list[UUID]) -> list[EvidenceLink]:
+        if not bill_source_ids:
+            return []
+        statement = (
+            select(AgentRunFileRow.file_id, AgentRunFileRow.role)
+            .where(AgentRunFileRow.bill_source_id.in_(bill_source_ids))
+            .order_by(EVIDENCE_ROLE_DISPLAY_ORDER, AgentRunFileRow.created_at)
+        )
+        async with self._sessionmaker() as session:
+            rows = (await session.execute(statement)).all()
+        return [EvidenceLink(file_id=file_id, role=EvidenceRole(role)) for file_id, role in rows]
 
     async def fail_unfinished(self, reason: str) -> int:
         statement = (

@@ -22,6 +22,7 @@ from core.db.base import ProductBase
 ACTIVE_RUN_STATUSES = (RunStatus.PENDING, RunStatus.RUNNING)
 PERIOD_LENGTH = 7
 CURRENCY_CODE_LENGTH = 3
+EVIDENCE_ROLE_LENGTH = 16
 AMOUNT = Numeric(18, 4)
 USD_AMOUNT = Numeric(18, 2)
 PAYMENT_BILL_CONSTRAINT = "uq_payments_bill_id"
@@ -61,6 +62,20 @@ class AgentRunEvent(ProductBase):
     run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
     step: Mapped[str]
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AgentRunFileRow(ProductBase):
+    __tablename__ = "agent_run_files"
+    __table_args__ = (UniqueConstraint("bill_source_id", "file_id"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id"), nullable=True, index=True
+    )
+    bill_source_id: Mapped[UUID] = mapped_column(ForeignKey("bill_sources.id"))
+    file_id: Mapped[UUID] = mapped_column(ForeignKey("files.id"), index=True)
+    role: Mapped[str] = mapped_column(String(EVIDENCE_ROLE_LENGTH))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

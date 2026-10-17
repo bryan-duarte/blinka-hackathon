@@ -8,3 +8,15 @@ class FileMissingError(FilesError):
 
 class StorageError(FilesError):
     pass
+
+
+class UnsupportedFileError(FilesError):
+    pass
+
+
+class FileQuarantinedError(FilesError):
+    pass
+
+
+class UnsafeArchiveError(FilesError):
+    pass

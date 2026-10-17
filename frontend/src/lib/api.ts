@@ -6,6 +6,7 @@ import type {
   BlacklistEntryView,
   BudgetUsageView,
   ConnectableProvider,
+  EvidenceFileView,
   InboxEmailDetail,
   InboxEmailView,
   MailboxConnectionView,
@@ -16,6 +17,7 @@ import type {
   PayeeView,
   PaymentPolicyUpdate,
   PaymentPolicyView,
+  PaymentRunStatus,
   SimulatedEmailKind,
   TokenResponse,
 } from "./types";
@@ -25,6 +27,10 @@ const TOKEN_KEY = "blinka_token";
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_NO_CONTENT = 204;
 export const HTTP_CONFLICT = 409;
+const PDF_MIME = "application/pdf";
+const XML_MIMES: ReadonlySet<string> = new Set(["application/xml", "text/xml"]);
+const PLAIN_TEXT_MIME = "text/plain;charset=utf-8";
+const OBJECT_URL_TTL_MS = 60_000;
 
 export const tokenStore = {
   get: (): string | null =>
@@ -51,12 +57,11 @@ async function errorDetail(response: Response): Promise<string> {
   return typeof detail === "string" ? detail : response.statusText;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = tokenStore.get();
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
@@ -68,10 +73,50 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status, await errorDetail(response));
   }
+  return response;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await authorizedFetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init.headers },
+  });
   if (response.status === HTTP_NO_CONTENT) {
     return undefined as T;
   }
   return response.json() as Promise<T>;
+}
+
+async function fileBlob(fileId: string): Promise<Blob> {
+  const response = await authorizedFetch(`/files/${fileId}/content`);
+  return response.blob();
+}
+
+function inlineSafeMime(mime: string): string | null {
+  if (mime === PDF_MIME) return PDF_MIME;
+  if (XML_MIMES.has(mime)) return PLAIN_TEXT_MIME;
+  return null;
+}
+
+async function openFile(file: EvidenceFileView): Promise<void> {
+  const inlineMime = inlineSafeMime(file.mime);
+  const viewerTab = inlineMime ? window.open("", "_blank") : null;
+  try {
+    const fileContent = await fileBlob(file.file_id);
+    const objectUrl = URL.createObjectURL(new Blob([fileContent], { type: inlineMime ?? file.mime }));
+    if (viewerTab) {
+      viewerTab.location.href = objectUrl;
+    } else {
+      const downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download = file.filename;
+      downloadLink.click();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), OBJECT_URL_TTL_MS);
+  } catch (error) {
+    viewerTab?.close();
+    throw error;
+  }
 }
 
 function send<T>(method: "POST" | "PUT" | "PATCH", path: string, payload: object): Promise<T> {
@@ -128,4 +173,6 @@ export const api = {
     post<BillDecisionView>(`/bills/${billId}/reject`, { note }),
   budgets: (period?: string) =>
     request<BudgetUsageView[]>(period ? `/budgets?period=${period}` : "/budgets"),
+  runStatus: (runId: string) => request<PaymentRunStatus>(`/payments/runs/${runId}`),
+  openFile,
 };

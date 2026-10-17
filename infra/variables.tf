@@ -15,3 +15,15 @@ variable "guardrail_name" {
   type        = string
   default     = "blinka-email-input-guard"
 }
+
+variable "evidence_bucket_prefix" {
+  description = "Evidence bucket name prefix; the account id is appended."
+  type        = string
+  default     = "blinka-evidence"
+}
+
+variable "backend_iam_user" {
+  description = "IAM user behind the backend's AWS profile."
+  type        = string
+  default     = "Bryan-User"
+}

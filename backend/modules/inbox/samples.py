@@ -1,7 +1,10 @@
+import zipfile
+from io import BytesIO
+
+from contracts.files import PDF_MIME, ZIP_MIME
 from contracts.inbox import SimulatedEmailKind
 from contracts.mail_gateway import FetchedAttachment, FetchedEmail
 
-PDF_MIME = "application/pdf"
 PDF_FONT_SIZE = 11
 PDF_LINE_HEIGHT = 16
 PDF_LEFT_MARGIN = 56
@@ -219,6 +222,61 @@ Traigan sus avances de la semana.
 Saludos,
 Camila"""
 
+SISUR_DTE_LINES = [
+    "Servicios Integrales del Sur SpA",
+    "RUT: 76.543.210-K",
+    "Factura electrónica N° 6201",
+    "Fecha de emisión: 2026-10-12",
+    "Fecha de vencimiento: 2026-11-11",
+    "",
+    "Detalle:",
+    "- Soporte mensual de procesos (servicios profesionales) x1",
+    "",
+    "Total: CLP 499.800",
+    "Transferir a la cuenta CL-001-2233445566",
+]
+
+SISUR_DTE_XML = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<DTE xmlns="http://www.sii.cl/SiiDte" version="1.0">
+  <Documento ID="F33T6201">
+    <Encabezado>
+      <IdDoc>
+        <TipoDTE>33</TipoDTE>
+        <Folio>6201</Folio>
+        <FchEmis>2026-10-12</FchEmis>
+        <FchVenc>2026-11-11</FchVenc>
+      </IdDoc>
+      <Emisor>
+        <RUTEmisor>76543210-K</RUTEmisor>
+        <RznSoc>Servicios Integrales del Sur SpA</RznSoc>
+        <GiroEmis>Consultoría de procesos</GiroEmis>
+        <CorreoEmisor>facturacion@sisur.cl</CorreoEmisor>
+      </Emisor>
+      <Totales>
+        <MntNeto>420000</MntNeto>
+        <TasaIVA>19</TasaIVA>
+        <IVA>79800</IVA>
+        <MntTotal>499800</MntTotal>
+      </Totales>
+    </Encabezado>
+  </Documento>
+</DTE>
+""".encode("latin-1")
+
+INVOICE_ZIP_XML_BODY = """Estimado cliente,
+
+Adjuntamos la factura electrónica N° 6201 (XML del SII y PDF) en un archivo ZIP.
+
+Saludos,
+Servicios Integrales del Sur SpA
+facturacion@sisur.cl"""
+
+SCANNED_PDF_BODY = """Hola,
+
+Les envío la factura escaneada del mes.
+
+Saludos"""
+
 MARIA_SENDER = "maria.perez.dev@gmail.com"
 ACME_SENDER = "billing@acmecloud.io"
 
@@ -258,6 +316,14 @@ def _escape_pdf_text(line: str) -> str:
     return line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
+def zip_archive(members: dict[str, bytes]) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for member_name, member_content in members.items():
+            archive.writestr(member_name, member_content)
+    return buffer.getvalue()
+
+
 SIMULATED_EMAILS: dict[SimulatedEmailKind, FetchedEmail] = {
     SimulatedEmailKind.INVOICE_USD: FetchedEmail(
         sender=ACME_SENDER,
@@ -273,6 +339,33 @@ SIMULATED_EMAILS: dict[SimulatedEmailKind, FetchedEmail] = {
                 filename="ACME-INV-2048.pdf",
                 mime=PDF_MIME,
                 content=minimal_pdf(ACME_INVOICE_LINES),
+            )
+        ],
+    ),
+    SimulatedEmailKind.INVOICE_ZIP_XML: FetchedEmail(
+        sender="facturacion@sisur.cl",
+        subject="Factura electrónica N° 6201 (XML + PDF)",
+        body=INVOICE_ZIP_XML_BODY,
+        attachments=[
+            FetchedAttachment(
+                filename="DTE-33-6201.zip",
+                mime=ZIP_MIME,
+                content=zip_archive(
+                    {
+                        "DTE-33-6201.xml": SISUR_DTE_XML,
+                        "DTE-33-6201.pdf": minimal_pdf(SISUR_DTE_LINES),
+                    }
+                ),
+            )
+        ],
+    ),
+    SimulatedEmailKind.SCANNED_PDF: FetchedEmail(
+        sender="contabilidad@proveedor-escaneado.cl",
+        subject="Factura escaneada octubre",
+        body=SCANNED_PDF_BODY,
+        attachments=[
+            FetchedAttachment(
+                filename="factura-escaneada.pdf", mime=PDF_MIME, content=minimal_pdf([])
             )
         ],
     ),

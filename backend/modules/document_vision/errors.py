@@ -1,0 +1,2 @@
+class DocumentVisionError(Exception):
+    pass

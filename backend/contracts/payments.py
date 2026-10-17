@@ -8,6 +8,7 @@ from pydantic import Field
 
 from contracts._base import ApiModel, StrictModel
 from contracts.bills import BillSourceView, BillStatus
+from contracts.files import EvidenceFileView, EvidenceLink
 from contracts.payment_candidates import PaymentCandidate
 from contracts.payment_policy import PaymentCategory
 
@@ -57,6 +58,7 @@ class PaymentRunRecord(StrictModel):
 class PaymentRunTrigger(ApiModel):
     bill_source_id: UUID
     session_id: UUID | None = None
+    evidence: list[EvidenceLink] = []
 
 
 class UploadRunRequest(ApiModel):
@@ -166,6 +168,7 @@ class BillDetail(ApiModel):
     history: list[BillDecisionView]
     sources: list[BillSourceView]
     payment: PaymentView | None
+    evidence: list[EvidenceFileView] = []
 
 
 class BudgetUsageView(ApiModel):
@@ -185,3 +188,5 @@ class PaymentRunStatus(ApiModel):
     events: list[PaymentRunEvent] = []
     decision: BillDecisionView | None = None
     is_bill: bool | None = None
+    extraction_failed: bool = False
+    evidence: list[EvidenceFileView] = []
