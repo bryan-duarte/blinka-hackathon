@@ -1,1 +1,44 @@
 @import "tailwindcss";
+
+/*
+  Direction: DESIGN.md. Warm paper canvas, ink headlines, muted supporting
+  text, hairline rules, one cobalt accent for actions and focus, Inter with
+  tabular numerals for money. Danger and warning are app-only state colors.
+*/
+@theme {
+  --color-canvas: #f7f7f4;
+  --color-panel: #ffffff;
+  --color-sunken: #f0f2f4;
+  --color-line: #dedfdc;
+  --color-ink: #1c253a;
+  --color-muted: #656975;
+  --color-accent: #2a4bd0;
+  --color-accent-hover: #2342bd;
+  --color-accent-wash: #f3f5fd;
+  --color-danger: oklch(0.52 0.19 27);
+  --color-danger-soft: oklch(0.96 0.03 27);
+  --color-warning: oklch(0.55 0.13 70);
+  --color-warning-soft: oklch(0.96 0.05 85);
+  --color-success: #007456;
+  --color-success-soft: oklch(0.96 0.04 165);
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -8,8 +8,11 @@ from contracts._base import ApiModel, StrictModel
 
 class PromptId(StrEnum):
     MAIN_AGENT = "main_agent"
-    PAYMENT_AGENT = "payment_agent"
-    INVOICE_EXTRACTION = "invoice_extraction"
+    BILL_CLASSIFICATION = "bill_classification"
+    SERVICE_EXTRACTION = "service_extraction"
+    PERSON_EXTRACTION = "person_extraction"
+    COMPANY_EXTRACTION = "company_extraction"
+    PAYMENT_CHECKER = "payment_checker"
     EMAIL_TRIAGE = "email_triage"
     HELLO_WORLD = "hello_world"
 

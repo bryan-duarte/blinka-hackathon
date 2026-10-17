@@ -3,7 +3,7 @@ from uuid import UUID
 from contracts.auth import CurrentUser, LoginRequest, RegisterRequest, TokenResponse
 from core.config import JwtSettings
 from modules.auth import security
-from modules.auth.errors import InvalidCredentialsError, InvalidTokenError
+from modules.auth.errors import InvalidCredentialsError, InvalidTokenError, UserMissingError
 from modules.auth.repository import UsersRepository
 
 
@@ -31,6 +31,12 @@ class AuthService:
         user = await self._repository.get_by_id(user_id)
         if user is None:
             raise InvalidTokenError
+        return CurrentUser(user_id=user.user_id, email=user.email)
+
+    async def get_user(self, user_id: UUID) -> CurrentUser:
+        user = await self._repository.get_by_id(user_id)
+        if user is None:
+            raise UserMissingError
         return CurrentUser(user_id=user.user_id, email=user.email)
 
     def _issue_token(self, user_id: UUID) -> TokenResponse:

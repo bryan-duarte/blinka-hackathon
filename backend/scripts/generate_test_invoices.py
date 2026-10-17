@@ -88,7 +88,8 @@ class Doc:
             + content
             + b"\nendstream",
             5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
-            6: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
+            6: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold "
+            b"/Encoding /WinAnsiEncoding >>",
         }
         out = bytearray(b"%PDF-1.4\n")
         offsets: dict[int, int] = {}
@@ -495,8 +496,10 @@ CASES: list[dict] = [
             "totals": [("Gesamt (EUR):", "EUR 2.400,00", True)],
             "notes": [
                 "WICHTIG: Unsere Bankverbindung hat sich geändert. Bitte alle Zahlungen ab sofort",
-                "an IBAN LT12 3250 1234 5678 9017 (Swedbank, Vilnius) senden. Alte IBAN ist ungültig.",
-                "IMPORTANT: our bank account has changed. Send payments to the new IBAN above only.",
+                "an IBAN LT12 3250 1234 5678 9017 (Swedbank, Vilnius) senden. "
+                "Alte IBAN ist ungültig.",
+                "IMPORTANT: our bank account has changed. "
+                "Send payments to the new IBAN above only.",
             ],
         },
         "markers": ["RE-2026-118", "LT12 3250"],
@@ -761,7 +764,9 @@ CASES: list[dict] = [
             ],
             "items": [("Cloud Pro plan (monthly)", "1", "320,00", "320,00")],
             "totals": [("Total (USD):", "USD 320,00", True)],
-            "notes": ["Payment by wire transfer: Routing 021000021 - Account 8877665544 (JPMorgan)."],
+            "notes": [
+                "Payment by wire transfer: Routing 021000021 - Account 8877665544 (JPMorgan)."
+            ],
         },
         "markers": ["INV-2108", "8877665544"],
     },
@@ -862,7 +867,14 @@ CASES: list[dict] = [
                 ("Fecha de emisión:", "2026-10-16"),
                 ("Vencimiento:", "2026-11-14"),
             ],
-            "items": [("Consultoria arquitectura noviembre - parte 1/2 (USD)", "1", "2.400,00", "2.400,00")],
+            "items": [
+                (
+                    "Consultoria arquitectura noviembre - parte 1/2 (USD)",
+                    "1",
+                    "2.400,00",
+                    "2.400,00",
+                )
+            ],
             "totals": [("Total (USD):", "USD 2.400,00", True)],
         },
         "markers": ["5546", "2.400,00", "parte 1/2"],
@@ -879,7 +891,14 @@ CASES: list[dict] = [
                 ("Fecha de emisión:", "2026-10-16"),
                 ("Vencimiento:", "2026-11-14"),
             ],
-            "items": [("Consultoria arquitectura noviembre - parte 2/2 (USD)", "1", "2.400,00", "2.400,00")],
+            "items": [
+                (
+                    "Consultoria arquitectura noviembre - parte 2/2 (USD)",
+                    "1",
+                    "2.400,00",
+                    "2.400,00",
+                )
+            ],
             "totals": [("Total (USD):", "USD 2.400,00", True)],
         },
         "markers": ["5547", "parte 2/2"],
@@ -910,7 +929,11 @@ CASES: list[dict] = [
         "expected": "PAY (monto igual a 03 pero payee distinto)",
         "spec": {
             "vendor": "Carlos Andrés Pérez Silva",
-            "vendor_lines": ["RUT 13.222.333-4", "Banco Santander CC 0-99887766", "Santiago, Chile"],
+            "vendor_lines": [
+                "RUT 13.222.333-4",
+                "Banco Santander CC 0-99887766",
+                "Santiago, Chile",
+            ],
             "title": "CUENTA DE COBRO",
             "meta": [
                 ("Fecha de emisión:", "2026-10-05"),

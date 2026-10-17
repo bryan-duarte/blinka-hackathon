@@ -1,15 +1,20 @@
 import base64
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 from contracts.auth import CurrentUser
-from contracts.files import FileParseStatus
-from contracts.invoices import InvoiceData, InvoiceParseResult
+from contracts.bills import BillDocument
+from contracts.files import StoredFileContent
+from contracts.llm import ModelKind
+from contracts.payment_candidates import (
+    CANDIDATE_SCHEMAS,
+    BillClassification,
+    PaymentCandidateBase,
+)
+from contracts.payment_policy import PayeeKind
 from contracts.prompts import PromptId
 from core.agents import MessageContent
 from core.logging_config import get_logger
-from modules.invoice_ingestor.errors import InvoiceParseError
-from modules.invoice_ingestor.repository import InvoicesRepository
+from modules.invoice_ingestor.errors import BillClassificationError, InvoiceParseError
 
 if TYPE_CHECKING:
     from clients.files import FilesClient
@@ -19,8 +24,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 PDF_MIME = "application/pdf"
-PDF_EXTRACTION_INSTRUCTION = "Extract the invoice data from this PDF."
-PDF_UPLOAD_FILENAME = "invoice.pdf"
+PDF_ATTACHMENT_NOTE = "The attached PDF is the bill document."
+READING_MODEL_KIND: ModelKind = "main"
+EXTRACTION_PROMPTS: dict[PayeeKind, PromptId] = {
+    PayeeKind.SERVICE: PromptId.SERVICE_EXTRACTION,
+    PayeeKind.PERSON: PromptId.PERSON_EXTRACTION,
+    PayeeKind.COMPANY: PromptId.COMPANY_EXTRACTION,
+}
 
 
 class InvoiceIngestorService:
@@ -29,47 +39,67 @@ class InvoiceIngestorService:
         files: "FilesClient",
         llm: "LlmGatewayClient",
         prompts: "PromptsClient",
-        repository: InvoicesRepository,
     ) -> None:
         self._files = files
         self._llm = llm
         self._prompts = prompts
-        self._repository = repository
 
-    async def parse(self, owner: CurrentUser, file_id: UUID) -> InvoiceParseResult:
-        await self._files.get(owner, file_id)
-        cached_invoice = await self._repository.get(file_id)
-        if cached_invoice is not None:
-            return InvoiceParseResult(file_id=file_id, invoice=cached_invoice)
-        file_content = await self._files.read_bytes(owner, file_id)
+    async def classify(self, owner: CurrentUser, document: BillDocument) -> BillClassification:
+        user_content = await self._user_content(owner, document)
         try:
-            invoice = await self._extract_invoice(file_content.file.mime, file_content.content)
+            return await self._llm.extract(
+                model_kind=READING_MODEL_KIND,
+                system=self._prompts.get_text_prompt(PromptId.BILL_CLASSIFICATION),
+                user_content=user_content,
+                schema=BillClassification,
+            )
+        except Exception as classification_error:
+            logger.exception("bill_classification_failed", file_id=document.file_id)
+            raise BillClassificationError from classification_error
+
+    async def extract_candidate(
+        self, owner: CurrentUser, document: BillDocument, kind: PayeeKind
+    ) -> PaymentCandidateBase:
+        user_content = await self._user_content(owner, document)
+        try:
+            return await self._llm.extract(
+                model_kind=READING_MODEL_KIND,
+                system=self._prompts.get_text_prompt(EXTRACTION_PROMPTS[kind]),
+                user_content=user_content,
+                schema=CANDIDATE_SCHEMAS[kind],
+            )
         except Exception as extraction_error:
-            logger.exception("invoice_parse_failed", file_id=file_id)
+            logger.exception("candidate_extraction_failed", kind=kind, file_id=document.file_id)
             raise InvoiceParseError from extraction_error
-        await self._repository.upsert(file_id, invoice)
-        await self._files.set_parse_status(file_id, FileParseStatus.PARSED)
-        return InvoiceParseResult(file_id=file_id, invoice=invoice)
 
-    async def _extract_invoice(self, mime: str, content: bytes) -> InvoiceData:
-        return await self._llm.extract(
-            model_kind="main",
-            system=self._prompts.get_text_prompt(PromptId.INVOICE_EXTRACTION),
-            user_content=_build_user_content(mime, content),
-            schema=InvoiceData,
+    async def _user_content(self, owner: CurrentUser, document: BillDocument) -> MessageContent:
+        attachment = None
+        if document.file_id is not None:
+            attachment = await self._files.read_bytes(owner, document.file_id)
+        return _build_user_content(document, attachment)
+
+
+def _build_user_content(
+    document: BillDocument, attachment: StoredFileContent | None
+) -> MessageContent:
+    envelope = (
+        f"<sender>{document.sender}</sender>\n<email_body>\n{document.body_text}\n</email_body>"
+    )
+    blocks: list[str | dict] = [{"type": "text", "text": envelope}]
+    if attachment is None:
+        return blocks
+    if attachment.file.mime == PDF_MIME:
+        encoded_pdf = base64.b64encode(attachment.content).decode()
+        blocks.append({"type": "text", "text": PDF_ATTACHMENT_NOTE})
+        blocks.append(
+            {
+                "type": "file",
+                "base64": encoded_pdf,
+                "mime_type": PDF_MIME,
+                "filename": attachment.file.filename,
+            }
         )
-
-
-def _build_user_content(mime: str, content: bytes) -> MessageContent:
-    if mime != PDF_MIME:
-        return content.decode("utf-8", errors="replace")
-    encoded_pdf = base64.b64encode(content).decode()
-    return [
-        {"type": "text", "text": PDF_EXTRACTION_INSTRUCTION},
-        {
-            "type": "file",
-            "base64": encoded_pdf,
-            "mime_type": PDF_MIME,
-            "filename": PDF_UPLOAD_FILENAME,
-        },
-    ]
+        return blocks
+    attachment_text = attachment.content.decode("utf-8", errors="replace")
+    blocks.append({"type": "text", "text": f"<attachment>\n{attachment_text}\n</attachment>"})
+    return blocks

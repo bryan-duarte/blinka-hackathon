@@ -21,6 +21,9 @@ dependencies = [
     "structlog>=25",
     "python-multipart>=0.0.20",
     "pypdf>=5",
+    "composio==0.28.0",
+    "composio-client==2.0.0rc17",
+    "httpx>=0.28",
 ]
 
 [dependency-groups]
@@ -28,7 +31,6 @@ dev = [
     "ruff>=0.11",
     "pytest>=9",
     "pytest-asyncio>=1.4",
-    "httpx>=0.28",
 ]
 
 [tool.uv]

@@ -5,7 +5,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from contracts.guardrails import GuardrailVerdict, GuardrailViolation
 from modules.guardrails.errors import GuardrailUnavailableError
-from modules.guardrails.service import GuardrailBackend
 
 GUARD_SOURCE = "INPUT"
 GUARD_QUALIFIERS = ["guard_content"]

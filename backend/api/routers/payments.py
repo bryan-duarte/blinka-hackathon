@@ -3,8 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, status
 
 from api.deps import ClientsDep, CurrentUserDep
+from contracts.bills import UPLOAD_SOURCE_REF_PREFIX, BillSourceType
 from contracts.guardrails import GuardrailCheckRequest
-from contracts.payments import PaymentRunAccepted, PaymentRunStatus, PaymentRunTrigger
+from contracts.payments import PaymentRunAccepted, PaymentRunStatus, UploadRunRequest
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -13,11 +14,13 @@ payments_router = APIRouter(prefix="/payments", tags=["payments"])
     "/runs", response_model=PaymentRunAccepted, status_code=status.HTTP_202_ACCEPTED
 )
 async def trigger_run(
-    trigger: PaymentRunTrigger, user: CurrentUserDep, clients: ClientsDep
+    request: UploadRunRequest, user: CurrentUserDep, clients: ClientsDep
 ) -> PaymentRunAccepted:
-    guardrail_context = f"payment run for file {trigger.file_id}"
+    guardrail_context = f"payment run for file {request.file_id}"
     await clients.guardrails.require_allowed(GuardrailCheckRequest(context=guardrail_context))
-    return await clients.payments.start_run(trigger, user)
+    return await clients.payments.start_file_run(
+        user, request.file_id, BillSourceType.UPLOAD, f"{UPLOAD_SOURCE_REF_PREFIX}{request.file_id}"
+    )
 
 
 @payments_router.get("/runs/{run_id}", response_model=PaymentRunStatus)

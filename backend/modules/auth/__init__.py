@@ -3,6 +3,7 @@ from modules.auth.errors import (
     EmailTakenError,
     InvalidCredentialsError,
     InvalidTokenError,
+    UserMissingError,
 )
 from modules.auth.repository import UsersRepository
 from modules.auth.service import AuthService
@@ -13,5 +14,6 @@ __all__ = [
     "EmailTakenError",
     "InvalidCredentialsError",
     "InvalidTokenError",
+    "UserMissingError",
     "UsersRepository",
 ]

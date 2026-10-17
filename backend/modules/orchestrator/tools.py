@@ -5,7 +5,7 @@ from uuid import UUID
 from langchain_core.tools import BaseTool, tool
 
 from contracts.auth import CurrentUser
-from contracts.payments import PaymentRunTrigger
+from contracts.bills import BillSourceType
 
 if TYPE_CHECKING:
     from clients.payments import PaymentsClient
@@ -18,14 +18,20 @@ def build_initiate_payments_tool(
 ) -> BaseTool:
     @tool(INITIATE_PAYMENTS_TOOL_NAME)
     async def initiate_payments(file_id: UUID, reason: str = "") -> dict:
-        """Start a background invoice payment run for the given invoice file.
+        """Send an uploaded bill to the payments agent, which decides to pay, hold or escalate it.
 
-        Returns the run id immediately; the payment executes in the background.
+        Returns the run id immediately and whether this bill was already received.
         Always report the returned run id to the user.
         """
-        trigger = PaymentRunTrigger(file_id=file_id, session_id=session_id)
-        accepted = await payments.start_run(trigger, owner)
-        return {"run_id": str(accepted.run_id), "status": str(accepted.status)}
+        accepted = await payments.start_file_run(
+            owner,
+            file_id,
+            BillSourceType.CHAT,
+            f"{session_id}:{file_id}",
+            body_text=reason,
+            session_id=session_id,
+        )
+        return accepted.model_dump(mode="json")
 
     return initiate_payments
 

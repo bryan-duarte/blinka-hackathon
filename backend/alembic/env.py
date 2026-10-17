@@ -20,8 +20,10 @@ if config.config_ini_section == "payments":
     from core.db.base import PaymentsBase as target_base
 else:
     import modules.auth.models  # noqa: F401
+    import modules.bills.models  # noqa: F401
     import modules.files.models  # noqa: F401
-    import modules.invoice_ingestor.models  # noqa: F401
+    import modules.inbox.models  # noqa: F401
+    import modules.payment_policy.models  # noqa: F401
     import modules.payments.models  # noqa: F401
     import modules.sessions.models  # noqa: F401
     from core.db.base import ProductBase as target_base

@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from contracts.auth import CurrentUser, LoginRequest, RegisterRequest, TokenResponse
 
@@ -18,3 +19,6 @@ class AuthClient:
 
     async def user_from_token(self, token: str) -> CurrentUser:
         return await self._service.user_from_token(token)
+
+    async def get_user(self, user_id: UUID) -> CurrentUser:
+        return await self._service.get_user(user_id)

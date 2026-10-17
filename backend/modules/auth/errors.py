@@ -12,3 +12,7 @@ class InvalidCredentialsError(AuthError):
 
 class InvalidTokenError(AuthError):
     pass
+
+
+class UserMissingError(AuthError):
+    pass

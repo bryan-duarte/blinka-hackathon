@@ -1,145 +1,189 @@
 import asyncio
-from collections.abc import Coroutine
-from dataclasses import dataclass
-from functools import partial
-from typing import TYPE_CHECKING
+import re
 from uuid import UUID
 
-from langchain_core.messages import HumanMessage
-from langgraph.checkpoint.base import BaseCheckpointSaver
-
 from contracts.auth import CurrentUser
-from contracts.invoices import InvoiceData, InvoiceParseResult
-from contracts.payments import RunStatus
-from contracts.prompts import PromptId
-from core.agents import last_reply_text, thread_config
+from contracts.bills import BillClaim, BillDocument, BillFields, BillSourceRecord, BillStatus
+from contracts.payment_candidates import BillClassification, PaymentCandidateBase
+from contracts.payment_policy import PayeeMatch, PaymentPolicy
+from contracts.payments import DecisionActor, DecisionRecord, RunStatus, Verdict
 from core.logging_config import get_logger
-from modules.invoice_ingestor.errors import InvoiceParseError
-from modules.payments.agent import PAYMENTS_AGENT_NAME, build_payment_agent
-from modules.payments.repository import RunsRepository
-
-if TYPE_CHECKING:
-    from clients.invoice_ingestor import InvoiceIngestorClient
-    from clients.llm import LlmGatewayClient
-    from clients.prompts import PromptsClient
-    from clients.sessions import SessionsClient
+from modules.payments.checker import apply_checker, run_checker
+from modules.payments.context_builder import build_context
+from modules.payments.dependencies import PaymentRunDependencies
+from modules.payments.fx import to_usd
+from modules.payments.rules import decide
+from modules.payments.settlement import fail_closed, record_duplicate, settle
 
 logger = get_logger(__name__)
 
+PAYMENTS_AGENT_NAME = "payments"
+ISO_CURRENCY_CODE = re.compile(r"[A-Z]{3}")
 SHUTDOWN_CANCELLATION_REASON = "cancelled on shutdown"
-INVOICE_PARSE_FAILURE_REASON = "invoice parse failed"
+EXECUTION_SUMMARY_MAX_CHARS = 500
 
-
-class ExecutionRegistry:
-    def __init__(self) -> None:
-        self._tasks: dict[UUID, asyncio.Task[None]] = {}
-
-    def spawn(self, run_id: UUID, execution: Coroutine[object, object, None]) -> None:
-        task = asyncio.create_task(execution)
-        self._tasks[run_id] = task
-        task.add_done_callback(partial(self._reap, run_id))
-
-    def _reap(self, run_id: UUID, task: asyncio.Task[None]) -> None:
-        self._tasks.pop(run_id, None)
-        if task.cancelled():
-            return
-        task_error = task.exception()
-        if task_error is not None:
-            logger.error("run_task_crashed", run_id=run_id, exc_info=task_error)
-
-    async def shutdown(self) -> None:
-        for task in self._tasks.values():
-            task.cancel()
-        await asyncio.gather(*self._tasks.values(), return_exceptions=True)
-        self._tasks.clear()
-
-
-@dataclass(frozen=True)
-class PaymentRunDependencies:
-    repository: RunsRepository
-    llm_gateway: "LlmGatewayClient"
-    payments_checkpointer: BaseCheckpointSaver | None
-    invoice_ingestor: "InvoiceIngestorClient"
-    sessions: "SessionsClient"
-    prompts: "PromptsClient"
+STARTED_STEP = "started"
+CLASSIFIED_STEP = "classified"
+NOT_A_BILL_STEP = "not_a_bill"
+EXTRACTED_STEP = "extracted"
+CLAIMED_STEP = "claimed"
+DECIDED_STEP = "decided"
+DECISION_FAILED_STEP = "decision_failed"
+COMPLETED_STEP = "completed"
+CANCELLED_STEP = "cancelled"
+FAILED_STEP = "failed"
 
 
 async def run_execution(
     run_id: UUID,
     owner: CurrentUser,
-    file_id: UUID,
+    bill_source_id: UUID,
     session_id: UUID | None,
     dependencies: PaymentRunDependencies,
 ) -> None:
     repository = dependencies.repository
-    await repository.insert_event(run_id, "started", {})
+    await repository.insert_event(run_id, STARTED_STEP, {})
     await repository.update_status(run_id, RunStatus.RUNNING)
     try:
-        await _pay_invoice(run_id, owner, file_id, session_id, dependencies)
-    except InvoiceParseError:
-        await repository.insert_event(run_id, "invoice_parse_failed", {"file_id": str(file_id)})
-        await repository.update_status(run_id, RunStatus.FAILED, error=INVOICE_PARSE_FAILURE_REASON)
+        decision = await _decide_source(run_id, owner, bill_source_id, dependencies)
+        await repository.insert_event(run_id, COMPLETED_STEP, {})
+        await repository.update_status(run_id, RunStatus.COMPLETED)
+        logger.info("payment_run_completed", run_id=run_id)
     except asyncio.CancelledError:
-        await repository.insert_event(run_id, "cancelled", {})
+        await repository.insert_event(run_id, CANCELLED_STEP, {})
         await repository.update_status(run_id, RunStatus.FAILED, error=SHUTDOWN_CANCELLATION_REASON)
         raise
     except Exception as execution_error:
         logger.exception("payment_run_failed", run_id=run_id)
-        await repository.insert_event(run_id, "failed", {"error": str(execution_error)})
+        await repository.insert_event(run_id, FAILED_STEP, {"error": str(execution_error)})
         await repository.update_status(run_id, RunStatus.FAILED, error=str(execution_error))
+        return
+    try:
+        await _record_execution(dependencies, owner, session_id, decision)
+    except Exception:
+        logger.exception("payment_run_session_record_failed", run_id=run_id)
 
 
-async def _pay_invoice(
+async def _decide_source(
     run_id: UUID,
     owner: CurrentUser,
-    file_id: UUID,
-    session_id: UUID | None,
+    bill_source_id: UUID,
     dependencies: PaymentRunDependencies,
-) -> None:
+) -> DecisionRecord | None:
     repository = dependencies.repository
-    parse_result = await dependencies.invoice_ingestor.parse(owner, file_id)
-    invoice = _require_invoice(parse_result)
-    await repository.insert_event(run_id, "invoice_parsed", invoice.model_dump(mode="json"))
-    agent = build_payment_agent(
-        dependencies.llm_gateway.model("payments"),
-        dependencies.payments_checkpointer,
-        invoice,
-        dependencies.prompts.get_text_prompt(PromptId.PAYMENT_AGENT),
+    source = await dependencies.bills.get_source(owner.user_id, bill_source_id)
+    document = BillDocument(
+        body_text=source.body_text, file_id=source.file_id, sender=source.sender
     )
-    agent_state = await agent.ainvoke(
-        {"messages": [HumanMessage(content=_seed_message(invoice))]},
-        config=thread_config(run_id),
+    classification = await dependencies.invoice_ingestor.classify(owner, document)
+    await repository.insert_event(run_id, CLASSIFIED_STEP, classification.model_dump(mode="json"))
+    is_payable_bill = classification.is_bill and classification.kind is not None
+    if not is_payable_bill:
+        await repository.insert_event(run_id, NOT_A_BILL_STEP, {"reason": classification.reason})
+        return None
+    candidate = await dependencies.invoice_ingestor.extract_candidate(
+        owner, document, classification.kind
     )
-    reply_summary = last_reply_text(agent_state)
-    await repository.insert_event(run_id, "completed", {"summary": reply_summary})
-    await repository.update_status(run_id, RunStatus.COMPLETED)
-    await _record_execution(dependencies, owner, session_id, invoice, reply_summary)
-    logger.info("payment_run_completed", run_id=run_id)
+    await repository.insert_event(run_id, EXTRACTED_STEP, candidate.model_dump(mode="json"))
+    policy = await dependencies.policy.get_policy(owner)
+    match = await dependencies.policy.match_payee(owner.user_id, candidate, source.sender)
+    claim = await dependencies.bills.claim_bill(
+        owner.user_id, source, _bill_fields(candidate, match)
+    )
+    try:
+        await repository.set_run_bill(run_id, claim.bill.bill_id)
+        await repository.insert_event(run_id, CLAIMED_STEP, _claim_payload(claim))
+        if claim.duplicate_of is not None:
+            return await record_duplicate(
+                dependencies, run_id, claim.bill, claim.duplicate_of, policy
+            )
+        decision = await _decide_bill(
+            run_id, claim, source, candidate, match, policy, classification, dependencies
+        )
+    except Exception:
+        logger.exception("bill_decision_failed", run_id=run_id, bill_id=claim.bill.bill_id)
+        if claim.duplicate_of is not None:
+            raise
+        await repository.insert_event(run_id, DECISION_FAILED_STEP, {})
+        await fail_closed(dependencies, run_id, claim.bill, policy)
+        return None
+    await repository.insert_event(
+        run_id, DECIDED_STEP, {"verdict": decision.verdict, "bill_id": str(decision.bill_id)}
+    )
+    return decision
 
 
-def _require_invoice(parse_result: InvoiceParseResult) -> InvoiceData:
-    if parse_result.invoice is None:
-        raise InvoiceParseError
-    return parse_result.invoice
+async def _decide_bill(
+    run_id: UUID,
+    claim: BillClaim,
+    source: BillSourceRecord,
+    candidate: PaymentCandidateBase,
+    match: PayeeMatch,
+    policy: PaymentPolicy,
+    classification: BillClassification,
+    dependencies: PaymentRunDependencies,
+) -> DecisionRecord:
+    context = await build_context(
+        dependencies, claim.bill, source, candidate, match, policy, classification
+    )
+    evaluation = decide(context)
+    assessment = None
+    if evaluation.verdict is Verdict.PAY:
+        assessment = await run_checker(dependencies.llm_gateway, dependencies.prompts, context)
+        evaluation = apply_checker(evaluation, assessment, context)
+    return await settle(
+        dependencies,
+        run_id,
+        claim.bill,
+        context,
+        evaluation,
+        actor=DecisionActor.AGENT,
+        from_status=BillStatus.DECIDING,
+        checker=assessment,
+    )
 
 
-def _seed_message(invoice: InvoiceData) -> str:
-    return "Pay the following invoice end to end. Invoice data:\n" + invoice.model_dump_json()
+def _bill_fields(candidate: PaymentCandidateBase, match: PayeeMatch) -> BillFields:
+    return BillFields(
+        kind=candidate.kind,
+        payee_id=match.payee.payee_id if match.payee else None,
+        payee_name=candidate.payee_name,
+        normalized_payee_name=match.normalized_payee_name,
+        invoice_number=candidate.invoice_number,
+        amount=candidate.amount,
+        currency=_iso_currency(candidate.currency),
+        amount_usd=to_usd(candidate.amount, candidate.currency),
+        category=candidate.category,
+        due_date=candidate.due_date,
+        candidate=candidate.model_dump(mode="json"),
+    )
+
+
+def _iso_currency(currency: str | None) -> str | None:
+    normalized_currency = (currency or "").strip().upper()
+    return normalized_currency if ISO_CURRENCY_CODE.fullmatch(normalized_currency) else None
+
+
+def _claim_payload(claim: BillClaim) -> dict:
+    return {
+        "bill_id": str(claim.bill.bill_id),
+        "duplicate_of": str(claim.duplicate_of.bill_id) if claim.duplicate_of else None,
+    }
 
 
 async def _record_execution(
     dependencies: PaymentRunDependencies,
     owner: CurrentUser,
     session_id: UUID | None,
-    invoice: InvoiceData,
-    reply_summary: str,
+    decision: DecisionRecord | None,
 ) -> None:
-    if session_id is None:
+    if session_id is None or decision is None:
         return
+    bill = await dependencies.bills.get_bill(owner.user_id, decision.bill_id)
     await dependencies.sessions.record_execution(
         owner,
         session_id,
         PAYMENTS_AGENT_NAME,
-        f"invoice {invoice.number} from {invoice.vendor}",
-        reply_summary,
+        f"{bill.kind} {bill.payee_name} {bill.amount} {bill.currency}",
+        decision.explanation[:EXECUTION_SUMMARY_MAX_CHARS],
     )
