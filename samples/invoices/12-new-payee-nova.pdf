@@ -1,0 +1,57 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 1067 >>
+stream
+BT /F2 14 Tf 54.0 719.1 Td (Nova Tech Solutions LLC) Tj ET
+BT /F1 9 Tf 54.0 707.0 Td (EIN 98-7654321) Tj ET
+BT /F1 9 Tf 54.0 694.8 Td (480 Pine Rd, Austin, TX) Tj ET
+BT /F1 9 Tf 54.0 682.7 Td (billing@novatechsolutions.example) Tj ET
+BT /F2 12 Tf 54.0 658.5 Td (INVOICE) Tj ET
+BT /F1 10 Tf 54.0 645.0 Td (Invoice number:) Tj ET
+BT /F1 10 Tf 511.4 645.0 Td (NTS-4471) Tj ET
+BT /F1 10 Tf 54.0 631.5 Td (Issue date:) Tj ET
+BT /F1 10 Tf 506.9 631.5 Td (2026-10-09) Tj ET
+BT /F1 10 Tf 54.0 618.0 Td (Due date:) Tj ET
+BT /F1 10 Tf 506.9 618.0 Td (2026-11-08) Tj ET
+BT /F2 9 Tf 54.0 597.6 Td (Detalle) Tj ET
+BT /F2 9 Tf 330.0 597.6 Td (Cant.) Tj ET
+BT /F2 9 Tf 420.0 597.6 Td (Precio unit.) Tj ET
+BT /F2 9 Tf 500.0 597.6 Td (Total) Tj ET
+BT /F1 9 Tf 54.0 584.1 Td (Monitoring stack setup) Tj ET
+BT /F1 9 Tf 330.0 584.1 Td (1) Tj ET
+BT /F1 9 Tf 420.0 584.1 Td (450.00) Tj ET
+BT /F1 9 Tf 500.0 584.1 Td (450.00) Tj ET
+BT /F1 10 Tf 54.0 564.6 Td (Total \(USD\):) Tj ET
+BT /F2 10 Tf 499.3 564.6 Td (USD 450.00) Tj ET
+BT /F1 8 Tf 54.0 539.8 Td (Gracias por su preferencia.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000001370 00000 n 
+0000001467 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1569
+%%EOF
