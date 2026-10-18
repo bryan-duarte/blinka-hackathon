@@ -396,7 +396,14 @@ pnpm dev
 
 ## Try it
 
-1. Open the [live console](https://blinkachallengue.bryanjavier.com) and sign in with the demo account (shared with evaluators on request).
+1. Open the [live console](https://blinkachallengue.bryanjavier.com) and sign in with the demo account:
+
+   | | |
+   |---|---|
+   | **URL** | [blinkachallengue.bryanjavier.com](https://blinkachallengue.bryanjavier.com) |
+   | **Email** | `demo@blinka.dev` |
+   | **Password** | `blinka2026bryan` |
+
 2. Launch any of the **30 demo scenarios** from the Demo panel in one click, or
 3. Send a real invoice from [`samples/demo-kit`](samples/demo-kit/README.md) to the connected inbox and watch the agent decide, live.
 
