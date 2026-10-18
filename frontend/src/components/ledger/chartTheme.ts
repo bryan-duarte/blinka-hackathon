@@ -3,14 +3,14 @@ import { useSyncExternalStore } from "react";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 const TOKEN_FALLBACKS = {
-  paid: ["--color-muted", "#656975"],
-  escalated: ["--color-accent", "#2a4bd0"],
-  stopped: ["--color-night", "#111720"],
-  neutral: ["--color-nav-ink", "#505563"],
-  track: ["--color-sunken", "#f0f2f4"],
-  grid: ["--color-line", "#dedfdc"],
-  axis: ["--color-muted", "#656975"],
-  label: ["--color-ink", "#1c253a"],
+  paid: ["--color-muted", "#73737c"],
+  escalated: ["--color-iris", "#635bff"],
+  stopped: ["--color-night", "#010110"],
+  neutral: ["--color-nav-ink", "#010110"],
+  track: ["--color-sunken", "#f7f7f7"],
+  grid: ["--color-ash", "#d9d9d9"],
+  axis: ["--color-muted", "#73737c"],
+  label: ["--color-ink", "#010110"],
   surface: ["--color-panel", "#ffffff"],
 } as const;
 

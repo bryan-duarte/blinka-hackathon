@@ -39,7 +39,7 @@ export default function ReviewQueuePage() {
   return (
     <ConsoleShell>
       <ConsoleTopBar
-        title="Review queue"
+        title="Approvals"
         caption="Invoices from any source (email, chat or upload) waiting for a human decision."
       />
       <main className="w-full max-w-3xl flex-1 space-y-4 px-4 py-6 md:px-8">

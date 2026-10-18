@@ -1,61 +1,71 @@
 @import "tailwindcss";
 
 /*
-  Direction: DESIGN.md. Cobalt-ink ledger on warm paper: paper canvas, white
-  raised surfaces, ink text, 1px line rules, one cobalt for actions and focus,
-  weight 300 type with tabular numerals, 4px corners, no shadows.
-  The guide allows no extra hues, so the status roles below (success,
-  warning, danger) are mapped onto the monochrome palette: "needs a person"
-  is cobalt, "paid" is neutral gray, "held or blocked" is night.
+  Direction: DESIGN.md. Ink on marble: white canvas, obsidian ink for text and
+  every filled action, 1px hairlines at 12% ink, Source Serif 4 (ABC Favorit
+  substitute) at weight 400 for display, Inter for UI, pill buttons, 8px cards,
+  no shadows. Iris violet only for link hover and the announcement band; deep
+  teal only inside artwork; carbon/graphite only as full-bleed dark bands.
+  The guide allows no extra hues, so the status roles (success, warning,
+  danger) map onto ink and are told apart by fill, outline and copy.
 */
 @theme {
-  --color-canvas: #f7f7f4;
+  --color-canvas: #ffffff;
   --color-panel: #ffffff;
-  --color-sunken: #f0f2f4;
-  --color-sunken-hover: #e9ecf2;
-  --color-line: #dedfdc;
-  --color-selection: #dce2ef;
-  --color-soft-edge: #e0e6f0;
-  --color-ink: #1c253a;
-  --color-ink-hover: #334360;
-  --color-nav-ink: #505563;
-  --color-muted: #656975;
-  --color-quiet: #929ba8;
-  --color-accent: #2a4bd0;
-  --color-accent-hover: #2342bd;
-  --color-accent-wash: #f3f5fd;
-  --color-route-wash: #2a4bd00c;
-  --color-night: #111720;
-  --color-dark-focus: #b9c8ff;
+  --color-sunken: #f7f7f7;
+  --color-sunken-hover: #d9d9d9;
+  --color-line: rgb(1 1 16 / 0.12);
+  --color-selection: rgb(1 1 16 / 0.25);
+  --color-soft-edge: rgb(1 1 16 / 0.12);
+  --color-ink: #010110;
+  --color-ink-hover: #22222a;
+  --color-nav-ink: #010110;
+  --color-muted: #73737c;
+  --color-quiet: #73737c;
+  --color-accent: #010110;
+  --color-accent-hover: #635bff;
+  --color-accent-wash: #f7f7f7;
+  --color-route-wash: rgb(1 1 16 / 0.04);
+  --color-night: #010110;
+  --color-dark-focus: #ffffff;
 
-  --color-warning: #2a4bd0;
-  --color-warning-soft: #f3f5fd;
-  --color-success: #505563;
-  --color-success-soft: #f0f2f4;
-  --color-danger: #111720;
-  --color-danger-soft: #f0f2f4;
+  --color-iris: #635bff;
+  --color-ash: #d9d9d9;
+  --color-carbon: #111117;
+  --color-graphite: #22222a;
+  --color-deep-teal: #072723;
 
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
+  --color-warning: #010110;
+  --color-warning-soft: #ffffff;
+  --color-success: #010110;
+  --color-success-soft: #f7f7f7;
+  --color-danger: #010110;
+  --color-danger-soft: #f7f7f7;
 
-  --font-weight-medium: 400;
-  --font-weight-semibold: 400;
-  --font-weight-bold: 400;
+  --radius: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
 
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 @theme inline {
-  --font-sans: var(--font-inter-tight), "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), "Source Serif 4", Georgia, serif;
 }
 
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-weight: 300;
-  letter-spacing: -0.01em;
-  font-feature-settings: "ss01" on, "tnum" on;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Display face: weight 400, -0.03em tracking at every display size. */
+.font-serif {
+  font-weight: 400;
+  letter-spacing: -0.03em;
 }
 
 @media (prefers-reduced-motion: reduce) {

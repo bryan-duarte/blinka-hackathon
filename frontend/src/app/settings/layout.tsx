@@ -6,9 +6,9 @@ import { ConsoleShell, ConsoleTopBar } from "@/components/console/ConsoleShell";
 import { tokenStore } from "@/lib/api";
 
 const SETTINGS_TABS = [
-  { href: "/settings/policy", label: "Policy" },
+  { href: "/settings/policy", label: "Payment policy" },
   { href: "/settings/payees", label: "Payees" },
-  { href: "/settings/blacklist", label: "Blacklist" },
+  { href: "/settings/blacklist", label: "Blocked list" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

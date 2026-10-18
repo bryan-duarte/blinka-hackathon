@@ -55,7 +55,7 @@ export default function RunsPage() {
 
   return (
     <ConsoleShell>
-      <ConsoleTopBar title="Executions" caption="Every run of the payments agent, including failed ones" />
+      <ConsoleTopBar title="Agent runs" caption="Every run of the payments agent, including failed ones" />
       <main className="flex flex-1 flex-col gap-4 px-4 py-6 md:px-8">
         <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-1">
           {STATUS_FILTERS.map((filter) => {

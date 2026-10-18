@@ -32,7 +32,7 @@ const EXCHANGE_RATE_API_URL = "https://www.exchangerate-api.com";
 export default function LedgerPage() {
   return (
     <ConsoleShell>
-      <Suspense fallback={<ConsoleTopBar title="Agent ledger" caption="Every decision the agent made, and why" />}>
+      <Suspense fallback={<ConsoleTopBar title="Decisions" caption="Every decision the agent made, and why" />}>
         <LedgerContent />
       </Suspense>
     </ConsoleShell>
@@ -129,7 +129,7 @@ function LedgerContent() {
   return (
     <>
       <ConsoleTopBar
-        title="Agent ledger"
+        title="Decisions"
         caption="Every decision the agent made, and why"
         actions={
           <button type="button" onClick={exportCsv} disabled={isExporting} className={`${SECONDARY_BUTTON_CLASS} h-9 px-4`}>

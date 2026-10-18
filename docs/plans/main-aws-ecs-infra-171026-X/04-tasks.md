@@ -46,8 +46,8 @@
 - [x] Print the last 30 log lines if the wait fails
 
 ### 8. Bring-up (manual, once)
-- [ ] `terraform -chdir=infra init -upgrade && terraform -chdir=infra apply -var domain_name=... -var frontend_origin=...`
-- [ ] `infra/deploy.sh`, then `curl https://api.<domain>/health`
+- [x] `terraform -chdir=infra init -upgrade && terraform -chdir=infra apply -var domain_name=... -var frontend_origin=...`
+- [x] `infra/deploy.sh`, then `curl https://api.<domain>/health`
 - [ ] Fill the `assign_later` params in the SSM console, then run `infra/deploy.sh --restart`
 - [ ] Copy `terraform output -raw jwt_secret` into the local `backend/.env` (`BLINKA_JWT__SECRET`)
 - [ ] Set `NEXT_PUBLIC_API_URL=https://api.<domain>` in Vercel; point the Composio trigger webhook at `https://api.<domain>/webhooks/mail`
