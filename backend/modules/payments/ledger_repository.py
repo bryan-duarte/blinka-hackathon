@@ -7,6 +7,7 @@ from sqlalchemy import Select, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from contracts.bills import BillStatus
 from contracts.fx import FxSource
 from contracts.payment_policy import PaymentCategory
 from contracts.payments import (
@@ -19,6 +20,8 @@ from contracts.payments import (
     Verdict,
 )
 from core.logging_config import get_logger
+from modules.bills.errors import BillStateConflictError
+from modules.bills.models import BillRow
 from modules.payments.budget import BudgetCharge
 from modules.payments.errors import BudgetExhaustedError, PaymentStateError
 from modules.payments.models import (
@@ -56,66 +59,51 @@ class LedgerRepository:
     def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
         self._sessionmaker = sessionmaker
 
-    async def reserve(self, request: ReservationRequest) -> PaymentRecord:
-        payment_insert = (
-            insert(PaymentRow)
-            .values(
-                owner_id=request.owner_id,
-                bill_id=request.bill_id,
-                idempotency_key=f"{IDEMPOTENCY_KEY_PREFIX}{request.bill_id}",
-                payee_id=request.payee_id,
-                amount=request.amount,
-                currency=request.currency,
-                amount_usd=request.amount_usd,
-                fx_usd_per_unit=request.fx_usd_per_unit,
-                fx_rate_date=request.fx_rate_date,
-                fx_source=request.fx_source,
-                category=request.category,
-                period=request.period,
-                scopes=[charge.scope for charge in request.charges],
-                status=LedgerStatus.RESERVED,
-            )
-            .on_conflict_do_nothing(constraint=PAYMENT_BILL_CONSTRAINT)
-            .returning(PaymentRow)
-        )
-        async with self._sessionmaker() as session, session.begin():
-            claimed = (await session.execute(payment_insert)).scalar_one_or_none()
-            if claimed is None:
-                existing = await _payment_for_bill(session, request.bill_id)
-                return _to_payment(existing)
-            for charge in sorted(request.charges, key=lambda charge: charge.scope):
-                await _charge_counter(session, request, charge)
-        logger.info("payment_reserved", bill_id=request.bill_id, amount_usd=str(request.amount_usd))
-        return _to_payment(claimed)
-
-    # TEMPORAL: dummy rail; replace with the real payout call keyed by idempotency_key.
     async def execute(self, payment_id: UUID) -> PaymentRecord:
-        payment = await self._require_payment(payment_id)
-        rail_reference = str(uuid5(PAYMENTS_NAMESPACE, payment.idempotency_key))
-        statement = (
-            update(PaymentRow)
-            .where(PaymentRow.id == payment_id, PaymentRow.status == LedgerStatus.RESERVED)
-            .values(
-                status=LedgerStatus.EXECUTED,
-                rail_reference=rail_reference,
-                executed_at=func.now(),
-                updated_at=func.now(),
-            )
-            .returning(PaymentRow)
-        )
-        async with self._sessionmaker() as session:
-            executed = (await session.execute(statement)).scalar_one_or_none()
-            await session.commit()
-        if executed is None:
-            return await self._require_payment(payment_id)
-        logger.info("payment_executed", payment_id=payment_id, rail_reference=rail_reference)
-        return _to_payment(executed)
+        async with self._sessionmaker() as session, session.begin():
+            payment = await session.get(PaymentRow, payment_id)
+            if payment is None:
+                raise PaymentStateError
+            executed = await _execute_reserved(session, payment)
+        return _to_payment(executed or payment)
 
-    async def get_payment(self, payment_id: UUID) -> PaymentRecord | None:
-        statement = select(PaymentRow).where(PaymentRow.id == payment_id)
-        async with self._sessionmaker() as session:
-            payment = (await session.execute(statement)).scalar_one_or_none()
-        return _to_payment(payment) if payment else None
+    async def commit_settlement(
+        self,
+        owner_id: UUID,
+        bill_id: UUID,
+        from_status: BillStatus,
+        target_status: BillStatus,
+        reservation: ReservationRequest | None,
+        decision: DecisionRecord,
+    ) -> DecisionRecord:
+        # Only cross-module write: the bill CAS shares the money transaction so funds never
+        # move for a bill whose state changed underneath.
+        bill_claim = (
+            update(BillRow)
+            .where(
+                BillRow.id == bill_id, BillRow.owner_id == owner_id, BillRow.status == from_status
+            )
+            .values(status=target_status, version=BillRow.version + 1, updated_at=func.now())
+            .returning(BillRow.id)
+        )
+        decision_row = _decision_row(decision)
+        async with self._sessionmaker() as session, session.begin():
+            claimed_bill_id = (await session.execute(bill_claim)).scalar_one_or_none()
+            if claimed_bill_id is None:
+                raise BillStateConflictError
+            if reservation is not None:
+                payment = await _insert_reservation(session, reservation)
+                await _execute_reserved(session, payment)
+            session.add(decision_row)
+            await session.flush()
+            await session.refresh(decision_row)
+        logger.info(
+            "bill_settled",
+            bill_id=bill_id,
+            target_status=target_status,
+            is_paid=reservation is not None,
+        )
+        return _to_decision(decision_row)
 
     async def payment_for_bill(self, bill_id: UUID) -> PaymentRecord | None:
         async with self._sessionmaker() as session:
@@ -129,19 +117,7 @@ class LedgerRepository:
         return [_to_payment(payment) for payment in payments]
 
     async def append_decision(self, decision: DecisionRecord) -> DecisionRecord:
-        decision_row = PaymentDecisionRow(
-            bill_id=decision.bill_id,
-            run_id=decision.run_id,
-            actor=decision.actor,
-            actor_user_id=decision.actor_user_id,
-            verdict=decision.verdict,
-            rule_results=[result.model_dump(mode="json") for result in decision.rule_results],
-            checker=decision.checker.model_dump(mode="json") if decision.checker else None,
-            explanation=decision.explanation,
-            policy_id=decision.policy_id,
-            policy_version=decision.policy_version,
-            note=decision.note,
-        )
+        decision_row = _decision_row(decision)
         async with self._sessionmaker() as session, session.begin():
             session.add(decision_row)
             await session.flush()
@@ -195,16 +171,61 @@ class LedgerRepository:
             counters = (await session.execute(statement)).all()
         return {scope: reserved_usd for scope, reserved_usd in counters}
 
-    async def _require_payment(self, payment_id: UUID) -> PaymentRecord:
-        payment = await self.get_payment(payment_id)
-        if payment is None:
-            raise PaymentStateError
-        return payment
-
     async def _decisions(self, statement) -> list[DecisionRecord]:
         async with self._sessionmaker() as session:
             decisions = (await session.execute(statement)).scalars().all()
         return [_to_decision(decision) for decision in decisions]
+
+
+async def _insert_reservation(session: AsyncSession, request: ReservationRequest) -> PaymentRow:
+    payment_insert = (
+        insert(PaymentRow)
+        .values(
+            owner_id=request.owner_id,
+            bill_id=request.bill_id,
+            idempotency_key=f"{IDEMPOTENCY_KEY_PREFIX}{request.bill_id}",
+            payee_id=request.payee_id,
+            amount=request.amount,
+            currency=request.currency,
+            amount_usd=request.amount_usd,
+            fx_usd_per_unit=request.fx_usd_per_unit,
+            fx_rate_date=request.fx_rate_date,
+            fx_source=request.fx_source,
+            category=request.category,
+            period=request.period,
+            scopes=[charge.scope for charge in request.charges],
+            status=LedgerStatus.RESERVED,
+        )
+        .on_conflict_do_nothing(constraint=PAYMENT_BILL_CONSTRAINT)
+        .returning(PaymentRow)
+    )
+    reserved = (await session.execute(payment_insert)).scalar_one_or_none()
+    if reserved is None:
+        return await _payment_for_bill(session, request.bill_id)
+    for charge in sorted(request.charges, key=lambda charge: charge.scope):
+        await _charge_counter(session, request, charge)
+    logger.info("payment_reserved", bill_id=request.bill_id, amount_usd=str(request.amount_usd))
+    return reserved
+
+
+# TEMPORAL: dummy rail; replace with the real payout call keyed by idempotency_key.
+async def _execute_reserved(session: AsyncSession, payment: PaymentRow) -> PaymentRow | None:
+    rail_reference = str(uuid5(PAYMENTS_NAMESPACE, payment.idempotency_key))
+    statement = (
+        update(PaymentRow)
+        .where(PaymentRow.id == payment.id, PaymentRow.status == LedgerStatus.RESERVED)
+        .values(
+            status=LedgerStatus.EXECUTED,
+            rail_reference=rail_reference,
+            executed_at=func.now(),
+            updated_at=func.now(),
+        )
+        .returning(PaymentRow)
+    )
+    executed = (await session.execute(statement)).scalar_one_or_none()
+    if executed is not None:
+        logger.info("payment_executed", payment_id=payment.id, rail_reference=rail_reference)
+    return executed
 
 
 async def _charge_counter(
@@ -239,6 +260,22 @@ async def _charge_counter(
     ).scalar_one_or_none()
     if charged is None:
         raise BudgetExhaustedError(charge.scope)
+
+
+def _decision_row(decision: DecisionRecord) -> PaymentDecisionRow:
+    return PaymentDecisionRow(
+        bill_id=decision.bill_id,
+        run_id=decision.run_id,
+        actor=decision.actor,
+        actor_user_id=decision.actor_user_id,
+        verdict=decision.verdict,
+        rule_results=[result.model_dump(mode="json") for result in decision.rule_results],
+        checker=decision.checker.model_dump(mode="json") if decision.checker else None,
+        explanation=decision.explanation,
+        policy_id=decision.policy_id,
+        policy_version=decision.policy_version,
+        note=decision.note,
+    )
 
 
 def _newest_decisions_first(bill_id: UUID) -> Select[tuple[PaymentDecisionRow]]:

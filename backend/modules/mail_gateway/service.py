@@ -112,6 +112,18 @@ class MailGatewayService:
             raise MailProviderError from error
         return ACCOUNT_STATUSES.get(connected_account.status, MailAccountStatus.FAILED)
 
+    async def active_trigger_ids(self, trigger_ids: list[str]) -> set[str]:
+        if not trigger_ids:
+            return set()
+        sdk = self._sdk()
+        try:
+            active_triggers = await asyncio.to_thread(
+                sdk.triggers.list_active, trigger_ids=trigger_ids
+            )
+        except SDK_ERRORS as error:
+            raise MailProviderError from error
+        return {trigger.id for trigger in active_triggers.items}
+
     async def enable_new_mail_trigger(
         self, user_id: UUID, provider: MailProvider, connected_account_id: str
     ) -> str:

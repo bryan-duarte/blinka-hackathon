@@ -10,14 +10,14 @@ config = context.config
 LANGGRAPH_CHECKPOINT_TABLE_PREFIX = "checkpoint"
 SECTION_URL_ENV_VARS = {
     "product": "BLINKA_PRODUCT_DATABASE_URL",
-    "payments": "BLINKA_PAYMENTS_DATABASE_URL",
+    "agent": "BLINKA_AGENT_DATABASE_URL",
 }
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-if config.config_ini_section == "payments":
-    from core.db.base import PaymentsBase as target_base
+if config.config_ini_section == "agent":
+    from core.db.base import AgentBase as target_base
 else:
     import modules.auth.models  # noqa: F401
     import modules.bills.models  # noqa: F401

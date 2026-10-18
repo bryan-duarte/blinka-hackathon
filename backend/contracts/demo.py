@@ -80,8 +80,3 @@ class DemoResetResult(ApiModel):
     deleted_objects: int
     seeded_bills: int
     reset_at: datetime
-
-
-class DemoStatusView(ApiModel):
-    is_enabled: bool
-    email: str | None

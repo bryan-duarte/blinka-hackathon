@@ -17,9 +17,11 @@ def to_async_dsn(dsn: str) -> str:
 
 
 def create_engine_and_sessionmaker(
-    dsn: str,
+    dsn: str, pool_size: int, max_overflow: int
 ) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
-    engine = create_async_engine(to_async_dsn(dsn))
+    engine = create_async_engine(
+        to_async_dsn(dsn), pool_size=pool_size, max_overflow=max_overflow, pool_pre_ping=True
+    )
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -32,11 +34,11 @@ class DatabasePool:
 @dataclass(frozen=True)
 class Pools:
     product: DatabasePool
-    payments: DatabasePool
+    agent: DatabasePool
 
 
-def build_pools(product_dsn: str, payments_dsn: str) -> Pools:
+def build_pools(product_dsn: str, agent_dsn: str, pool_size: int, max_overflow: int) -> Pools:
     return Pools(
-        product=DatabasePool(*create_engine_and_sessionmaker(product_dsn)),
-        payments=DatabasePool(*create_engine_and_sessionmaker(payments_dsn)),
+        product=DatabasePool(*create_engine_and_sessionmaker(product_dsn, pool_size, max_overflow)),
+        agent=DatabasePool(*create_engine_and_sessionmaker(agent_dsn, pool_size, max_overflow)),
     )

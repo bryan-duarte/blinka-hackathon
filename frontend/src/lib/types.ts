@@ -210,6 +210,7 @@ export type PaymentRunStatus = {
   is_bill: boolean | null;
   extraction_failed: boolean;
   evidence: EvidenceFileView[];
+  pipeline_stages: PipelineStageRecord[];
 };
 
 export type BillSourceView = {
@@ -323,6 +324,7 @@ export type InboxEmailDetail = InboxEmailView & {
   error: string | null;
   run_id: string | null;
   evidence: EvidenceFileView[];
+  pipeline_stages: PipelineStageRecord[];
 };
 
 export const PENDING_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
@@ -333,10 +335,75 @@ export const PENDING_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
 
 export type RealtimeEventType =
   | "inbox.item"
+  | "pipeline.stage"
   | "run.step"
   | "agent.tool"
   | "agent.todos"
-  | "agent.thinking";
+  | "agent.thinking"
+  | "agent.rule"
+  | "agent.llm";
+
+export type PipelineStage = "queued" | "fetch" | "malware_scan" | "guardrail" | "dedup" | "handoff";
+
+export type PipelineStageStatus = "started" | "finished" | "failed";
+
+export type PipelineStageRecord = {
+  stage: PipelineStage;
+  status: PipelineStageStatus;
+  duration_ms: number | null;
+  detail: Record<string, unknown>;
+  at?: string;
+};
+
+export type RuleOutcome = "pass" | "review" | "hold";
+
+export type RuleEventPayload = {
+  code: string;
+  name: string;
+  outcome: RuleOutcome;
+  detail: string;
+  evidence?: Record<string, string>;
+};
+
+export type ExtractedFieldPayload = {
+  name: string;
+  value: string | null;
+  confidence: number | null;
+};
+
+export type ExtractionPayload = {
+  method: string;
+  fields: ExtractedFieldPayload[];
+};
+
+export type FxPayload = {
+  amount: string | null;
+  currency: string | null;
+  amount_usd: string | null;
+  usd_per_unit: string | null;
+  rate_date: string | null;
+  source: FxSource | null;
+};
+
+export type CheckerAnswerPayload = {
+  question: string;
+  probability: number;
+  rationale: string;
+};
+
+export type CheckerPayload = {
+  answers: CheckerAnswerPayload[];
+  verdict_after_checker: Verdict;
+};
+
+export type LlmCallPayload = {
+  node: string;
+  parent_tool: string | null;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  duration_ms: number;
+};
 
 export type RealtimeEvent = {
   type: RealtimeEventType;
@@ -436,10 +503,6 @@ export type DemoResetResult = {
   reset_at: string;
 };
 
-export type DemoStatusView = {
-  is_enabled: boolean;
-  email: string | null;
-};
 
 export type LedgerOutcome =
   | "paid"

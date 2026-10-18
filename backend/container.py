@@ -22,6 +22,7 @@ from contracts.demo import KitDestinations
 from core.background import ExecutionRegistry
 from core.config import Settings
 from core.db import Checkpointers, Pools
+from core.work_queue import QueueLimits
 from modules.accountability import AccountabilityRepository, AccountabilityService
 from modules.auth import AuthService, UsersRepository
 from modules.bills import BillsRepository, BillsService
@@ -100,7 +101,12 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
 
     product_sessionmaker = pools.product.sessionmaker
 
-    auth_service = AuthService(UsersRepository(product_sessionmaker), settings.jwt)
+    demo_settings = settings.demo
+    auth_service = AuthService(
+        UsersRepository(product_sessionmaker),
+        settings.jwt,
+        allowed_email=demo_settings.email if demo_settings.enabled else None,
+    )
     auth = AuthClient(auth_service)
 
     storage_settings = settings.storage
@@ -140,11 +146,19 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         invoice_ingestor=invoice_ingestor,
         llm_gateway=llm,
         prompts=prompts,
-        checkpointer=checkpointers.payments,
+        checkpointer=checkpointers.agent,
         realtime=realtime,
         thinking_flush_seconds=settings.realtime.thinking_flush_ms / MILLISECONDS_PER_SECOND,
     )
-    payments_service = PaymentsService(runs_repository, registry, run_dependencies, files)
+    workers = settings.workers
+    payments_service = PaymentsService(
+        runs_repository,
+        registry,
+        run_dependencies,
+        files,
+        auth=auth,
+        queue_limits=QueueLimits(workers.agent_run_concurrency, workers.poll_interval_seconds),
+    )
     payments = PaymentsClient(payments_service)
 
     inbox_repository = InboxRepository(product_sessionmaker)
@@ -156,7 +170,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         mail_gateway=mail_gateway,
         whatsapp_gateway=whatsapp_gateway,
         bills=bills,
-        notifier=InboxNotifier(realtime),
+        notifier=InboxNotifier(realtime, inbox_repository),
     )
     inbox_service = InboxService(
         inbox_repository,
@@ -165,6 +179,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         auth=auth,
         callback_url=settings.composio.callback_url,
         kapso=settings.kapso,
+        queue_limits=QueueLimits(workers.inbox_concurrency, workers.poll_interval_seconds),
     )
     inbox = InboxClient(inbox_service)
 

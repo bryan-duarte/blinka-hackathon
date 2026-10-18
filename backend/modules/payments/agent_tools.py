@@ -6,11 +6,11 @@ from datetime import UTC, datetime
 
 from langchain_core.tools import BaseTool, StructuredTool
 
-from contracts.bills import BillClaim, BillFields, BillStatus
+from contracts.bills import BillClaim, BillFields, BillRecord, BillStatus
 from contracts.fx import FxQuote
-from contracts.payment_candidates import PaymentCandidateBase
+from contracts.payment_candidates import CandidateExtraction, PaymentCandidateBase
 from contracts.payment_policy import PayeeMatch
-from contracts.payments import DecisionActor, RuleEffect, Verdict
+from contracts.payments import CheckerAssessment, DecisionActor, RuleEffect, Verdict
 from core.logging_config import get_logger
 from modules.invoice_ingestor import InvoiceParseError
 from modules.payments import checker
@@ -18,11 +18,13 @@ from modules.payments.agent_state import RunState
 from modules.payments.context_builder import build_context
 from modules.payments.dependencies import PaymentRunDependencies
 from modules.payments.events import (
+    CHECKER_ANSWERED_STEP,
     CLAIMED_STEP,
     CLASSIFIED_STEP,
     DECIDED_STEP,
     EXTRACTED_STEP,
     EXTRACTION_FAILED_STEP,
+    FX_CONVERTED_STEP,
     NOT_A_BILL_STEP,
     RunEventRecorder,
 )
@@ -74,6 +76,15 @@ TOOL_DESCRIPTIONS = {
     ),
 }
 CHECKER_SKIPPED_REASON = "only applies when the rules allow paying"
+EXTRACTED_FIELD_NAMES = (
+    "payee_name",
+    "invoice_number",
+    "amount",
+    "currency",
+    "due_date",
+    "category",
+)
+CATEGORY_FIELD = "category"
 
 StepCoroutine = Callable[[], Awaitable[str]]
 
@@ -175,15 +186,11 @@ class PaymentStepTools:
             return _final({"extracted": False, "methods_tried": extraction_error.methods_tried})
         state.extraction = extraction
         candidate = extraction.candidate
+        extraction_view = _extraction_view(extraction)
         await self._events.step(
             EXTRACTED_STEP,
-            {
-                **candidate.model_dump(mode="json"),
-                "method": extraction.method,
-                "document_origin": (
-                    extraction.origin.model_dump(mode="json") if extraction.origin else None
-                ),
-            },
+            {**candidate.model_dump(mode="json"), **extraction_view},
+            realtime_payload=extraction_view,
         )
         return _summary(
             {
@@ -219,6 +226,8 @@ class PaymentStepTools:
             await self._dependencies.repository.set_run_bill(state.run_id, claim.bill.bill_id)
             claim_payload = _claim_payload(claim)
             await self._events.step(CLAIMED_STEP, claim_payload)
+            if claim.bill.amount_usd is not None:
+                await self._events.step(FX_CONVERTED_STEP, _fx_payload(claim.bill))
             summary = {
                 **claim_payload,
                 "payee_known": state.match.payee is not None,
@@ -257,6 +266,7 @@ class PaymentStepTools:
         except Exception:
             logger.exception("bill_decision_failed", run_id=state.run_id)
             raise
+        await self._events.rules(state.evaluation.results, state.evaluation.verdict)
         flagged_rules = [
             {
                 "rule_id": rule.rule_id,
@@ -293,6 +303,9 @@ class PaymentStepTools:
             logger.exception("bill_decision_failed", run_id=state.run_id)
             raise
         state.checker_ran = True
+        await self._events.step(
+            CHECKER_ANSWERED_STEP, _checker_payload(state.assessment, state.evaluation.verdict)
+        )
         answers = state.assessment.answers if state.assessment else []
         return _summary(
             {
@@ -333,7 +346,12 @@ class PaymentStepTools:
     async def _record_decided(self) -> None:
         decision = self._state.decision
         await self._events.step(
-            DECIDED_STEP, {"verdict": decision.verdict, "bill_id": str(decision.bill_id)}
+            DECIDED_STEP,
+            {
+                "verdict": decision.verdict,
+                "bill_id": str(decision.bill_id),
+                "explanation": decision.explanation,
+            },
         )
 
 
@@ -401,4 +419,52 @@ def _claim_payload(claim: BillClaim) -> dict:
     return {
         "bill_id": str(claim.bill.bill_id),
         "duplicate_of": str(claim.duplicate_of.bill_id) if claim.duplicate_of else None,
+    }
+
+
+def _extraction_view(extraction: CandidateExtraction) -> dict:
+    candidate = extraction.candidate
+    confidence_by_field = {evidence.field: evidence.confidence for evidence in candidate.evidence}
+    confidence_by_field[CATEGORY_FIELD] = candidate.category_confidence
+    return {
+        "method": extraction.method,
+        "document_origin": extraction.origin.model_dump(mode="json") if extraction.origin else None,
+        "fields": [
+            {
+                "name": field_name,
+                "value": _json_value(getattr(candidate, field_name)),
+                "confidence": confidence_by_field.get(field_name),
+            }
+            for field_name in EXTRACTED_FIELD_NAMES
+        ],
+    }
+
+
+def _json_value(field_value: object) -> str | None:
+    return None if field_value is None else str(field_value)
+
+
+def _fx_payload(bill: BillRecord) -> dict:
+    return {
+        "amount": _json_value(bill.amount),
+        "currency": bill.currency,
+        "amount_usd": _json_value(bill.amount_usd),
+        "usd_per_unit": _json_value(bill.fx_usd_per_unit),
+        "rate_date": bill.fx_rate_date.isoformat() if bill.fx_rate_date else None,
+        "source": bill.fx_source,
+    }
+
+
+def _checker_payload(assessment: CheckerAssessment | None, verdict: Verdict) -> dict:
+    answers = assessment.answers if assessment else []
+    return {
+        "answers": [
+            {
+                "question": answer.question_id,
+                "probability": answer.probability,
+                "rationale": answer.rationale,
+            }
+            for answer in answers
+        ],
+        "verdict_after_checker": verdict,
     }

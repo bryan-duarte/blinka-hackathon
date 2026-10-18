@@ -1,4 +1,4 @@
-from core.db.base import PaymentsBase, ProductBase
+from core.db.base import AgentBase, ProductBase
 from core.db.checkpointers import Checkpointers
 from core.db.engine import (
     DatabasePool,
@@ -9,9 +9,9 @@ from core.db.engine import (
 )
 
 __all__ = [
+    "AgentBase",
     "Checkpointers",
     "DatabasePool",
-    "PaymentsBase",
     "Pools",
     "ProductBase",
     "build_pools",

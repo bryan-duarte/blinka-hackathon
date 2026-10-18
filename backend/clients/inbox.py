@@ -76,5 +76,8 @@ class InboxClient:
     async def fail_unfinished(self, reason: str) -> None:
         await self._service.fail_unfinished(reason)
 
+    def start_worker(self) -> None:
+        self._service.start_worker()
+
     async def shutdown(self) -> None:
         await self._service.shutdown()

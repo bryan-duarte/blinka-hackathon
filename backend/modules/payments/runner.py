@@ -37,10 +37,9 @@ async def run_execution(
 ) -> None:
     repository = dependencies.repository
     events = RunEventRecorder(repository, dependencies.realtime, owner.user_id, run_id)
-    await events.step(STARTED_STEP)
-    await repository.update_status(run_id, RunStatus.RUNNING)
-    await repository.attach_run_to_evidence(bill_source_id, run_id)
     try:
+        await events.step(STARTED_STEP)
+        await repository.attach_run_to_evidence(bill_source_id, run_id)
         state = await _initial_state(run_id, owner, bill_source_id, dependencies)
         events.bind_item(state.source.inbox_email_id)
         await _run_agent(state, dependencies, events)

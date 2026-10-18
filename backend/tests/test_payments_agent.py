@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import BaseTool, StructuredTool
@@ -16,6 +17,7 @@ from modules.payments.agent import (
     AGENT_RECURSION_LIMIT,
     PAYMENTS_AGENT_TOOL_NAMES,
     build_payments_agent,
+    stream_agent,
 )
 from modules.payments.agent_state import RunState
 from modules.payments.agent_tools import (
@@ -74,6 +76,35 @@ class RecordingEvents:
         self.steps.append(step)
 
 
+class RecordingStreamEvents:
+    def __init__(self) -> None:
+        self.model_calls: list[dict] = []
+
+    async def llm_call(self, **call_fields: object) -> None:
+        self.model_calls.append(call_fields)
+
+    async def thinking(self, delta: str) -> None:
+        pass
+
+    async def todos(self, todos: list[dict]) -> None:
+        pass
+
+    async def tool_started(self, tool: str, call_id: str) -> None:
+        pass
+
+    async def tool_finished(self, tool: str, call_id: str, output: object, duration_ms: int):
+        pass
+
+    async def agent_summary(self, text: str) -> None:
+        pass
+
+
+async def _classify_with_nested_model() -> str:
+    nested_model = GenericFakeChatModel(messages=iter([AIMessage(content="bill")]))
+    nested_reply = await nested_model.ainvoke("classify this")
+    return json.dumps({"kind": nested_reply.content})
+
+
 def _tool_name(tool: object) -> str:
     return tool.name if isinstance(tool, BaseTool) else tool["name"]
 
@@ -105,7 +136,9 @@ def _fake_step_tools() -> list[BaseTool]:
 
 
 def _run_state(**fields: object) -> RunState:
-    return RunState(run_id=uuid4(), owner=object(), source=object(), document=object(), **fields)
+    return RunState(
+        **{"run_id": uuid4(), "owner": object(), "source": object(), "document": object(), **fields}
+    )
 
 
 def _evaluated_state(verdict: Verdict) -> RunState:
@@ -241,3 +274,25 @@ async def test_real_step_tools_run_inside_the_agent_graph() -> None:
     )
     assert json.loads(checker_reply.content)["skipped"] is True
     assert set(model.visible_tool_names) == {PAYMENTS_AGENT_TOOL_NAMES}
+
+
+async def test_stream_reports_model_calls_nested_inside_step_tools() -> None:
+    classify_tool = StructuredTool.from_function(
+        coroutine=_classify_with_nested_model,
+        name="classify_document",
+        description="Fake classify_document.",
+    )
+    model = ScriptedToolModel(
+        replies=[_tool_call_reply("classify_document", {}, 0), AIMessage(content="Listo.")]
+    )
+    agent = build_payments_agent(model, [classify_tool], "system", checkpointer=None)
+    events = RecordingStreamEvents()
+
+    source = SimpleNamespace(
+        source_id=uuid4(), source_type="email", sender="billing@acme.test", file_id=None
+    )
+    await stream_agent(agent, _run_state(source=source), events, thinking_flush_seconds=0)
+
+    parent_tools = [call["parent_tool"] for call in events.model_calls]
+    assert parent_tools.count(None) == 2
+    assert parent_tools.count("classify_document") == 1

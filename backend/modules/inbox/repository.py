@@ -1,19 +1,29 @@
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, null, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from contracts.guardrails import GuardrailViolation
-from contracts.inbox import InboxEmailRecord, InboxEmailStatus, MailboxConnectionRecord
+from contracts.inbox import (
+    InboxEmailRecord,
+    InboxEmailStatus,
+    MailboxConnectionRecord,
+    QueuedEmail,
+)
 from contracts.mail_gateway import FetchedEmail, MailAccountStatus, MailProvider
+from contracts.pipeline import PipelineStageRecord
 from contracts.whatsapp_gateway import WhatsAppConnectionMode
 from modules.inbox.errors import WhatsAppPhoneTakenError
 from modules.inbox.models import InboxEmail, MailboxConnection
 
-UNFINISHED_STATUSES = (InboxEmailStatus.RECEIVED, InboxEmailStatus.PROCESSING)
+INTERRUPTED_EMAIL = or_(
+    InboxEmail.status == InboxEmailStatus.PROCESSING,
+    and_(InboxEmail.status == InboxEmailStatus.RECEIVED, InboxEmail.source_payload.is_(None)),
+)
 INBOX_EMAIL_LIST_LIMIT = 50
+PROCESSED_SOURCE_COLUMNS = {"source_payload": null()}
 ACTIVE_SANDBOX_FILTERS = (
     MailboxConnection.mode == WhatsAppConnectionMode.SANDBOX,
     MailboxConnection.status == MailAccountStatus.ACTIVE,
@@ -141,11 +151,20 @@ class InboxRepository:
         )
         await self._execute(statement)
 
+    async def set_connection_status(self, connection_id: UUID, status: MailAccountStatus) -> None:
+        statement = (
+            update(MailboxConnection)
+            .where(MailboxConnection.id == connection_id)
+            .values(status=status, updated_at=func.now())
+        )
+        await self._execute(statement)
+
     async def insert_email(
         self,
         owner_id: UUID,
         provider: MailProvider,
         external_message_id: str,
+        source_payload: dict,
         connection_id: UUID | None = None,
     ) -> UUID | None:
         statement = (
@@ -157,6 +176,7 @@ class InboxRepository:
                 connection_id=connection_id,
                 status=InboxEmailStatus.RECEIVED,
                 violations=[],
+                source_payload=source_payload,
             )
             .on_conflict_do_nothing(index_elements=["provider", "external_message_id"])
             .returning(InboxEmail.id)
@@ -165,6 +185,50 @@ class InboxRepository:
             result = await session.execute(statement)
             await session.commit()
             return result.scalar_one_or_none()
+
+    async def claim_received_emails(self, limit: int) -> list[QueuedEmail]:
+        oldest_received_ids = (
+            select(InboxEmail.id)
+            .where(
+                InboxEmail.status == InboxEmailStatus.RECEIVED,
+                InboxEmail.source_payload.is_not(None),
+            )
+            .order_by(InboxEmail.created_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .scalar_subquery()
+        )
+        statement = (
+            update(InboxEmail)
+            .where(InboxEmail.id.in_(oldest_received_ids))
+            .values(status=InboxEmailStatus.PROCESSING, updated_at=func.now())
+            .returning(InboxEmail.id, InboxEmail.owner_id, InboxEmail.source_payload)
+        )
+        async with self._sessionmaker() as session, session.begin():
+            claimed_emails = (await session.execute(statement)).all()
+        return [
+            QueuedEmail(email_id=email_id, owner_id=owner_id, source_payload=source_payload)
+            for email_id, owner_id, source_payload in claimed_emails
+        ]
+
+    async def abandon_received_emails(self, owner_id: UUID, reason: str) -> int:
+        statement = (
+            update(InboxEmail)
+            .where(InboxEmail.owner_id == owner_id, InboxEmail.status == InboxEmailStatus.RECEIVED)
+            .values(status=InboxEmailStatus.ERROR, error=reason, updated_at=func.now())
+            .returning(InboxEmail.id)
+        )
+        async with self._sessionmaker() as session, session.begin():
+            abandoned_email_ids = (await session.execute(statement)).scalars().all()
+        return len(abandoned_email_ids)
+
+    async def append_stage(self, email_id: UUID, stage_record: dict) -> None:
+        statement = (
+            update(InboxEmail)
+            .where(InboxEmail.id == email_id)
+            .values(pipeline_stages=InboxEmail.pipeline_stages + [stage_record])
+        )
+        await self._execute(statement)
 
     async def store_content(self, email_id: UUID, email: FetchedEmail) -> None:
         await self._update_email(
@@ -178,7 +242,9 @@ class InboxRepository:
     async def set_status(
         self, email_id: UUID, status: InboxEmailStatus, error: str | None = None
     ) -> None:
-        await self._update_email(email_id, status=status, error=error)
+        is_still_queued = status is InboxEmailStatus.RECEIVED
+        processed_columns = {} if is_still_queued else PROCESSED_SOURCE_COLUMNS
+        await self._update_email(email_id, status=status, error=error, **processed_columns)
 
     async def mark_blocked(
         self, email_id: UUID, file_id: UUID | None, violations: list[GuardrailViolation]
@@ -188,15 +254,22 @@ class InboxRepository:
             status=InboxEmailStatus.BLOCKED,
             file_id=file_id,
             violations=[violation.model_dump() for violation in violations],
+            **PROCESSED_SOURCE_COLUMNS,
         )
 
     async def mark_analyzing(self, email_id: UUID, file_id: UUID | None, run_id: UUID) -> None:
         await self._update_email(
-            email_id, status=InboxEmailStatus.ANALYZING, file_id=file_id, run_id=run_id
+            email_id,
+            status=InboxEmailStatus.ANALYZING,
+            file_id=file_id,
+            run_id=run_id,
+            **PROCESSED_SOURCE_COLUMNS,
         )
 
     async def mark_duplicate(self, email_id: UUID, file_id: UUID | None) -> None:
-        await self._update_email(email_id, status=InboxEmailStatus.DUPLICATE, file_id=file_id)
+        await self._update_email(
+            email_id, status=InboxEmailStatus.DUPLICATE, file_id=file_id, **PROCESSED_SOURCE_COLUMNS
+        )
 
     async def get_email_ref(self, email_id: UUID) -> tuple[MailProvider, str]:
         statement = select(InboxEmail.provider, InboxEmail.external_message_id).where(
@@ -235,7 +308,7 @@ class InboxRepository:
     async def fail_unfinished(self, reason: str) -> int:
         statement = (
             update(InboxEmail)
-            .where(InboxEmail.status.in_(UNFINISHED_STATUSES))
+            .where(INTERRUPTED_EMAIL)
             .values(status=InboxEmailStatus.ERROR, error=reason, updated_at=func.now())
             .returning(InboxEmail.id)
         )
@@ -294,4 +367,7 @@ def _to_email_record(email: InboxEmail) -> InboxEmailRecord:
         violations=[GuardrailViolation.model_validate(violation) for violation in email.violations],
         run_id=email.run_id,
         error=email.error,
+        pipeline_stages=[
+            PipelineStageRecord.model_validate(stage) for stage in email.pipeline_stages
+        ],
     )

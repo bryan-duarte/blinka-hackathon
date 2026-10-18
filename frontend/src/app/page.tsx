@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 
-const REGISTER_HREF = "/login?mode=register";
+const SIGN_IN_HREF = "/login";
 const WRAP_CLASS = "mx-auto w-full max-w-[1200px] px-6";
 const LINK_CLASS =
   "rounded text-ink hover:text-iris hover:underline hover:underline-offset-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
@@ -103,11 +103,8 @@ export default function LandingPage() {
             ))}
           </nav>
           <div className="flex gap-2.5">
-            <Link href="/login" className={`${GHOST_BUTTON_CLASS} ${HEADER_BUTTON_SIZE}`}>
-              Log in
-            </Link>
-            <Link href={REGISTER_HREF} className={`${INK_BUTTON_CLASS} ${HEADER_BUTTON_SIZE}`}>
-              Get started
+            <Link href={SIGN_IN_HREF} className={`${INK_BUTTON_CLASS} ${HEADER_BUTTON_SIZE}`}>
+              Sign in
             </Link>
           </div>
         </div>
@@ -122,8 +119,8 @@ export default function LandingPage() {
               reads every bill against it.
             </p>
             <div className="flex flex-wrap gap-2.5">
-              <Link href={REGISTER_HREF} className={INK_BUTTON_CLASS}>
-                Write your policy <span aria-hidden>→</span>
+              <Link href={SIGN_IN_HREF} className={INK_BUTTON_CLASS}>
+                Sign in <span aria-hidden>→</span>
               </Link>
               <a href="#examples" className={GHOST_BUTTON_CLASS}>
                 See an example
@@ -208,8 +205,8 @@ export default function LandingPage() {
         />
         <div className={`${WRAP_CLASS} relative grid justify-items-center gap-10 pt-20 pb-10 text-center`}>
           <h2 className="max-w-[640px] bg-white px-3 font-serif text-[38px] leading-[1.15]">Start with four sentences.</h2>
-          <Link href={REGISTER_HREF} className={INK_BUTTON_CLASS}>
-            Write your policy <span aria-hidden>→</span>
+          <Link href={SIGN_IN_HREF} className={INK_BUTTON_CLASS}>
+            Sign in <span aria-hidden>→</span>
           </Link>
           <span className="text-xs text-muted">© 2026 Blinka</span>
         </div>

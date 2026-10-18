@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from operator import attrgetter
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from contracts.payments import (
     PaymentRunStatus,
     PaymentRunTrigger,
     PaymentView,
+    QueuedRun,
     ReviewActionRequest,
     RuleEffect,
     RunStatus,
@@ -37,6 +39,7 @@ from contracts.prompts import PromptId
 from core.agents import thread_config
 from core.background import ExecutionRegistry
 from core.logging_config import get_logger
+from core.work_queue import QueueLimits, QueueWorker
 from modules.files import FileQuarantinedError, UnsafeArchiveError
 from modules.payments.budget import CATEGORY_SCOPE_PREFIX, GLOBAL_SCOPE, PAYEE_SCOPE_PREFIX
 from modules.payments.context_builder import parse_candidate, rebuild_context
@@ -59,6 +62,7 @@ from modules.payments.settlement import (
 from modules.payments.trace import serialize_messages
 
 if TYPE_CHECKING:
+    from clients.auth import AuthClient
     from clients.files import FilesClient
 
 logger = get_logger(__name__)
@@ -71,6 +75,8 @@ QUARANTINED_INTAKE_STATUSES = frozenset(
     {EvidenceIntakeStatus.MALWARE, EvidenceIntakeStatus.SCAN_FAILED}
 )
 CHECKPOINT_MESSAGES_CHANNEL = "messages"
+AGENT_RUN_QUEUE_NAME = "agent_runs"
+OWNER_CANCELLATION_REASON = "cancelled before it started"
 
 
 class PaymentsService:
@@ -80,11 +86,22 @@ class PaymentsService:
         registry: ExecutionRegistry,
         dependencies: PaymentRunDependencies,
         files: "FilesClient",
+        auth: "AuthClient",
+        queue_limits: QueueLimits,
     ) -> None:
         self._repository = repository
         self._registry = registry
         self._dependencies = dependencies
         self._files = files
+        self._auth = auth
+        self._worker = QueueWorker(
+            AGENT_RUN_QUEUE_NAME,
+            claim=repository.claim_pending_runs,
+            handle=self.execute_claimed,
+            work_id=attrgetter("run_id"),
+            registry=registry,
+            limits=queue_limits,
+        )
 
     async def start_run(self, trigger: PaymentRunTrigger, owner: CurrentUser) -> PaymentRunAccepted:
         source = await self._dependencies.bills.get_source(owner.user_id, trigger.bill_source_id)
@@ -101,12 +118,8 @@ class PaymentsService:
             bill_source_id=source.source_id,
         )
         if is_new_run:
-            self._registry.spawn(
-                run_id,
-                run_execution(run_id, owner, source.source_id, self._dependencies),
-                owner_id=owner.user_id,
-            )
-            logger.info("payment_run_started", run_id=run_id, bill_source_id=source.source_id)
+            self._worker.notify()
+            logger.info("payment_run_queued", run_id=run_id, bill_source_id=source.source_id)
         return PaymentRunAccepted(run_id=run_id, status=RunStatus.PENDING, duplicate=not is_new_run)
 
     async def start_file_run(
@@ -159,6 +172,7 @@ class PaymentsService:
             is_bill=_is_bill(run, events),
             extraction_failed=_has_step(events, EXTRACTION_FAILED_STEP),
             evidence=await self._evidence(owner, source_ids),
+            pipeline_stages=await self._repository.pipeline_stages(run_id),
         )
 
     async def list_bills(
@@ -308,9 +322,17 @@ class PaymentsService:
         )
 
     async def cancel_owner(self, owner_id: UUID) -> int:
+        abandoned_count = await self._repository.abandon_pending_runs(
+            owner_id, OWNER_CANCELLATION_REASON
+        )
         cancelled_count = await self._registry.cancel_owner(owner_id)
-        if cancelled_count:
-            logger.info("payment_runs_cancelled", owner_id=owner_id, count=cancelled_count)
+        if cancelled_count or abandoned_count:
+            logger.info(
+                "payment_runs_cancelled",
+                owner_id=owner_id,
+                count=cancelled_count,
+                abandoned_count=abandoned_count,
+            )
         return cancelled_count
 
     async def purge_run_threads(self, run_ids: list[UUID]) -> int:
@@ -327,7 +349,22 @@ class PaymentsService:
             purged_count += 1
         return purged_count
 
+    def start_worker(self) -> None:
+        self._worker.start()
+
+    async def execute_claimed(self, run: QueuedRun) -> None:
+        try:
+            owner = await self._auth.get_user(run.owner_id)
+        except Exception as owner_error:
+            logger.exception("payment_run_owner_unavailable", run_id=run.run_id)
+            await self._repository.update_status(
+                run.run_id, RunStatus.FAILED, error=str(owner_error)
+            )
+            return
+        await run_execution(run.run_id, owner, run.bill_source_id, self._dependencies)
+
     async def shutdown(self) -> None:
+        await self._worker.stop()
         await self._registry.shutdown()
 
     async def _evidence(

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { DecisionCard } from "@/components/bills/DecisionCard";
+import { DecisionCard, DecisionHistory } from "@/components/bills/DecisionCard";
 import { EvidenceSection } from "@/components/files/EvidenceSection";
-import { EYEBROW_CLASS, PAGE_HEADING_CLASS } from "@/components/settings/styles";
+import { IntakeChecks } from "@/components/runs/StageRail";
+import { EYEBROW_CLASS, PAGE_HEADING_CLASS, PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
 import { formatDateTime } from "@/lib/format";
+import { maskEmailsIn } from "@/lib/mask";
 import type { InboxEmailDetail, InboxEmailStatus, RealtimeEvent } from "@/lib/types";
 import { PENDING_STATUSES } from "@/lib/types";
+import { collectStages } from "@/lib/runEvents";
 import { AgentActivity } from "./AgentActivity";
 import { SourceBadge } from "./SourceBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -13,9 +15,9 @@ import { StatusBadge } from "./StatusBadge";
 type EmailDetailProps = {
   email: InboxEmailDetail;
   onBack: () => void;
-  onDecisionChanged: () => void;
   onSelectEmail: (emailId: string) => void;
   runEvents: RealtimeEvent[];
+  stageEvents: RealtimeEvent[];
   thinking: string;
   refreshKey: number;
 };
@@ -27,108 +29,122 @@ const DECIDED_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
   "duplicate",
 ]);
 
-const NOTICE_CLASS = "flex flex-col gap-2 border-t border-line pt-4";
-const NOTICE_TITLE_CLASS = "text-base font-normal";
+const RUN_HEADLINES: Record<InboxEmailStatus, string> = {
+  received: "Checking the message",
+  processing: "Checking the message",
+  analyzing: "The agent is deciding",
+  paid: "Paid",
+  held: "Held",
+  review: "Escalated to a person",
+  duplicate: "Duplicate",
+  blocked: "Blocked before evaluation",
+  no_invoice: "Not an invoice",
+  no_info: "No readable data",
+  error: "Processing error",
+};
+
+const PENDING_EXPLANATIONS: Partial<Record<InboxEmailStatus, string>> = {
+  received: "Scanning the documents with AWS before the agent reads them.",
+  processing: "Scanning the documents with AWS before the agent reads them.",
+  analyzing: "The agent is checking the invoice against the payment rules.",
+};
 
 export function EmailDetail({
   email,
   onBack,
-  onDecisionChanged,
   onSelectEmail,
   runEvents,
+  stageEvents,
   thinking,
   refreshKey,
 }: EmailDetailProps) {
   const isPending = PENDING_STATUSES.has(email.status);
-  const agentActivity = email.run_id ? (
-    <AgentActivity
-      runId={email.run_id}
-      liveEvents={runEvents}
-      thinking={thinking}
-      isRunning={isPending}
-      refreshKey={refreshKey}
-    />
-  ) : null;
+  const stages = collectStages(email.pipeline_stages, stageEvents);
+  const decision = DECIDED_STATUSES.has(email.status) ? email.decision : null;
+  const headline = decision?.status === "rejected" ? "Rejected by a person" : RUN_HEADLINES[email.status];
   return (
-    <article className="flex flex-col gap-6">
-      <button
-        type="button"
-        onClick={onBack}
-        className="-ml-1 self-start rounded px-1 text-sm text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+    <article className="grid min-w-0 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <section
+        aria-label="Message"
+        className="flex min-w-0 flex-col gap-5 border-b border-line p-6 xl:border-r xl:border-b-0"
       >
-        ← Back
-      </button>
-      <header className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <SourceBadge type={email.source_type} showsLabel />
-          <p className={EYEBROW_CLASS}>
-            {email.sender}
-            {email.received_at && ` · ${formatDateTime(email.received_at)}`}
-          </p>
-        </div>
-        <div className="flex items-start justify-between gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="-ml-1 self-start rounded px-1 text-sm text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+        >
+          ← Back
+        </button>
+        <header className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs text-muted">
+              <SourceBadge type={email.source_type} showsLabel />
+              {email.received_at && <span>· {formatDateTime(email.received_at)}</span>}
+            </span>
+            <StatusBadge status={email.status} />
+          </div>
           <h2 className={PAGE_HEADING_CLASS}>{email.subject || "(no subject)"}</h2>
-          <StatusBadge status={email.status} />
-        </div>
-        {email.run_id && (
-          <Link
-            href={`/runs/${email.run_id}`}
-            className="self-start rounded text-sm font-normal text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            View execution ›
-          </Link>
+          <p className="text-[13px] break-words text-muted">{maskEmailsIn(email.sender) || "Unknown sender"}</p>
+        </header>
+        <pre className="max-h-80 overflow-auto font-sans text-sm leading-[1.5] whitespace-pre-wrap text-ink">
+          {email.body || "(empty body)"}
+        </pre>
+        <EvidenceSection evidence={email.evidence} />
+      </section>
+
+      <section aria-label="Agent run" className="flex min-w-0 flex-col gap-6 p-6 xl:px-8">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <p className={`${EYEBROW_CLASS} flex items-center gap-2`}>
+              Agent run
+              {isPending && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2 py-0.5 text-[11px] text-white [font-variant-caps:normal]">
+                  <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-white" />
+                  Live
+                </span>
+              )}
+            </p>
+            <h3 aria-live="polite" className="font-serif text-[38px] leading-[1.15] text-ink">
+              {headline}
+            </h3>
+          </div>
+          {decision?.can_approve && (
+            <Link href={`/bills?bill=${decision.bill_id}`} className={`${PRIMARY_BUTTON_CLASS} no-underline`}>
+              Decide <span aria-hidden>→</span>
+            </Link>
+          )}
+        </header>
+        {isPending && <p className="text-base leading-[1.5] text-muted">{PENDING_EXPLANATIONS[email.status]}</p>}
+        {decision && <DecisionCard decision={decision} onSelectEmail={onSelectEmail} isCompact={email.run_id !== null} />}
+        <RunOutcomeNote email={email} />
+        {email.run_id ? (
+          <AgentActivity
+            runId={email.run_id}
+            liveEvents={runEvents}
+            stages={stages}
+            thinking={thinking}
+            isRunning={isPending}
+            refreshKey={refreshKey}
+          />
+        ) : (
+          stages.length > 0 && <IntakeChecks stages={stages} />
         )}
-      </header>
-      {!isPending && agentActivity}
-      <ResultCard
-        email={email}
-        agentActivity={agentActivity}
-        onDecisionChanged={onDecisionChanged}
-        onSelectEmail={onSelectEmail}
-      />
-      <pre className="max-h-96 overflow-auto rounded border border-line bg-panel p-4 font-sans text-sm leading-[1.4] whitespace-pre-wrap text-ink">
-        {email.body || "(empty body)"}
-      </pre>
-      <EvidenceSection evidence={email.evidence} />
+        {decision && email.run_id && <DecisionHistory billId={decision.bill_id} />}
+      </section>
     </article>
   );
 }
 
-function ResultCard({
-  email,
-  agentActivity,
-  onDecisionChanged,
-  onSelectEmail,
-}: {
-  email: InboxEmailDetail;
-  agentActivity: ReactNode;
-  onDecisionChanged: () => void;
-  onSelectEmail: (emailId: string) => void;
-}) {
-  if (PENDING_STATUSES.has(email.status)) {
-    return (
-      <section aria-live="polite" className="flex flex-col gap-2 border-t border-line pt-4 text-sm text-muted">
-        <div aria-hidden className="h-1 w-full animate-pulse rounded bg-accent-wash" />
-        {email.status === "analyzing"
-          ? "The agent is checking the invoice against the rules…"
-          : "Checking the message and scanning documents with AWS…"}
-        {agentActivity}
-      </section>
-    );
-  }
+function RunOutcomeNote({ email }: { email: InboxEmailDetail }) {
+  if (PENDING_STATUSES.has(email.status)) return null;
+  if (DECIDED_STATUSES.has(email.status) && email.decision) return null;
   if (email.status === "blocked") {
     return (
-      <section className={NOTICE_CLASS}>
-        <h3 className={`${NOTICE_TITLE_CLASS} text-danger`}>
-          <span aria-hidden>✕ </span>Blocked before evaluation
-        </h3>
+      <section className="flex flex-col gap-2">
         <ul className="flex flex-col gap-1">
           {email.violations.map((violation) => (
             <li key={violation.code} className="text-sm text-ink">
-              <code className="font-mono text-xs text-danger">
-                {violation.code}
-              </code>{" "}
-              {violation.message}
+              <code className="font-mono text-xs text-danger">{violation.code}</code> {violation.message}
             </li>
           ))}
         </ul>
@@ -136,56 +152,32 @@ function ResultCard({
       </section>
     );
   }
-  if (DECIDED_STATUSES.has(email.status) && email.decision) {
-    return (
-      <DecisionCard
-        decision={email.decision}
-        onResolved={onDecisionChanged}
-        onSelectEmail={onSelectEmail}
-      />
-    );
-  }
   if (email.status === "duplicate") {
     return (
-      <section className={NOTICE_CLASS}>
-        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Repeated message</h3>
-        <p className="text-sm text-muted">
-          This same message was already received. It was not evaluated or paid again.
-        </p>
-      </section>
+      <p className="text-base leading-[1.5] text-muted">
+        This same message was already received. It was not evaluated or paid again.
+      </p>
     );
   }
   if (email.status === "no_info") {
     return (
-      <section className={NOTICE_CLASS}>
-        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>
-          <span aria-hidden>! </span>No readable data
-        </h3>
-        <p className="text-sm text-muted">
-          The invoice details could not be read. No extraction method produced data, so the agent did
-          not make a decision.
-        </p>
-      </section>
+      <p className="text-base leading-[1.5] text-muted">
+        The invoice details could not be read. No extraction method produced data, so the agent did not make a
+        decision.
+      </p>
     );
   }
   if (email.status === "no_invoice") {
     return (
-      <section className={NOTICE_CLASS}>
-        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Not an invoice</h3>
-        <p className="text-sm text-muted">
-          {email.error || "The agent found no bill to pay in this message."}
-        </p>
-      </section>
+      <p className="text-base leading-[1.5] text-muted">
+        {email.error || "The agent found no bill to pay in this message."}
+      </p>
     );
   }
   return (
-    <section role="alert" className={NOTICE_CLASS}>
-      <h3 className={`${NOTICE_TITLE_CLASS} text-danger`}>
-        <span aria-hidden>✕ </span>Processing error
-      </h3>
-      <p className="text-sm text-muted">
-        {email.error || "Unknown error."}
-      </p>
-    </section>
+    <p role="alert" className="text-base leading-[1.5] text-danger">
+      <span aria-hidden>✕ </span>
+      {email.error || "Unknown error."}
+    </p>
   );
 }

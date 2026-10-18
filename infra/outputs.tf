@@ -69,14 +69,17 @@ output "db_endpoint" {
   value = aws_db_instance.main.address
 }
 
+output "agent_db_endpoint" {
+  value = aws_db_instance.agent.address
+}
+
+output "db_audit_bucket" {
+  description = "pgaudit log copies land under pgaudit/<instance>/ in this bucket."
+  value       = aws_s3_bucket.db_audit.id
+}
+
 output "jwt_secret" {
   description = "Set as BLINKA_JWT__SECRET in backend/.env so local tokens pass the realtime authorizer."
   value       = random_password.jwt_secret.result
-  sensitive   = true
-}
-
-output "demo_password" {
-  description = "Password of the demo account (BLINKA_DEMO__EMAIL)."
-  value       = random_password.demo_password.result
   sensitive   = true
 }

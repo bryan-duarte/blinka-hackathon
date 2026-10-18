@@ -3,24 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Response, status
 
 from api.deps import ClientsDep, DemoUserDep
-from contracts.auth import TokenResponse
-from contracts.demo import DemoCatalogView, DemoLaunchView, DemoResetResult, DemoStatusView
+from contracts.demo import DemoCatalogView, DemoLaunchView, DemoResetResult
 
 ZIP_MEDIA_TYPE = "application/zip"
 FULL_KIT_FILENAME = "andescape-demo-kit.zip"
 
-demo_public_router = APIRouter(prefix="/demo", tags=["demo"])
 demo_router = APIRouter(prefix="/demo", tags=["demo"])
-
-
-@demo_public_router.get("/status", response_model=DemoStatusView)
-async def get_demo_status(clients: ClientsDep) -> DemoStatusView:
-    return clients.demo.status()
-
-
-@demo_public_router.post("/login", response_model=TokenResponse)
-async def login_demo(clients: ClientsDep) -> TokenResponse:
-    return await clients.demo.login()
 
 
 @demo_router.get("/scenarios", response_model=DemoCatalogView)

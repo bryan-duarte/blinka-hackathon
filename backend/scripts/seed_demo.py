@@ -19,8 +19,14 @@ async def seed_demo(is_reset: bool) -> int:
     if not settings.demo.enabled:
         print("Demo mode is disabled: set BLINKA_DEMO__ENABLED=true.", file=sys.stderr)
         return 1
-    pools = build_pools(settings.product_database_url, settings.payments_database_url)
-    checkpointers = Checkpointers(settings.payments_database_url)
+    workers = settings.workers
+    pools = build_pools(
+        settings.product_database_url,
+        settings.agent_database_url,
+        workers.db_pool_size,
+        workers.db_max_overflow,
+    )
+    checkpointers = Checkpointers(settings.agent_database_url, workers.checkpointer_pool_size)
     await checkpointers.open()
     try:
         clients = await build_clients(settings, pools, checkpointers)
@@ -36,7 +42,7 @@ async def seed_demo(is_reset: bool) -> int:
     finally:
         await checkpointers.close()
         await pools.product.engine.dispose()
-        await pools.payments.engine.dispose()
+        await pools.agent.engine.dispose()
 
 
 def main() -> None:

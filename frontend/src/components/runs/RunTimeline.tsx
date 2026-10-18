@@ -1,15 +1,24 @@
 import { formatMoney, formatRate, formatToolDuration, isForeignCurrency } from "@/lib/format";
-import { FX_SOURCE_LABELS, SCAN_LABELS, ruleLabel } from "@/lib/labels";
-import { type ToolRun, collectToolRuns, persistedActivity } from "@/lib/runEvents";
+import { FX_SOURCE_LABELS, INTAKE_SCAN_LABELS, SCAN_LABELS, ruleLabel } from "@/lib/labels";
+import {
+  type ActivityEvent,
+  type ToolRun,
+  collectRules,
+  collectToolRuns,
+  latestChecker,
+  latestFx,
+} from "@/lib/runEvents";
 import type {
   BillDecisionView,
   BillSourceType,
-  CheckerAnswer,
+  FxPayload,
   PaymentRunStatus,
+  PipelineStageRecord,
   RuleResult,
   RunListItemView,
   Verdict,
 } from "@/lib/types";
+import { type CheckerMeter, CheckerMeters } from "./CheckerMeters";
 
 const TOOL_TITLES: Record<string, string> = {
   classify_document: "Classified the document",
@@ -38,8 +47,11 @@ const EVALUATE_RULES_TOOL = "evaluate_rules";
 const CHECKER_TOOL = "run_checker";
 const TOOL_FINISHED_STEP = "tool_finished";
 const CHECKER_RULE_PREFIX = "CHK";
-const CHECKER_LABEL_PREFIX = "Checker: ";
-const PERCENT = 100;
+const TIMELINE_STAGES: ReadonlySet<PipelineStageRecord["stage"]> = new Set(["malware_scan", "guardrail"]);
+const STAGE_TITLES: Partial<Record<PipelineStageRecord["stage"], string>> = {
+  malware_scan: "Scanned for malware",
+  guardrail: "Screened by the guardrail",
+};
 
 type TimelineNode = {
   key: string;
@@ -55,6 +67,7 @@ type TimelineNode = {
 type RunTimelineProps = {
   run: RunListItemView | null;
   runStatus: PaymentRunStatus;
+  activity: ActivityEvent[];
   isRunning: boolean;
 };
 
@@ -62,12 +75,8 @@ export function policyRules(decision: BillDecisionView | null): RuleResult[] {
   return decision?.rule_results.filter((rule) => !rule.rule_id.startsWith(CHECKER_RULE_PREFIX)) ?? [];
 }
 
-export function runToolRuns(runStatus: PaymentRunStatus, isRunning: boolean): ToolRun[] {
-  return collectToolRuns(persistedActivity(runStatus.events), isRunning);
-}
-
-export function RunTimeline({ run, runStatus, isRunning }: RunTimelineProps) {
-  const nodes = buildNodes(run, runStatus, isRunning);
+export function RunTimeline({ run, runStatus, activity, isRunning }: RunTimelineProps) {
+  const nodes = buildNodes(run, runStatus, activity, isRunning);
   return (
     <section aria-label="Timeline" className="relative">
       <div aria-hidden className="absolute top-0 bottom-0 left-3.5 w-px bg-ink/15" />
@@ -123,14 +132,19 @@ function TimelineRow({ node, number }: { node: TimelineNode; number: number }) {
   );
 }
 
-function buildNodes(run: RunListItemView | null, runStatus: PaymentRunStatus, isRunning: boolean): TimelineNode[] {
+function buildNodes(
+  run: RunListItemView | null,
+  runStatus: PaymentRunStatus,
+  activity: ActivityEvent[],
+  isRunning: boolean,
+): TimelineNode[] {
   const { decision, evidence } = runStatus;
-  const firstEvent = runStatus.events[0];
-  const runStartMs = firstEvent ? new Date(firstEvent.created_at).getTime() : null;
+  const firstEvent = activity[0];
+  const runStartMs = firstEvent ? new Date(firstEvent.createdAt).getTime() : null;
   const finishedAtByCallId = new Map(
-    runStatus.events
+    activity
       .filter((event) => event.step === TOOL_FINISHED_STEP && typeof event.payload.call_id === "string")
-      .map((event) => [event.payload.call_id as string, new Date(event.created_at).getTime()]),
+      .map((event) => [event.payload.call_id as string, new Date(event.createdAt).getTime()]),
   );
   const offsetFor = (callId: string) => {
     const finishedAtMs = finishedAtByCallId.get(callId);
@@ -149,15 +163,18 @@ function buildNodes(run: RunListItemView | null, runStatus: PaymentRunStatus, is
       offsetMs: 0,
     });
   }
-  if (evidence.length > 0) {
+  const stageNodes = runStatus.pipeline_stages.filter((stage) => TIMELINE_STAGES.has(stage.stage)).map(stageNode);
+  if (stageNodes.length > 0) {
+    nodes.push(...stageNodes);
+  } else if (evidence.length > 0) {
     nodes.push({ key: "scan", title: "Scanned for malware", detail: scanSummary(runStatus) });
   }
-  for (const toolRun of runToolRuns(runStatus, isRunning)) {
-    if (toolRun.tool === EVALUATE_RULES_TOOL && decision) {
-      const fxNode = currencyNode(decision);
-      if (fxNode) nodes.push(fxNode);
-    }
-    nodes.push(toolNode(toolRun, decision, offsetFor(toolRun.callId)));
+  const rules = decision ? policyRules(decision) : liveRules(activity);
+  const checkerMeters = decisionCheckerMeters(decision) ?? liveCheckerMeters(activity);
+  const fxNode = liveCurrencyNode(latestFx(activity)) ?? (decision ? currencyNode(decision) : null);
+  for (const toolRun of collectToolRuns(activity, isRunning)) {
+    if (toolRun.tool === EVALUATE_RULES_TOOL && fxNode) nodes.push(fxNode);
+    nodes.push(toolNode(toolRun, rules, checkerMeters, offsetFor(toolRun.callId)));
   }
   if (decision) {
     nodes.push({
@@ -173,7 +190,12 @@ function buildNodes(run: RunListItemView | null, runStatus: PaymentRunStatus, is
   return nodes;
 }
 
-function toolNode(toolRun: ToolRun, decision: BillDecisionView | null, offsetMs: number | null): TimelineNode {
+function toolNode(
+  toolRun: ToolRun,
+  rules: RuleResult[],
+  checkerMeters: CheckerMeter[] | null,
+  offsetMs: number | null,
+): TimelineNode {
   const title = (toolRun.tool && TOOL_TITLES[toolRun.tool]) ?? toolRun.tool ?? "Step";
   const base: TimelineNode = {
     key: toolRun.callId,
@@ -182,15 +204,70 @@ function toolNode(toolRun: ToolRun, decision: BillDecisionView | null, offsetMs:
     isError: toolRun.status === "error",
     offsetMs,
   };
-  if (toolRun.tool === EVALUATE_RULES_TOOL && decision && toolRun.status === "ok") {
-    const rules = policyRules(decision);
-    if (rules.length === 0) return base;
+  if (toolRun.tool === EVALUATE_RULES_TOOL && rules.length > 0) {
     return { ...base, detail: rulesSummary(rules), isKey: true, isCollapsible: true, body: <RuleBreakdown rules={rules} /> };
   }
-  if (toolRun.tool === CHECKER_TOOL && decision?.checker?.answers.length) {
-    return { ...base, body: <CheckerMeters answers={decision.checker.answers} /> };
+  if (toolRun.tool === CHECKER_TOOL && checkerMeters?.length) {
+    return { ...base, body: <CheckerMeters answers={checkerMeters} /> };
   }
   return base;
+}
+
+function stageNode(stage: PipelineStageRecord): TimelineNode {
+  return {
+    key: `stage-${stage.stage}`,
+    title: STAGE_TITLES[stage.stage] ?? stage.stage,
+    detail: [stageNodeDetail(stage), stage.duration_ms !== null ? formatToolDuration(stage.duration_ms) : undefined]
+      .filter(Boolean)
+      .join(", "),
+    isError: stage.status === "failed",
+  };
+}
+
+function stageNodeDetail(stage: PipelineStageRecord): string | undefined {
+  const { detail } = stage;
+  if (stage.stage === "malware_scan" && typeof detail.files === "number") {
+    const fileWord = detail.files === 1 ? "file" : "files";
+    const scanLabel = INTAKE_SCAN_LABELS[String(detail.scan_status)];
+    return [`${detail.files} ${fileWord}`, scanLabel].filter(Boolean).join(", ");
+  }
+  if (stage.stage === "guardrail" && typeof detail.guardrail_action === "string") {
+    return detail.guardrail_action;
+  }
+  return undefined;
+}
+
+function liveRules(activity: ActivityEvent[]): RuleResult[] {
+  return collectRules(activity).map((rule) => ({
+    rule_id: rule.code,
+    name: rule.name,
+    effect: rule.outcome,
+    reason: rule.detail,
+    evidence: rule.evidence ?? {},
+  }));
+}
+
+function decisionCheckerMeters(decision: BillDecisionView | null): CheckerMeter[] | null {
+  const answers = decision?.checker?.answers;
+  if (!answers?.length) return null;
+  return answers.map((answer) => ({ questionId: answer.question_id, probability: answer.probability }));
+}
+
+function liveCheckerMeters(activity: ActivityEvent[]): CheckerMeter[] | null {
+  const checker = latestChecker(activity);
+  if (!checker?.answers.length) return null;
+  return checker.answers.map((answer) => ({ questionId: answer.question, probability: answer.probability }));
+}
+
+function liveCurrencyNode(fx: FxPayload | null): TimelineNode | null {
+  if (!fx?.amount || !fx.currency || !fx.amount_usd || !fx.usd_per_unit) return null;
+  if (!isForeignCurrency(fx.currency)) return null;
+  const sourcePart = fx.source ? ` (${FX_SOURCE_LABELS[fx.source]})` : "";
+  return {
+    key: "fx",
+    title: "Converted currency",
+    detail: `${formatMoney(fx.amount, fx.currency)} is ${formatMoney(fx.amount_usd, "USD")} at ${formatRate(fx.usd_per_unit, fx.currency)}${sourcePart}`,
+  };
 }
 
 function currencyNode(decision: BillDecisionView): TimelineNode | null {
@@ -282,25 +359,5 @@ function RuleIcon({ effect }: { effect: RuleResult["effect"] }) {
         </>
       )}
     </svg>
-  );
-}
-
-function CheckerMeters({ answers }: { answers: CheckerAnswer[] }) {
-  return (
-    <div className="mt-2.5 grid max-w-[640px] grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
-      {answers.map((answer) => {
-        const label = ruleLabel(answer.question_id).replace(CHECKER_LABEL_PREFIX, "");
-        return (
-          <div key={answer.question_id} className="grid gap-1">
-            <span className="text-xs text-muted">
-              {label.charAt(0).toUpperCase() + label.slice(1)} · <span className="tabular-nums">{answer.probability.toFixed(2)}</span>
-            </span>
-            <span className="h-1.5 overflow-hidden rounded-full bg-sunken">
-              <span className="block h-full bg-ink" style={{ width: `${answer.probability * PERCENT}%` }} />
-            </span>
-          </div>
-        );
-      })}
-    </div>
   );
 }

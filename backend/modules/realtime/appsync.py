@@ -33,14 +33,14 @@ class AppSyncEventsBackend:
         self._region = settings.region
         self._aws_profile = settings.aws_profile or None
         self._session: aioboto3.Session | None = None
+        self._http_client = httpx.AsyncClient(timeout=PUBLISH_TIMEOUT_SECONDS)
 
     async def publish(self, channel: str, events: list[str]) -> None:
         body = json.dumps({"channel": channel, "events": events}).encode()
         headers = await self._signed_headers(body)
         try:
-            async with httpx.AsyncClient(timeout=PUBLISH_TIMEOUT_SECONDS) as http_client:
-                response = await http_client.post(self._url, content=body, headers=headers)
-                response.raise_for_status()
+            response = await self._http_client.post(self._url, content=body, headers=headers)
+            response.raise_for_status()
         except httpx.HTTPError as error:
             raise RealtimePublishError from error
         failed_events = response.json().get("failed") or []

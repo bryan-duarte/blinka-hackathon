@@ -5,12 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConsoleShell } from "@/components/console/ConsoleShell";
 import { RawTracePanel } from "@/components/runs/RawTracePanel";
-import { RunTimeline, policyRules, runToolRuns } from "@/components/runs/RunTimeline";
+import { RunTimeline, policyRules } from "@/components/runs/RunTimeline";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import { formatMoney, formatToolDuration } from "@/lib/format";
+import { TERMINAL_RUN_STEPS, collectToolRuns, mergeEvents } from "@/lib/runEvents";
 import type { BillStatus, PaymentRunStatus, RunListItemView, RunTraceView } from "@/lib/types";
+import { useRunChannel } from "@/lib/useRunChannel";
 
-const ACTIVE_POLL_MS = 3000;
+const OFFLINE_POLL_MS = 3000;
 const COPY_FEEDBACK_MS = 1500;
 const SHORT_RUN_ID_LENGTH = 8;
 
@@ -72,8 +74,14 @@ export default function RunSummaryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
+  const runChannel = useRunChannel(runId);
   const isRunning = runStatus?.status === "pending" || runStatus?.status === "running";
   const hasStatus = runStatus !== null;
+  const isChannelLive = runChannel.state === "live";
+  const terminalEventCount = runChannel.events.filter(
+    (event) => event.type === "run.step" && TERMINAL_RUN_STEPS.has(event.step),
+  ).length;
+  const activity = mergeEvents(runStatus?.events ?? [], runChannel.events);
 
   useEffect(() => {
     if (!tokenStore.get()) {
@@ -98,13 +106,13 @@ export default function RunSummaryPage() {
     return () => {
       isCancelled = true;
     };
-  }, [router, runId, refreshCount]);
+  }, [router, runId, refreshCount, terminalEventCount, isChannelLive]);
 
   useEffect(() => {
-    if (!isRunning) return;
-    const pollTimer = setInterval(() => setRefreshCount((count) => count + 1), ACTIVE_POLL_MS);
+    if (!isRunning || isChannelLive) return;
+    const pollTimer = setInterval(() => setRefreshCount((count) => count + 1), OFFLINE_POLL_MS);
     return () => clearInterval(pollTimer);
-  }, [isRunning]);
+  }, [isRunning, isChannelLive]);
 
   useEffect(() => {
     if (!hasStatus || isRunning) return;
@@ -131,7 +139,7 @@ export default function RunSummaryPage() {
   const pill = statusPill(runStatus, isRunning);
   const decision = runStatus?.decision ?? null;
   const ruleCount = policyRules(decision).length;
-  const stepCount = runStatus ? runToolRuns(runStatus, isRunning).length : null;
+  const stepCount = runStatus ? collectToolRuns(activity, isRunning).length : null;
 
   return (
     <ConsoleShell>
@@ -198,10 +206,10 @@ export default function RunSummaryPage() {
             ))}
           </div>
         )}
-        {runStatus && <RunTimeline run={run} runStatus={runStatus} isRunning={isRunning} />}
+        {runStatus && <RunTimeline run={run} runStatus={runStatus} activity={activity} isRunning={isRunning} />}
       </main>
 
-      <RawTracePanel runId={runId} trace={loadError ? null : isRunning ? undefined : trace} />
+      <RawTracePanel trace={loadError ? null : isRunning ? undefined : trace} />
     </ConsoleShell>
   );
 }

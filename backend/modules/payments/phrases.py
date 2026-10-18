@@ -101,6 +101,8 @@ STEP_PHRASES: dict[str, tuple[str, ...]] = {
         "The document does not have enough details to pay.",
     ),
     "claimed": ("Bill registered.",),
+    "fx_converted": ("Amount converted to USD.", "USD equivalent calculated."),
+    "checker_answered": ("The second review answered.", "The checker gave its answers."),
     "decided": ("Decision made.",),
     "decision_failed": (
         "Something failed while deciding; the bill stays in review.",

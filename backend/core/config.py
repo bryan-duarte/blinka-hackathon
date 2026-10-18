@@ -139,12 +139,26 @@ class DemoSettings(BaseSettings):
     password: SecretStr | None = None
     company_name: str = "Andescape Labs, Inc."
     inbox_address: str | None = None
+    max_running_launches: int = 20
 
     @model_validator(mode="after")
     def _require_password_when_enabled(self) -> Self:
         if self.enabled and self.password is None:
             raise ValueError("BLINKA_DEMO__PASSWORD is required when demo mode is enabled")
         return self
+
+
+class WorkerSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_WORKERS__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    agent_run_concurrency: int = Field(default=8, ge=1)
+    inbox_concurrency: int = Field(default=8, ge=1)
+    poll_interval_seconds: float = Field(default=15.0, gt=0)
+    db_pool_size: int = Field(default=10, ge=1)
+    db_max_overflow: int = Field(default=10, ge=0)
+    checkpointer_pool_size: int = Field(default=10, ge=1)
 
 
 class CorsSettings(BaseSettings):
@@ -161,7 +175,7 @@ class Settings(BaseSettings):
     )
 
     product_database_url: str
-    payments_database_url: str
+    agent_database_url: str
     jwt: JwtSettings = Field(default_factory=JwtSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
@@ -172,4 +186,5 @@ class Settings(BaseSettings):
     realtime: RealtimeSettings = Field(default_factory=RealtimeSettings)
     fx: FxSettings = Field(default_factory=FxSettings)
     demo: DemoSettings = Field(default_factory=DemoSettings)
+    workers: WorkerSettings = Field(default_factory=WorkerSettings)
     log_format: Literal["console", "json"] = "console"

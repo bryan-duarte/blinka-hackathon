@@ -41,7 +41,10 @@ class MailboxConnection(ProductBase):
 
 class InboxEmail(ProductBase):
     __tablename__ = "inbox_emails"
-    __table_args__ = (UniqueConstraint("provider", "external_message_id"),)
+    __table_args__ = (
+        UniqueConstraint("provider", "external_message_id"),
+        Index("ix_inbox_emails_status_created", "status", "created_at"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
@@ -59,5 +62,9 @@ class InboxEmail(ProductBase):
     file_id: Mapped[UUID | None] = mapped_column(ForeignKey("files.id"), nullable=True)
     run_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_runs.id"), nullable=True)
     error: Mapped[str | None] = mapped_column(nullable=True)
+    source_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True, deferred=True)
+    pipeline_stages: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

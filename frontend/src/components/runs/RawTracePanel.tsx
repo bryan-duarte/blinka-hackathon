@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { TRACE_ROLE_LABELS } from "@/lib/labels";
 import type { RunTraceView, TraceMessage } from "@/lib/types";
 
@@ -20,7 +19,7 @@ function previewMessages(messages: TraceMessage[]): TraceMessage[] {
   return [task, lastTool, lastAgent].filter((message): message is TraceMessage => message !== undefined);
 }
 
-export function RawTracePanel({ runId, trace }: { runId: string; trace: RunTraceView | null | undefined }) {
+export function RawTracePanel({ trace }: { trace: RunTraceView | null | undefined }) {
   const messages = trace?.messages ?? [];
   const toolCallCount = messages.reduce((total, message) => total + message.tool_calls.length, 0);
   const caption = !trace
@@ -34,17 +33,7 @@ export function RawTracePanel({ runId, trace }: { runId: string; trace: RunTrace
         <h2 id="raw-trace-title" className="font-serif text-[26px] leading-[1.13]">
           Raw trace
         </h2>
-        <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted">
-          {caption}
-          {trace?.is_available && (
-            <Link
-              href={`/runs/${runId}/trace`}
-              className="rounded text-white hover:text-iris hover:underline hover:underline-offset-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Open the full trace <span aria-hidden>→</span>
-            </Link>
-          )}
-        </span>
+        <span className="text-[13px] text-muted">{caption}</span>
       </div>
       {trace === undefined && (
         <div aria-hidden className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">

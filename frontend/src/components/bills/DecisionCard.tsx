@@ -12,14 +12,11 @@ import type {
   RuleResult,
   Verdict,
 } from "@/lib/types";
-import { BillProvenance } from "./BillProvenance";
-import { ReviewActions } from "./ReviewActions";
 
 type DecisionCardProps = {
   decision: BillDecisionView;
-  onResolved: () => void;
   onSelectEmail: (emailId: string) => void;
-  showsProvenance?: boolean;
+  isCompact?: boolean;
 };
 
 const CHECKER_RULE_PREFIX = "CHK";
@@ -46,12 +43,7 @@ const DISCLOSURE_SUMMARY_CLASS =
 
 const DUPLICATE_CHIP = { className: "border-line bg-panel text-muted", glyph: "" };
 
-export function DecisionCard({
-  decision,
-  onResolved,
-  onSelectEmail,
-  showsProvenance = false,
-}: DecisionCardProps) {
+export function DecisionCard({ decision, onSelectEmail, isCompact = false }: DecisionCardProps) {
   const policyRules = decision.rule_results.filter((rule) => !isCheckerRule(rule));
   const checkerRules = decision.rule_results.filter(isCheckerRule);
   const failingRules = policyRules
@@ -61,32 +53,34 @@ export function DecisionCard({
 
   return (
     <section className="flex flex-col gap-6">
-      {showsProvenance && <BillProvenance billId={decision.bill_id} />}
       <VerdictHeader decision={decision} />
       {decision.duplicate_of_bill_id && (
         <DuplicateLink originalBillId={decision.duplicate_of_bill_id} onSelectEmail={onSelectEmail} />
       )}
-      {failingRules.length > 0 && (
-        <div className="space-y-2">
-          <h3 className={EYEBROW_CLASS}>Points that stop automatic payment</h3>
-          <RuleList rules={failingRules} />
-        </div>
+      {isCompact ? null : (
+        <>
+          {failingRules.length > 0 && (
+            <div className="space-y-2">
+              <h3 className={EYEBROW_CLASS}>Points that stop automatic payment</h3>
+              <RuleList rules={failingRules} />
+            </div>
+          )}
+          {passingRules.length > 0 && (
+            <details className="group">
+              <summary className={DISCLOSURE_SUMMARY_CLASS}>
+                <DisclosureChevron />
+                {passingRules.length} rules passed
+              </summary>
+              <div className="mt-2">
+                <RuleList rules={passingRules} />
+              </div>
+            </details>
+          )}
+          {decision.candidate && <EvidenceTable candidate={decision.candidate} />}
+          {checkerRules.length > 0 && <CheckerOpinion rules={checkerRules} />}
+          <DecisionHistory billId={decision.bill_id} />
+        </>
       )}
-      {passingRules.length > 0 && (
-        <details className="group">
-          <summary className={DISCLOSURE_SUMMARY_CLASS}>
-            <DisclosureChevron />
-            {passingRules.length} rules passed
-          </summary>
-          <div className="mt-2">
-            <RuleList rules={passingRules} />
-          </div>
-        </details>
-      )}
-      {decision.candidate && <EvidenceTable candidate={decision.candidate} />}
-      {checkerRules.length > 0 && <CheckerOpinion rules={checkerRules} />}
-      <DecisionHistory billId={decision.bill_id} />
-      {decision.can_approve && <ReviewActions billId={decision.bill_id} onResolved={onResolved} />}
     </section>
   );
 }
@@ -191,7 +185,7 @@ function RuleRow({ rule }: { rule: RuleResult }) {
   );
 }
 
-function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
+export function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
   const evidenceByField = new Map<string, FieldEvidence>(
     candidate.evidence.map((evidence) => [evidence.field, evidence]),
   );
@@ -227,7 +221,7 @@ function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
   );
 }
 
-function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
+export function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
   return (
     <div className="space-y-2">
       <h3 className={EYEBROW_CLASS}>Checker opinion (model)</h3>
@@ -254,7 +248,7 @@ function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
   );
 }
 
-function DuplicateLink({
+export function DuplicateLink({
   originalBillId,
   onSelectEmail,
 }: {
@@ -301,7 +295,7 @@ function DuplicateLink({
   );
 }
 
-function DecisionHistory({ billId }: { billId: string }) {
+export function DecisionHistory({ billId }: { billId: string }) {
   const [history, setHistory] = useState<BillDecisionView[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
@@ -345,6 +339,6 @@ function DecisionHistory({ billId }: { billId: string }) {
   );
 }
 
-function isCheckerRule(rule: RuleResult): boolean {
+export function isCheckerRule(rule: RuleResult): boolean {
   return rule.rule_id.startsWith(CHECKER_RULE_PREFIX);
 }

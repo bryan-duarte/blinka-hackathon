@@ -8,10 +8,10 @@ import { EmailDetail } from "@/components/inbox/EmailDetail";
 import { EmailList, EmailListSkeleton } from "@/components/inbox/EmailList";
 import { InboxMetrics } from "@/components/inbox/InboxMetrics";
 import { DemoScenariosPanel } from "@/components/demo/DemoScenariosPanel";
-import { SECONDARY_BUTTON_CLASS } from "@/components/settings/styles";
+import { PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import { SOURCE_LABELS } from "@/lib/labels";
-import { TERMINAL_RUN_STEPS } from "@/lib/runEvents";
+import { TERMINAL_RUN_STEPS, withEvent } from "@/lib/runEvents";
 import type {
   BudgetUsageView,
   DemoCatalogView,
@@ -57,11 +57,6 @@ function pollIntervalMs(isChannelLive: boolean, hasPendingEmails: boolean): numb
   return hasPendingEmails ? POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
 }
 
-function withEvent(existingEvents: RealtimeEvent[] = [], event: RealtimeEvent): RealtimeEvent[] {
-  const isDuplicate = existingEvents.some((existing) => existing.sequence === event.sequence);
-  return isDuplicate ? existingEvents : [...existingEvents, event];
-}
-
 export default function InboxPage() {
   const router = useRouter();
   const [connections, setConnections] = useState<MailboxConnectionView[]>([]);
@@ -78,6 +73,7 @@ export default function InboxPage() {
   const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [runEvents, setRunEvents] = useState<Record<string, RealtimeEvent[]>>({});
   const [thinkingByRun, setThinkingByRun] = useState<Record<string, string>>({});
+  const [stageEventsByItem, setStageEventsByItem] = useState<Record<string, RealtimeEvent[]>>({});
   const wasChannelLive = useRef(false);
   const reviewEmails = (emails ?? []).filter((email) => email.status === "review");
   const isReviewFilter = inboxFilter === "review";
@@ -94,6 +90,7 @@ export default function InboxPage() {
     setSelectedEmailId(null);
     setRunEvents({});
     setThinkingByRun({});
+    setStageEventsByItem({});
     requestRefresh();
   }
 
@@ -121,6 +118,11 @@ export default function InboxPage() {
   const channelState = useInboxChannel((event) => {
     if (event.type === "inbox.item") {
       routeInboxItemEvent(event);
+      return;
+    }
+    if (event.type === "pipeline.stage" && event.item_id) {
+      const itemId = event.item_id;
+      setStageEventsByItem((current) => ({ ...current, [itemId]: withEvent(current[itemId], event) }));
       return;
     }
     if (!event.run_id) return;
@@ -219,24 +221,17 @@ export default function InboxPage() {
         title="Inbox"
         caption={caption}
         actions={
-          <>
-            <ConnectionBar
-              connections={connections}
-              onUnauthorized={handleUnauthorized}
-              onChanged={reloadConnections}
-            />
-            {demoCatalog && (
-              <button
-                type="button"
-                onClick={() => setIsDemoPanelOpen(true)}
-                className={`${SECONDARY_BUTTON_CLASS} h-9 px-4`}
-              >
-                Demo scenarios
-              </button>
-            )}
-          </>
+          demoCatalog && (
+            <button type="button" onClick={() => setIsDemoPanelOpen(true)} className={PRIMARY_BUTTON_CLASS}>
+              <svg aria-hidden viewBox="0 0 16 16" className="size-4 fill-none stroke-current" strokeWidth={1.5} strokeLinejoin="round">
+                <path d="M5 3.5v9l7-4.5z" />
+              </svg>
+              Demo scenarios
+            </button>
+          )
         }
       />
+      <ConnectionBar connections={connections} onUnauthorized={handleUnauthorized} onChanged={reloadConnections} />
 
       {loadError && (
         <p role="alert" className="border-b border-line bg-danger-soft px-4 py-2 text-sm text-danger md:px-8">
@@ -257,76 +252,63 @@ export default function InboxPage() {
 
       <InboxMetrics emails={emails} budgets={budgets} />
 
-      <div className="flex flex-1 flex-col gap-4 px-4 py-6 md:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="group" aria-label="Filter messages" className="flex gap-1">
-            <FilterTab label="All" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
-            <FilterTab
-              label="In review"
-              count={reviewCount}
-              isActive={isReviewFilter}
-              onSelect={() => setInboxFilter("review")}
-            />
-          </div>
-          <div role="group" aria-label="Filter by channel" className="flex gap-1">
-            <SourceChip
-              label="All"
-              isActive={sourceFilter === null}
-              onSelect={() => selectSourceFilter(null)}
-            />
-            {SOURCE_FILTERS.map((source) => (
+      <main className="grid flex-1 items-stretch md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+        <section
+          aria-label="Messages"
+          className={`flex min-w-0 flex-col border-line md:border-r ${selectedEmailId ? "hidden md:flex" : ""}`}
+        >
+          <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
+            <div role="group" aria-label="Filter messages" className="flex gap-1">
+              <FilterTab label="All" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
+              <FilterTab
+                label="In review"
+                count={reviewCount}
+                isActive={isReviewFilter}
+                onSelect={() => setInboxFilter("review")}
+              />
+            </div>
+            <div role="group" aria-label="Filter by channel" className="flex flex-wrap gap-1">
               <SourceChip
-                key={source}
-                label={SOURCE_LABELS[source]}
-                isActive={sourceFilter === source}
-                onSelect={() => selectSourceFilter(source)}
+                label="All"
+                isActive={sourceFilter === null}
+                onSelect={() => selectSourceFilter(null)}
               />
-            ))}
+              {SOURCE_FILTERS.map((source) => (
+                <SourceChip
+                  key={source}
+                  label={SOURCE_LABELS[source]}
+                  isActive={sourceFilter === source}
+                  onSelect={() => selectSourceFilter(source)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <main className="grid flex-1 items-start gap-8 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
-          <section
-            aria-label="Messages"
-            className={`overflow-hidden rounded-lg border border-line bg-panel ${selectedEmailId ? "hidden md:block" : ""}`}
-          >
-            {visibleEmails === null ? (
-              <EmailListSkeleton />
-            ) : isReviewQueueEmpty ? (
-              <p className="px-6 py-12 text-sm text-muted">
-                No invoices are waiting for a decision.
-              </p>
-            ) : (
-              <EmailList
-                emails={visibleEmails}
-                selectedEmailId={selectedEmailId}
-                onSelect={setSelectedEmailId}
-              />
-            )}
-          </section>
-          <section
-            aria-label="Message detail"
-            className={selectedEmailId ? "" : "hidden md:block"}
-          >
-            {selectedEmail && selectedEmail.email_id === selectedEmailId ? (
-              <EmailDetail
-                email={selectedEmail}
-                onBack={() => setSelectedEmailId(null)}
-                onDecisionChanged={requestRefresh}
-                onSelectEmail={setSelectedEmailId}
-                runEvents={selectedEmail.run_id ? (runEvents[selectedEmail.run_id] ?? []) : []}
-                thinking={selectedEmail.run_id ? (thinkingByRun[selectedEmail.run_id] ?? "") : ""}
-                refreshKey={snapshotVersion}
-              />
-            ) : (
-              <p className="py-4 text-sm text-muted">
-                {selectedEmailId
-                  ? "Loading message…"
-                  : "Select a message to see the agent's decision."}
-              </p>
-            )}
-          </section>
-        </main>
-      </div>
+          {visibleEmails === null ? (
+            <EmailListSkeleton />
+          ) : isReviewQueueEmpty ? (
+            <p className="px-4 py-10 text-sm text-muted">No invoices are waiting for a decision.</p>
+          ) : (
+            <EmailList emails={visibleEmails} selectedEmailId={selectedEmailId} onSelect={setSelectedEmailId} />
+          )}
+        </section>
+        <section aria-label="Message detail" className={`min-w-0 ${selectedEmailId ? "" : "hidden md:block"}`}>
+          {selectedEmail && selectedEmail.email_id === selectedEmailId ? (
+            <EmailDetail
+              email={selectedEmail}
+              onBack={() => setSelectedEmailId(null)}
+              onSelectEmail={setSelectedEmailId}
+              runEvents={selectedEmail.run_id ? (runEvents[selectedEmail.run_id] ?? []) : []}
+              thinking={selectedEmail.run_id ? (thinkingByRun[selectedEmail.run_id] ?? "") : ""}
+              stageEvents={stageEventsByItem[selectedEmail.email_id] ?? []}
+              refreshKey={snapshotVersion}
+            />
+          ) : (
+            <p className="p-6 text-sm text-muted">
+              {selectedEmailId ? "Loading message…" : "Select a message to watch the agent work and see its decision."}
+            </p>
+          )}
+        </section>
+      </main>
     </ConsoleShell>
   );
 }

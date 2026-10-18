@@ -1,7 +1,8 @@
-import { SourceBadge } from "@/components/inbox/SourceBadge";
-import { PRIMARY_BUTTON_CLASS, QUIET_BUTTON_CLASS } from "@/components/settings/styles";
+import { PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
+import { SOURCE_LABELS } from "@/lib/labels";
 import type { DemoLaunchView, DemoScenarioView } from "@/lib/types";
 import { LaunchProgress } from "./LaunchProgress";
+import { DownloadIcon } from "./SelfSendCard";
 
 type ScenarioRowProps = {
   scenario: DemoScenarioView;
@@ -23,46 +24,39 @@ export function ScenarioRow({
   const isRunning = launch?.status === "running";
   const ruleIds = [...new Set(scenario.steps.flatMap((step) => step.rule_ids))];
   return (
-    <li className="flex flex-col gap-2 border-t border-line py-4">
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-sm text-ink">{scenario.title}</p>
-        <SourceBadge type={scenario.channel} showsLabel />
-      </div>
-      <p className="text-[13px] leading-[1.4] text-muted">{scenario.description}</p>
-      <div className="flex flex-wrap items-center gap-1 text-xs text-muted">
-        <span>Expected:</span>
-        <LaunchProgress launch={launch} expectations={scenario.steps} />
-        {ruleIds.map((ruleId) => (
-          <span key={ruleId} className="rounded-full bg-sunken px-2 py-0.5 text-nav-ink">
-            {ruleId}
-          </span>
-        ))}
-      </div>
-      {disabledHint && <p className="text-xs text-muted">{disabledHint}</p>}
-      <div className="flex items-center justify-between gap-2">
-        {scenario.is_self_sendable ? (
+    <li className="flex flex-col gap-2 border-t border-line py-3">
+      <div className="flex items-center gap-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-ink">{scenario.title}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {SOURCE_LABELS[scenario.channel]}
+            {ruleIds.length > 0 && ` · ${ruleIds.join(", ")}`}
+            {!scenario.is_self_sendable && " · in-app only"}
+          </p>
+        </div>
+        {scenario.is_self_sendable && (
           <button
             type="button"
             onClick={() => onDownload(scenario.scenario_id)}
             title={scenario.self_send_hint}
-            className={QUIET_BUTTON_CLASS}
+            aria-label={`Download the files for ${scenario.title}`}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-ink bg-panel text-ink transition-colors hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            Files ↓
+            <DownloadIcon />
           </button>
-        ) : (
-          <span className="text-xs text-quiet" title={scenario.self_send_hint}>
-            In-app only
-          </span>
         )}
         <button
           type="button"
           onClick={() => onSend(scenario.scenario_id)}
           disabled={isSendDisabled || isRunning}
-          className={`${PRIMARY_BUTTON_CLASS} h-9 px-4`}
+          className={`${PRIMARY_BUTTON_CLASS} h-8 px-3.5 text-[13px]`}
         >
           {isRunning ? "Sending…" : "Send"}
         </button>
       </div>
+      <p className="line-clamp-2 text-[13px] leading-[1.4] text-muted">{scenario.description}</p>
+      <LaunchProgress launch={launch} expectations={scenario.steps} />
+      {disabledHint && <p className="text-xs text-muted">{disabledHint}</p>}
     </li>
   );
 }

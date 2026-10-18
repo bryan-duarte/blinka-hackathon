@@ -13,6 +13,8 @@ import type {
   PayeeStatus,
   PaymentCategory,
   PaymentMethod,
+  PipelineStage,
+  RuleOutcome,
   RunStatus,
   TraceRole,
   Verdict,
@@ -223,3 +225,39 @@ export const RULE_LABELS: Record<string, string> = {
 export function ruleLabel(ruleId: string): string {
   return RULE_LABELS[ruleId] ?? ruleId;
 }
+
+export const POLICY_RULE_IDS = Object.keys(RULE_LABELS).filter((ruleId) => /^R\d/.test(ruleId));
+
+export const STAGE_LABELS: Record<PipelineStage, string> = {
+  queued: "Queued",
+  fetch: "Fetched the message",
+  malware_scan: "Malware scan",
+  guardrail: "Guardrail check",
+  dedup: "Duplicate check",
+  handoff: "Handed to the agent",
+};
+
+export const INTAKE_SCAN_LABELS: Record<string, string> = {
+  ready: "clean",
+  malware: "threat found",
+  scan_failed: "scan did not finish",
+  unreadable: "unreadable file",
+};
+
+export type AgentPhase = "intake" | "classify" | "extract" | "register" | "rules" | "checker" | "settle";
+
+export const PHASE_LABELS: Record<AgentPhase, string> = {
+  intake: "Intake",
+  classify: "Classify",
+  extract: "Extract",
+  register: "Register",
+  rules: "Rules",
+  checker: "Checker",
+  settle: "Decide",
+};
+
+export const RULE_OUTCOME_LABELS: Record<RuleOutcome, string> = {
+  pass: "Passed",
+  review: "Needs a person",
+  hold: "Blocks",
+};

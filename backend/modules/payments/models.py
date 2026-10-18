@@ -48,6 +48,7 @@ class AgentRun(ProductBase):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
+Index("ix_agent_runs_status_created", AgentRun.status, AgentRun.created_at)
 Index(
     "uq_agent_runs_active_source",
     AgentRun.bill_source_id,

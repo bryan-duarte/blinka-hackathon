@@ -1,4 +1,7 @@
+import asyncio
 from collections.abc import Mapping
+from operator import attrgetter
+from time import monotonic
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -15,9 +18,11 @@ from contracts.inbox import (
     MailboxConnectionRecord,
     MailboxConnectionView,
     MailboxConnectStarted,
+    QueuedEmail,
 )
 from contracts.mail_gateway import FetchedEmail, MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView, PaymentRunStatus, RunStatus, Verdict
+from contracts.pipeline import PipelineStage
 from contracts.whatsapp_gateway import (
     ConfirmWhatsAppRequest,
     WhatsAppConnectionMode,
@@ -27,13 +32,21 @@ from contracts.whatsapp_gateway import (
 from core.background import ExecutionRegistry
 from core.config import KapsoSettings
 from core.logging_config import get_logger
+from core.work_queue import QueueLimits, QueueWorker
 from modules.inbox.errors import (
     EmailMissingError,
     MailboxConnectionMissingError,
     WhatsAppPhoneTakenError,
 )
-from modules.inbox.pipeline import InboxDependencies, InboxSource, process_email
+from modules.inbox.pipeline import (
+    InboxDependencies,
+    InboxSource,
+    dump_source,
+    load_source,
+    process_email,
+)
 from modules.inbox.repository import InboxRepository
+from modules.mail_gateway import MailProviderError
 from modules.whatsapp_gateway import normalize_user_phone
 
 if TYPE_CHECKING:
@@ -45,6 +58,11 @@ PREVIEW_CHARS = 140
 SIMULATED_MESSAGE_PREFIX = "sim-"
 SANDBOX_ACCOUNT_PREFIX = "sandbox:"
 SETUP_LINK_ACCOUNT_PREFIX = "setup:"
+INBOX_QUEUE_NAME = "inbox_emails"
+UNPROCESSABLE_CLAIM_REASON = "queued message could not be read"
+OWNER_CANCELLATION_REASON = "cancelled before it started"
+MAIL_RECONCILE_TTL_SECONDS = 60
+RECONCILED_PROVIDERS = frozenset({MailProvider.GMAIL, MailProvider.OUTLOOK})
 VERDICT_INBOX_STATUS = {
     Verdict.PAY: InboxEmailStatus.PAID,
     Verdict.HOLD: InboxEmailStatus.HELD,
@@ -61,6 +79,7 @@ class InboxService:
         auth: "AuthClient",
         callback_url: str,
         kapso: KapsoSettings,
+        queue_limits: QueueLimits,
     ) -> None:
         self._repository = repository
         self._registry = registry
@@ -68,6 +87,15 @@ class InboxService:
         self._auth = auth
         self._callback_url = callback_url
         self._kapso = kapso
+        self._worker = QueueWorker(
+            INBOX_QUEUE_NAME,
+            claim=repository.claim_received_emails,
+            handle=self.process_claimed,
+            work_id=attrgetter("email_id"),
+            registry=registry,
+            limits=queue_limits,
+        )
+        self._mail_reconciled_at: dict[UUID, float] = {}
 
     async def start_connection(
         self, owner: CurrentUser, provider: MailProvider
@@ -182,7 +210,8 @@ class InboxService:
         )
 
     async def list_connections(self, owner: CurrentUser) -> list[MailboxConnectionView]:
-        connections = await self._repository.list_connections(owner.user_id)
+        stored_connections = await self._repository.list_connections(owner.user_id)
+        connections = await self._reconcile_mail_connections(stored_connections)
         return [
             _to_connection_view(connection, self._kapso.sandbox_display_number)
             for connection in connections
@@ -221,10 +250,10 @@ class InboxService:
     ) -> InboxEmailView:
         provider = MailProvider.WHATSAPP if channel == "whatsapp" else MailProvider.SIMULATED
         email_id = await self._repository.insert_email(
-            owner.user_id, provider, f"{SIMULATED_MESSAGE_PREFIX}{uuid4()}"
+            owner.user_id, provider, f"{SIMULATED_MESSAGE_PREFIX}{uuid4()}", dump_source(message)
         )
         assert email_id is not None
-        await self._accept(email_id, owner, message)
+        await self._accept(email_id, owner)
         logger.info("inbox_email_injected", email_id=email_id, channel=channel)
         return InboxEmailView(
             email_id=email_id,
@@ -246,9 +275,17 @@ class InboxService:
         return status
 
     async def cancel_owner(self, owner_id: UUID) -> int:
+        abandoned_count = await self._repository.abandon_received_emails(
+            owner_id, OWNER_CANCELLATION_REASON
+        )
         cancelled_count = await self._registry.cancel_owner(owner_id)
-        if cancelled_count:
-            logger.info("inbox_items_cancelled", owner_id=owner_id, count=cancelled_count)
+        if cancelled_count or abandoned_count:
+            logger.info(
+                "inbox_items_cancelled",
+                owner_id=owner_id,
+                count=cancelled_count,
+                abandoned_count=abandoned_count,
+            )
         return cancelled_count
 
     async def list_emails(
@@ -272,6 +309,7 @@ class InboxService:
             error=error,
             run_id=record.run_id,
             evidence=run.evidence if run else [],
+            pipeline_stages=record.pipeline_stages,
         )
 
     async def fail_unfinished(self, reason: str) -> None:
@@ -279,7 +317,23 @@ class InboxService:
         if failed_count:
             logger.warning("unfinished_inbox_emails_swept", failed_count=failed_count)
 
+    def start_worker(self) -> None:
+        self._worker.start()
+
+    async def process_claimed(self, email: QueuedEmail) -> None:
+        try:
+            owner = await self._auth.get_user(email.owner_id)
+            source = load_source(email.source_payload)
+        except Exception:
+            logger.exception("inbox_claim_unprocessable", email_id=email.email_id)
+            await self._repository.set_status(
+                email.email_id, InboxEmailStatus.ERROR, error=UNPROCESSABLE_CLAIM_REASON
+            )
+            return
+        await process_email(email.email_id, owner, source, self._dependencies)
+
     async def shutdown(self) -> None:
+        await self._worker.stop()
         await self._registry.shutdown()
 
     async def _receive(
@@ -291,23 +345,78 @@ class InboxService:
     ) -> UUID | None:
         owner = await self._auth.get_user(connection.owner_id)
         email_id = await self._repository.insert_email(
-            connection.owner_id, provider, message_id, connection.connection_id
+            connection.owner_id, provider, message_id, dump_source(source), connection.connection_id
         )
         if email_id is None:
             logger.info("inbox_webhook_duplicate", message_id=message_id)
             return None
-        await self._accept(email_id, owner, source)
+        await self._accept(email_id, owner)
         return email_id
 
-    async def _accept(self, email_id: UUID, owner: CurrentUser, source: InboxSource) -> None:
-        await self._dependencies.notifier.item_changed(
-            owner.user_id, email_id, InboxEmailStatus.RECEIVED
+    async def _accept(self, email_id: UUID, owner: CurrentUser) -> None:
+        notifier = self._dependencies.notifier
+        await notifier.item_changed(owner.user_id, email_id, InboxEmailStatus.RECEIVED)
+        await notifier.stage(owner.user_id, email_id, PipelineStage.QUEUED, "started")
+        self._worker.notify()
+
+    async def _reconcile_mail_connections(
+        self, connections: list[MailboxConnectionRecord]
+    ) -> list[MailboxConnectionRecord]:
+        due_connections = [
+            connection for connection in connections if self._is_reconcile_due(connection)
+        ]
+        refresh_outcomes = await asyncio.gather(
+            *(self._refresh_mail_status(connection) for connection in due_connections),
+            return_exceptions=True,
         )
-        self._registry.spawn(
-            email_id,
-            process_email(email_id, owner, source, self._dependencies),
-            owner_id=owner.user_id,
+        refreshed_by_id = {
+            outcome.connection_id: outcome
+            for outcome in refresh_outcomes
+            if isinstance(outcome, MailboxConnectionRecord)
+        }
+        for connection, outcome in zip(due_connections, refresh_outcomes, strict=True):
+            if isinstance(outcome, Exception):
+                logger.error(
+                    "mailbox_reconcile_crashed",
+                    connection_id=connection.connection_id,
+                    exc_info=outcome,
+                )
+        return [
+            refreshed_by_id.get(connection.connection_id, connection) for connection in connections
+        ]
+
+    def _is_reconcile_due(self, connection: MailboxConnectionRecord) -> bool:
+        last_reconciled_at = self._mail_reconciled_at.get(connection.connection_id)
+        is_stale = (
+            last_reconciled_at is None
+            or monotonic() - last_reconciled_at >= MAIL_RECONCILE_TTL_SECONDS
         )
+        return (
+            connection.provider in RECONCILED_PROVIDERS
+            and connection.status is MailAccountStatus.ACTIVE
+            and is_stale
+        )
+
+    async def _refresh_mail_status(
+        self, connection: MailboxConnectionRecord
+    ) -> MailboxConnectionRecord:
+        self._mail_reconciled_at[connection.connection_id] = monotonic()
+        try:
+            account_status = await self._dependencies.mail_gateway.get_account_status(
+                connection.connected_account_id
+            )
+        except MailProviderError:
+            logger.warning(
+                "mailbox_reconcile_failed", connection_id=connection.connection_id, exc_info=True
+            )
+            return connection
+        if account_status is connection.status:
+            return connection
+        await self._repository.set_connection_status(connection.connection_id, account_status)
+        logger.warning(
+            "mailbox_status_changed", connection_id=connection.connection_id, status=account_status
+        )
+        return connection.model_copy(update={"status": account_status})
 
     async def _whatsapp_connection_for(
         self, event: WhatsAppDocumentEvent

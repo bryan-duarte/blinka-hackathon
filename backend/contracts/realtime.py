@@ -7,10 +7,13 @@ from contracts._base import StrictModel
 
 class RealtimeEventType(StrEnum):
     INBOX_ITEM = "inbox.item"
+    PIPELINE_STAGE = "pipeline.stage"
     RUN_STEP = "run.step"
     AGENT_TOOL = "agent.tool"
     AGENT_TODOS = "agent.todos"
     AGENT_THINKING = "agent.thinking"
+    AGENT_RULE = "agent.rule"
+    AGENT_LLM = "agent.llm"
 
 
 class RealtimeEvent(StrictModel):

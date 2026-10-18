@@ -5,7 +5,7 @@ import type { DemoCatalogView, DemoSectionView } from "@/lib/types";
 import { useDemoLaunches } from "@/lib/useDemoLaunches";
 import { ResetDemoDialog } from "./ResetDemoDialog";
 import { ScenarioRow } from "./ScenarioRow";
-import { SelfSendCard } from "./SelfSendCard";
+import { DownloadIcon, SelfSendCard } from "./SelfSendCard";
 
 const OPEN_BY_DEFAULT_SECTION = "happy_path";
 const HTTP_TOO_MANY_REQUESTS = 429;
@@ -30,6 +30,9 @@ export function DemoScenariosPanel({ catalog, isOpen, onClose, onLaunched, onRes
   const [isResetting, setIsResetting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const selfSendableCount = catalog.sections
+    .flatMap((section) => section.scenarios)
+    .filter((scenario) => scenario.is_self_sendable).length;
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -82,7 +85,7 @@ export function DemoScenariosPanel({ catalog, isOpen, onClose, onLaunched, onRes
         if (event.target === event.currentTarget) onClose();
       }}
       aria-labelledby="demo-panel-title"
-      className="m-0 ml-auto h-dvh max-h-none w-full max-w-none border-l border-line bg-panel p-0 text-ink backdrop:bg-night/20 sm:w-[420px]"
+      className="m-0 ml-auto h-dvh max-h-none w-full max-w-none border-l border-line bg-panel p-0 text-ink backdrop:bg-night/20 sm:w-[480px]"
     >
       <div className="flex h-full flex-col">
         <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
@@ -106,6 +109,7 @@ export function DemoScenariosPanel({ catalog, isOpen, onClose, onLaunched, onRes
           </button>
         </header>
         <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-6 py-4">
+          <SelfSendCard destinations={catalog.destinations} selfSendableCount={selfSendableCount} />
           {statusMessage && (
             <p role="status" className="rounded bg-accent-wash px-3 py-2 text-sm text-accent">
               {statusMessage}
@@ -128,7 +132,10 @@ export function DemoScenariosPanel({ catalog, isOpen, onClose, onLaunched, onRes
               onDownload={download}
             />
           ))}
-          <SelfSendCard destinations={catalog.destinations} />
+          <p className="flex items-center gap-1.5 pt-2 text-xs text-muted">
+            <DownloadIcon />
+            Rows with this button can be sent by you. The others are in-app only.
+          </p>
           <div className="flex flex-col gap-1 border-t border-line pt-6 pb-2">
             <button
               type="button"

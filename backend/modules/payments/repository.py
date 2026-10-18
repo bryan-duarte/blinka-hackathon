@@ -1,3 +1,4 @@
+from operator import attrgetter
 from uuid import UUID
 
 from sqlalchemy import case, func, select, update
@@ -5,7 +6,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from contracts.files import EvidenceLink, EvidenceRole
-from contracts.payments import PaymentRunEvent, PaymentRunRecord, RunStatus
+from contracts.payments import PaymentRunEvent, PaymentRunRecord, QueuedRun, RunStatus
+from contracts.pipeline import PipelineStageRecord
+from modules.inbox.models import InboxEmail
 from modules.payments.errors import RunTriggerError
 from modules.payments.models import ACTIVE_RUN_STATUSES, AgentRun, AgentRunEvent, AgentRunFileRow
 
@@ -104,6 +107,23 @@ class RunsRepository:
             await session.commit()
         return _to_event(event)
 
+    async def insert_events(
+        self, run_id: UUID, step_payloads: list[tuple[str, dict]]
+    ) -> list[PaymentRunEvent]:
+        statement = (
+            insert(AgentRunEvent)
+            .values(
+                [
+                    {"run_id": run_id, "step": step, "payload": payload}
+                    for step, payload in step_payloads
+                ]
+            )
+            .returning(AgentRunEvent)
+        )
+        async with self._sessionmaker() as session, session.begin():
+            events = (await session.execute(statement)).scalars().all()
+        return sorted((_to_event(event) for event in events), key=attrgetter("id"))
+
     async def list_events(
         self, run_id: UUID, limit: int = RUN_EVENT_LIST_LIMIT
     ) -> list[PaymentRunEvent]:
@@ -159,10 +179,49 @@ class RunsRepository:
             rows = (await session.execute(statement)).all()
         return [EvidenceLink(file_id=file_id, role=EvidenceRole(role)) for file_id, role in rows]
 
+    async def claim_pending_runs(self, limit: int) -> list[QueuedRun]:
+        oldest_pending_ids = (
+            select(AgentRun.id)
+            .where(AgentRun.status == RunStatus.PENDING)
+            .order_by(AgentRun.created_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .scalar_subquery()
+        )
+        statement = (
+            update(AgentRun)
+            .where(AgentRun.id.in_(oldest_pending_ids))
+            .values(status=RunStatus.RUNNING, updated_at=func.now())
+            .returning(AgentRun.id, AgentRun.owner_id, AgentRun.bill_source_id)
+        )
+        async with self._sessionmaker() as session, session.begin():
+            claimed_runs = (await session.execute(statement)).all()
+        return [
+            QueuedRun(run_id=run_id, owner_id=owner_id, bill_source_id=bill_source_id)
+            for run_id, owner_id, bill_source_id in claimed_runs
+        ]
+
+    async def abandon_pending_runs(self, owner_id: UUID, reason: str) -> int:
+        statement = (
+            update(AgentRun)
+            .where(AgentRun.owner_id == owner_id, AgentRun.status == RunStatus.PENDING)
+            .values(status=RunStatus.FAILED, error=reason, updated_at=func.now())
+            .returning(AgentRun.id)
+        )
+        async with self._sessionmaker() as session, session.begin():
+            abandoned_run_ids = (await session.execute(statement)).scalars().all()
+        return len(abandoned_run_ids)
+
+    async def pipeline_stages(self, run_id: UUID) -> list[PipelineStageRecord]:
+        statement = select(InboxEmail.pipeline_stages).where(InboxEmail.run_id == run_id).limit(1)
+        async with self._sessionmaker() as session:
+            stages = (await session.execute(statement)).scalar_one_or_none()
+        return [PipelineStageRecord.model_validate(stage) for stage in stages or []]
+
     async def fail_unfinished(self, reason: str) -> int:
         statement = (
             update(AgentRun)
-            .where(AgentRun.status.in_(ACTIVE_RUN_STATUSES))
+            .where(AgentRun.status == RunStatus.RUNNING)
             .values(status=RunStatus.FAILED, error=reason, updated_at=func.now())
             .returning(AgentRun.id)
         )

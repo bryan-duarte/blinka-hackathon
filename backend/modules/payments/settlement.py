@@ -65,31 +65,39 @@ async def settle(
     note: str | None = None,
 ) -> DecisionRecord:
     verdict, results = evaluation.verdict, list(evaluation.results)
+    reservation = None
     if verdict is Verdict.PAY:
-        payment_blocker = await _pay(dependencies, bill, context)
-        if payment_blocker is not None:
-            verdict = Verdict.HOLD
-            results.append(payment_blocker)
-    decision = await dependencies.ledger.append_decision(
-        DecisionRecord(
-            bill_id=bill.bill_id,
-            run_id=run_id,
-            actor=actor,
-            actor_user_id=actor_user_id,
-            verdict=verdict,
-            rule_results=results,
-            checker=checker,
-            explanation=explain(verdict, results, context),
-            policy_id=context.policy.policy_id,
-            policy_version=context.policy.version,
-            note=note,
+        planned_payment = _reservation_for(bill, context)
+        if isinstance(planned_payment, RuleResult):
+            verdict, results = Verdict.HOLD, [*results, planned_payment]
+        else:
+            reservation = planned_payment
+    decision = DecisionRecord(
+        bill_id=bill.bill_id,
+        run_id=run_id,
+        actor=actor,
+        actor_user_id=actor_user_id,
+        verdict=verdict,
+        rule_results=results,
+        checker=checker,
+        explanation=explain(verdict, results, context),
+        policy_id=context.policy.policy_id,
+        policy_version=context.policy.version,
+        note=note,
+    )
+    ledger = dependencies.ledger
+    try:
+        settled = await ledger.commit_settlement(
+            bill.owner_id, bill.bill_id, from_status, VERDICT_STATUS[verdict], reservation, decision
         )
-    )
-    await dependencies.bills.transition(
-        bill.owner_id, bill.bill_id, from_status, VERDICT_STATUS[verdict]
-    )
-    logger.info("bill_decided", bill_id=bill.bill_id, verdict=verdict, actor=actor)
-    return decision
+    except BudgetExhaustedError as exhausted:
+        logger.info("budget_exhausted", bill_id=bill.bill_id, scope=exhausted.scope)
+        held_decision = _held_for_budget(decision, exhausted, context)
+        settled = await ledger.commit_settlement(
+            bill.owner_id, bill.bill_id, from_status, BillStatus.HELD, None, held_decision
+        )
+    logger.info("bill_decided", bill_id=bill.bill_id, verdict=settled.verdict, actor=actor)
+    return settled
 
 
 async def record_duplicate(
@@ -186,9 +194,7 @@ async def record_recovered_payment(dependencies: PaymentRunDependencies, bill: B
     await dependencies.bills.transition(bill.owner_id, bill.bill_id, bill.status, BillStatus.PAID)
 
 
-async def _pay(
-    dependencies: PaymentRunDependencies, bill: BillRecord, context: DecisionContext
-) -> RuleResult | None:
+def _reservation_for(bill: BillRecord, context: DecisionContext) -> ReservationRequest | RuleResult:
     candidate = context.candidate
     is_payable = (
         context.amount_usd is not None
@@ -200,7 +206,7 @@ async def _pay(
     if not is_payable:
         return rule_result("PAY", RuleEffect.HOLD, UNPAYABLE_REASON)
     payee = context.match.payee
-    reservation = ReservationRequest(
+    return ReservationRequest(
         owner_id=bill.owner_id,
         bill_id=bill.bill_id,
         payee_id=payee.payee_id if payee else None,
@@ -214,16 +220,23 @@ async def _pay(
         period=current_period(context.today),
         charges=budget_charges(context.policy, payee, candidate.category),
     )
-    try:
-        payment = await dependencies.ledger.reserve(reservation)
-    except BudgetExhaustedError as exhausted:
-        logger.info("budget_exhausted", bill_id=bill.bill_id, scope=exhausted.scope)
-        scope_description = describe_scope(exhausted.scope, payee)
-        return rule_result(
-            "R14",
-            RuleEffect.HOLD,
-            f"{scope_description.capitalize()} budget exhausted while reserving the payment.",
-            {"scope": exhausted.scope},
-        )
-    await dependencies.ledger.execute(payment.payment_id)
-    return None
+
+
+def _held_for_budget(
+    decision: DecisionRecord, exhausted: BudgetExhaustedError, context: DecisionContext
+) -> DecisionRecord:
+    scope_description = describe_scope(exhausted.scope, context.match.payee)
+    budget_blocker = rule_result(
+        "R14",
+        RuleEffect.HOLD,
+        f"{scope_description.capitalize()} budget exhausted while reserving the payment.",
+        {"scope": exhausted.scope},
+    )
+    held_results = [*decision.rule_results, budget_blocker]
+    return decision.model_copy(
+        update={
+            "verdict": Verdict.HOLD,
+            "rule_results": held_results,
+            "explanation": explain(Verdict.HOLD, held_results, context),
+        }
+    )

@@ -11,7 +11,7 @@ from container import build_clients
 from core.config import CorsSettings, Settings
 from core.db import Checkpointers, build_pools
 from core.logging_config import configure_logging, get_logger
-from modules.auth.errors import EmailTakenError, InvalidCredentialsError
+from modules.auth.errors import InvalidCredentialsError
 from modules.bills.errors import BillMissingError, BillSourceMissingError, BillStateConflictError
 from modules.demo.errors import (
     DemoAccessDeniedError,
@@ -110,8 +110,14 @@ DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
     configure_logging(settings.log_format)
-    pools = build_pools(settings.product_database_url, settings.payments_database_url)
-    checkpointers = Checkpointers(settings.payments_database_url)
+    workers = settings.workers
+    pools = build_pools(
+        settings.product_database_url,
+        settings.agent_database_url,
+        workers.db_pool_size,
+        workers.db_max_overflow,
+    )
+    checkpointers = Checkpointers(settings.agent_database_url, workers.checkpointer_pool_size)
     await checkpointers.open()
     try:
         clients = await build_clients(settings, pools, checkpointers)
@@ -120,6 +126,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await clients.inbox.fail_unfinished(RESTART_INTERRUPTION_REASON)
         if settings.demo.enabled:
             await clients.demo.ensure_demo_account()
+        clients.payments.start_worker()
+        clients.inbox.start_worker()
         app.state.settings = settings
         app.state.pools = pools
         app.state.clients = clients
@@ -137,7 +145,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await clients.payments.shutdown_runs()
         await checkpointers.close()
         await pools.product.engine.dispose()
-        await pools.payments.engine.dispose()
+        await pools.agent.engine.dispose()
         logger.info("backend_stopped")
 
 
@@ -152,7 +160,6 @@ def create_app() -> FastAPI:
     )
     app.add_exception_handler(GuardrailRejectionError, _reject_unsafe_input)
     app.add_exception_handler(InvalidCredentialsError, _reject_invalid_credentials)
-    app.add_exception_handler(EmailTakenError, _reject_taken_email)
     app.add_exception_handler(FileMissingError, _reject_missing_file)
     app.add_exception_handler(RunNotFoundError, _reject_missing_run)
     app.add_exception_handler(StorageError, _reject_storage_down)
@@ -182,13 +189,6 @@ def _reject_unsafe_input(request: Request, error: GuardrailRejectionError) -> JS
 def _reject_invalid_credentials(request: Request, error: InvalidCredentialsError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "invalid credentials"}
-    )
-
-
-def _reject_taken_email(request: Request, error: EmailTakenError) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT,
-        content={"detail": "email already registered"},
     )
 
 

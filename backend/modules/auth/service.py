@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from contracts.auth import CurrentUser, LoginRequest, RegisterRequest, TokenResponse
+from contracts.auth import CurrentUser, LoginRequest, TokenResponse
 from core.config import JwtSettings
 from core.logging_config import get_logger
 from modules.auth import security
@@ -16,18 +16,21 @@ logger = get_logger(__name__)
 
 
 class AuthService:
-    def __init__(self, repository: UsersRepository, jwt_settings: JwtSettings) -> None:
+    def __init__(
+        self,
+        repository: UsersRepository,
+        jwt_settings: JwtSettings,
+        allowed_email: str | None = None,
+    ) -> None:
         self._repository = repository
         self._jwt_settings = jwt_settings
-
-    async def register(self, request: RegisterRequest) -> TokenResponse:
-        email = request.email.lower()
-        password_hash = security.hash_password(request.password)
-        user_id = await self._repository.insert(email, password_hash)
-        return self._issue_token(user_id)
+        self._allowed_email = allowed_email.casefold() if allowed_email else None
 
     async def login(self, request: LoginRequest) -> TokenResponse:
-        user = await self._repository.get_by_email(request.email.lower())
+        email = request.email.lower()
+        if not self._is_allowed(email):
+            raise InvalidCredentialsError
+        user = await self._repository.get_by_email(email)
         if user is None:
             raise InvalidCredentialsError
         if not security.verify_password(request.password, user.password_hash):
@@ -37,7 +40,8 @@ class AuthService:
     async def user_from_token(self, token: str) -> CurrentUser:
         user_id = security.decode_token(token, self._jwt_settings)
         user = await self._repository.get_by_id(user_id)
-        if user is None:
+        is_rejected_user = user is None or not self._is_allowed(user.email)
+        if is_rejected_user:
             raise InvalidTokenError
         return CurrentUser(user_id=user.user_id, email=user.email)
 
@@ -67,6 +71,9 @@ class AuthService:
                 raise
             user_id = concurrent_user.user_id
         return CurrentUser(user_id=user_id, email=normalized_email)
+
+    def _is_allowed(self, email: str) -> bool:
+        return self._allowed_email is None or email.casefold() == self._allowed_email
 
     def _issue_token(self, user_id: UUID) -> TokenResponse:
         access_token = security.encode_token(user_id, self._jwt_settings)

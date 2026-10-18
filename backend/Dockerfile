@@ -20,6 +20,7 @@ COPY clients ./clients
 COPY contracts ./contracts
 COPY core ./core
 COPY modules ./modules
+COPY scripts ./scripts
 COPY docker-entrypoint.sh ./
 
 USER app

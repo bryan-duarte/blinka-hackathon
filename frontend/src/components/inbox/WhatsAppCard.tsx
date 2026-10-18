@@ -10,6 +10,7 @@ import {
   SECONDARY_BUTTON_CLASS,
 } from "@/components/settings/styles";
 import { ApiError, HTTP_CONFLICT, api } from "@/lib/api";
+import { maskPhone } from "@/lib/mask";
 import type { MailboxConnectionView, WhatsAppSandboxView } from "@/lib/types";
 
 const HTTP_UNPROCESSABLE = 422;
@@ -46,9 +47,10 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
   const [cardError, setCardError] = useState<string | null>(null);
   const ownNumber = activeWhatsAppConnection(connections, "own_number");
   const sandbox = activeWhatsAppConnection(connections, "sandbox");
-  const sandboxPhone = registeredSandbox?.phone_number ?? sandbox?.phone_number ?? null;
-  const sandboxNumber =
-    registeredSandbox?.sandbox_number || sandbox?.sandbox_number || FALLBACK_SANDBOX_NUMBER;
+  const rawSandboxPhone = registeredSandbox?.phone_number ?? sandbox?.phone_number ?? null;
+  const sandboxPhone = rawSandboxPhone ? maskPhone(rawSandboxPhone) : null;
+  const rawSandboxNumber = registeredSandbox?.sandbox_number || sandbox?.sandbox_number;
+  const sandboxNumber = rawSandboxNumber ? maskPhone(rawSandboxNumber) : FALLBACK_SANDBOX_NUMBER;
 
   async function registerSandbox(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
@@ -94,7 +96,7 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
       <p className={EYEBROW_CLASS}>WhatsApp</p>
       {ownNumber ? (
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-ink">Connected: {ownNumber.phone_number}</p>
+          <p className="text-sm text-ink">Connected: {ownNumber.phone_number ? maskPhone(ownNumber.phone_number) : "your number"}</p>
           <p className={HINT_CLASS}>We scan the documents your number receives.</p>
         </div>
       ) : sandboxPhone ? (

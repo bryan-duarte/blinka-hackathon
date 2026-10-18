@@ -3,11 +3,6 @@ resource "random_password" "jwt_secret" {
   special = false
 }
 
-resource "random_password" "demo_password" {
-  length  = 20
-  special = false
-}
-
 resource "random_password" "kapso_webhook_secret" {
   length  = 48
   special = false
@@ -24,9 +19,8 @@ locals {
 
   managed_params = {
     BLINKA_PRODUCT_DATABASE_URL          = { secure = true, value = "${local.db_server_url}/blinka_product?sslmode=require" }
-    BLINKA_PAYMENTS_DATABASE_URL         = { secure = true, value = "${local.db_server_url}/blinka_payments?sslmode=require" }
+    BLINKA_AGENT_DATABASE_URL            = { secure = true, value = "${local.agent_db_server_url}/blinka_agent?sslmode=require" }
     BLINKA_JWT__SECRET                   = { secure = true, value = random_password.jwt_secret.result }
-    BLINKA_DEMO__PASSWORD                = { secure = true, value = random_password.demo_password.result }
     KAPSO_WEBHOOK_SECRET                 = { secure = true, value = random_password.kapso_webhook_secret.result }
     BLINKA_STORAGE__BUCKET               = { secure = false, value = aws_s3_bucket.evidence.id }
     BLINKA_STORAGE__REGION               = { secure = false, value = var.aws_region }
@@ -60,6 +54,7 @@ locals {
     BLINKA_REALTIME__ENABLED                = { secure = false, value = "true" }
     BLINKA_DEMO__ENABLED                    = { secure = false, value = "true" }
     BLINKA_DEMO__EMAIL                      = { secure = false, value = "demo@blinka.dev" }
+    BLINKA_DEMO__PASSWORD                   = { secure = true, value = local.unassigned_placeholder }
     BLINKA_DEMO__COMPANY_NAME               = { secure = false, value = "Andescape Labs, Inc." }
     BLINKA_STORAGE__MALWARE_SCAN_ENABLED    = { secure = false, value = "true" }
     BLINKA_FX__LIVE_ENABLED                 = { secure = false, value = "true" }
@@ -94,4 +89,9 @@ locals {
 moved {
   from = aws_ssm_parameter.operator["KAPSO_WEBHOOK_SECRET"]
   to   = aws_ssm_parameter.managed["KAPSO_WEBHOOK_SECRET"]
+}
+
+moved {
+  from = aws_ssm_parameter.managed["BLINKA_DEMO__PASSWORD"]
+  to   = aws_ssm_parameter.operator["BLINKA_DEMO__PASSWORD"]
 }

@@ -14,5 +14,5 @@ class ProductBase(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-class PaymentsBase(DeclarativeBase):
+class AgentBase(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)

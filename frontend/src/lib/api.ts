@@ -9,7 +9,6 @@ import type {
   DemoCatalogView,
   DemoLaunchView,
   DemoResetResult,
-  DemoStatusView,
   EvidenceFileView,
   InboxChannel,
   InboxEmailDetail,
@@ -179,8 +178,6 @@ function remove(path: string): Promise<void> {
 export const api = {
   login: (email: string, password: string) =>
     post<TokenResponse>("/auth/login", { email, password }),
-  register: (email: string, password: string) =>
-    post<TokenResponse>("/auth/register", { email, password }),
   connect: (provider: ConnectableProvider) =>
     post<MailboxConnectStarted>("/inbox/connections", { provider }),
   confirm: (connected_account_id: string) =>
@@ -238,8 +235,6 @@ export const api = {
       `/ledger/export.csv?${ledgerQuery(filters)}`,
       `agent-ledger-${filters.period ?? "all"}.csv`,
     ),
-  demoStatus: () => request<DemoStatusView>("/demo/status"),
-  demoLogin: () => post<TokenResponse>("/demo/login", {}),
   demoCatalog: () => request<DemoCatalogView>("/demo/scenarios"),
   launchScenario: (scenarioId: string) =>
     post<DemoLaunchView>(`/demo/scenarios/${scenarioId}/launch`, {}),

@@ -18,12 +18,13 @@ class ExecutionRegistry:
         task_id: UUID,
         execution: Coroutine[object, object, None],
         owner_id: UUID | None = None,
-    ) -> None:
+    ) -> asyncio.Task[None]:
         task = asyncio.create_task(execution)
         self._tasks[task_id] = task
         if owner_id is not None:
             self._owners[task_id] = owner_id
         task.add_done_callback(partial(self._reap, task_id))
+        return task
 
     async def cancel_owner(self, owner_id: UUID) -> int:
         owned_tasks = [

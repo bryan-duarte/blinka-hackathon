@@ -76,5 +76,8 @@ class PaymentsClient:
     async def purge_run_threads(self, run_ids: list[UUID]) -> int:
         return await self._service.purge_run_threads(run_ids)
 
+    def start_worker(self) -> None:
+        self._service.start_worker()
+
     async def shutdown_runs(self) -> None:
         await self._service.shutdown()

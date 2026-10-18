@@ -2,6 +2,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
+from pydantic import ConfigDict
+
 from contracts._base import ApiModel, StrictModel
 
 MAX_EVIDENCE_ATTACHMENTS = 10
@@ -35,6 +37,8 @@ class MailTriggerEvent(StrictModel):
 
 
 class FetchedAttachment(StrictModel):
+    model_config = ConfigDict(ser_json_bytes="base64", val_json_bytes="base64")
+
     filename: str
     mime: str
     content: bytes

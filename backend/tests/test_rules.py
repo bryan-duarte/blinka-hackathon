@@ -1,7 +1,10 @@
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from uuid import uuid4
+
+import pytest
 
 from contracts.bills import BillRecord, BillSourceRecord, BillSourceType, BillStatus, BillSummary
 from contracts.payment_candidates import FieldEvidence, PersonCandidate, ServiceCandidate
@@ -16,10 +19,20 @@ from contracts.payment_policy import (
     PaymentMethod,
     PaymentPolicy,
 )
-from contracts.payments import CheckerAnswer, CheckerAssessment, RuleEffect, Verdict
+from contracts.payments import (
+    CheckerAnswer,
+    CheckerAssessment,
+    DecisionActor,
+    DecisionRecord,
+    RuleEffect,
+    RuleResult,
+    Verdict,
+)
+from modules.bills import BillStateConflictError
 from modules.fx import STATIC_USD_PER_UNIT
 from modules.payments import rules, settlement
 from modules.payments.checker import apply_checker
+from modules.payments.errors import BudgetExhaustedError
 from modules.payments.rules import DecisionContext, decide
 
 OWNER_ID = uuid4()
@@ -311,13 +324,13 @@ def test_recurring_monthly_bill_is_not_a_probable_duplicate():
     assert decide(_context(recent_bills=[last_month])).verdict is Verdict.PAY
 
 
-async def test_approved_non_positive_amount_is_never_paid():
+def test_approved_non_positive_amount_is_never_paid():
     context = _context(_candidate(amount=Decimal("-500")))
 
-    payment_blocker = await settlement._pay(None, context.bill, context)
+    planned_payment = settlement._reservation_for(context.bill, context)
 
-    assert payment_blocker is not None
-    assert payment_blocker.effect is RuleEffect.HOLD
+    assert isinstance(planned_payment, RuleResult)
+    assert planned_payment.effect is RuleEffect.HOLD
 
 
 def test_human_approval_waives_only_review_rules():
@@ -413,3 +426,66 @@ def test_unknown_sender_needs_review_unless_trusted_forwarder():
     sender_result = next(result for result in trusted if result.rule_id == "R05b")
     assert sender_result.effect is RuleEffect.PASS
     assert "trusted forwarder finance@andescape.com" in sender_result.reason
+
+
+class _RecordingLedger:
+    def __init__(self, failure: Exception | None = None) -> None:
+        self.failure = failure
+        self.commits: list[dict] = []
+
+    async def commit_settlement(
+        self, owner_id, bill_id, from_status, target_status, reservation, decision
+    ):
+        self.commits.append(
+            {"target_status": target_status, "reservation": reservation, "decision": decision}
+        )
+        if self.failure is not None:
+            failure, self.failure = self.failure, None
+            raise failure
+        return decision
+
+
+async def _settle(context: DecisionContext, ledger: _RecordingLedger) -> DecisionRecord:
+    return await settlement.settle(
+        SimpleNamespace(ledger=ledger),
+        None,
+        context.bill,
+        context,
+        decide(context),
+        actor=DecisionActor.AGENT,
+        from_status=BillStatus.DECIDING,
+    )
+
+
+async def test_settle_pays_in_a_single_commit():
+    ledger = _RecordingLedger()
+
+    decision = await _settle(_context(), ledger)
+
+    assert decision.verdict is Verdict.PAY
+    assert len(ledger.commits) == 1
+    assert ledger.commits[0]["target_status"] is BillStatus.PAID
+    assert ledger.commits[0]["reservation"] is not None
+
+
+async def test_settle_holds_without_reservation_when_budget_runs_out_mid_commit():
+    ledger = _RecordingLedger(failure=BudgetExhaustedError("global"))
+
+    decision = await _settle(_context(), ledger)
+
+    assert decision.verdict is Verdict.HOLD
+    assert [commit["target_status"] for commit in ledger.commits] == [
+        BillStatus.PAID,
+        BillStatus.HELD,
+    ]
+    assert ledger.commits[1]["reservation"] is None
+    assert decision.rule_results[-1].rule_id == "R14"
+
+
+async def test_settle_propagates_bill_state_conflicts_without_retrying():
+    ledger = _RecordingLedger(failure=BillStateConflictError())
+
+    with pytest.raises(BillStateConflictError):
+        await _settle(_context(), ledger)
+
+    assert len(ledger.commits) == 1

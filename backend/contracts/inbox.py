@@ -9,6 +9,7 @@ from contracts.files import EvidenceFileView
 from contracts.guardrails import GuardrailViolation
 from contracts.mail_gateway import MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView
+from contracts.pipeline import PipelineStageRecord
 from contracts.whatsapp_gateway import WhatsAppConnectionMode
 
 
@@ -65,6 +66,13 @@ class InboxEmailRecord(StrictModel):
     violations: list[GuardrailViolation]
     run_id: UUID | None
     error: str | None
+    pipeline_stages: list[PipelineStageRecord] = []
+
+
+class QueuedEmail(StrictModel):
+    email_id: UUID
+    owner_id: UUID
+    source_payload: dict
 
 
 class ConnectMailboxRequest(ApiModel):
@@ -108,3 +116,4 @@ class InboxEmailDetail(InboxEmailView):
     error: str | None = None
     run_id: UUID | None = None
     evidence: list[EvidenceFileView] = []
+    pipeline_stages: list[PipelineStageRecord] = []

@@ -12,6 +12,7 @@ from contracts.files import EvidenceFileView, EvidenceLink
 from contracts.fx import FxSource
 from contracts.payment_candidates import PaymentCandidate
 from contracts.payment_policy import PaymentCategory
+from contracts.pipeline import PipelineStageRecord
 
 REVIEW_NOTE_MIN_LENGTH = 3
 REVIEW_NOTE_MAX_LENGTH = 500
@@ -54,6 +55,12 @@ class PaymentRunRecord(StrictModel):
     error: str | None = None
     bill_source_id: UUID | None = None
     bill_id: UUID | None = None
+
+
+class QueuedRun(StrictModel):
+    run_id: UUID
+    owner_id: UUID
+    bill_source_id: UUID
 
 
 class PaymentRunTrigger(ApiModel):
@@ -200,6 +207,7 @@ class PaymentRunStatus(ApiModel):
     is_bill: bool | None = None
     extraction_failed: bool = False
     evidence: list[EvidenceFileView] = []
+    pipeline_stages: list[PipelineStageRecord] = []
 
 
 class TraceRole(StrEnum):

@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from contracts.auth import CurrentUser, TokenResponse
-from contracts.demo import DemoCatalogView, DemoLaunchView, DemoResetResult, DemoStatusView
+from contracts.auth import CurrentUser
+from contracts.demo import DemoCatalogView, DemoLaunchView, DemoResetResult
 
 if TYPE_CHECKING:
     from modules.demo.service import DemoService
@@ -11,12 +11,6 @@ if TYPE_CHECKING:
 class DemoClient:
     def __init__(self, service: "DemoService") -> None:
         self._service = service
-
-    def status(self) -> DemoStatusView:
-        return self._service.status()
-
-    async def login(self) -> TokenResponse:
-        return await self._service.login()
 
     async def ensure_demo_account(self) -> CurrentUser:
         return await self._service.ensure_demo_account()

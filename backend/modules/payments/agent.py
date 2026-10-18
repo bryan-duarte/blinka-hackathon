@@ -26,6 +26,7 @@ AGENT_RECURSION_LIMIT = 80
 STREAM_EVENTS_VERSION = "v2"
 AGENT_MODEL_NODE = "model"
 MILLISECONDS_PER_SECOND = 1000
+UNKNOWN_MODEL_FIELD = "unknown"
 TOOL_ERROR_EVENT = "on_tool_error"
 TOOL_END_EVENTS = frozenset({"on_tool_end", TOOL_ERROR_EVENT})
 TOOL_ERROR_STATUS = "error"
@@ -65,22 +66,30 @@ async def stream_agent(
 ) -> None:
     thinking = ThinkingBuffer(events, thinking_flush_seconds)
     tool_started_at: dict[str, float] = {}
+    step_tool_names_by_run: dict[str, str] = {}
+    model_started_at: dict[str, float] = {}
     final_text = ""
     config = {"recursion_limit": AGENT_RECURSION_LIMIT, **thread_config(state.run_id)}
     agent_input = {"messages": [HumanMessage(content=_task_message(state))]}
     async for event in agent.astream_events(agent_input, config, version=STREAM_EVENTS_VERSION):
         event_kind, event_name = event["event"], event["name"]
         is_agent_model_event = event["metadata"].get("langgraph_node") == AGENT_MODEL_NODE
-        if event_kind == "on_chat_model_stream" and is_agent_model_event:
+        if event_kind == "on_chat_model_start":
+            model_started_at[event["run_id"]] = monotonic()
+        elif event_kind == "on_chat_model_stream" and is_agent_model_event:
             await thinking.add(_chunk_text(event["data"]["chunk"]))
-        elif event_kind == "on_chat_model_end" and is_agent_model_event:
-            final_text = _final_reply_text(event) or final_text
+        elif event_kind == "on_chat_model_end":
+            started_at = model_started_at.pop(event["run_id"], monotonic())
+            await _record_model_call(event, events, started_at, step_tool_names_by_run)
+            if is_agent_model_event:
+                final_text = _final_reply_text(event) or final_text
         elif event_kind == "on_tool_start" and event_name == WRITE_TODOS_TOOL:
             await thinking.flush()
             await events.todos(event["data"]["input"].get("todos", []))
         elif event_kind == "on_tool_start" and event_name in STEP_TOOL_NAMES:
             await thinking.flush()
             tool_started_at[event["run_id"]] = monotonic()
+            step_tool_names_by_run[event["run_id"]] = event_name
             await events.tool_started(event_name, call_id=event["run_id"])
         elif event_kind in TOOL_END_EVENTS and event_name in STEP_TOOL_NAMES:
             started_at = tool_started_at.pop(event["run_id"], monotonic())
@@ -93,6 +102,32 @@ async def stream_agent(
     await thinking.flush()
     if final_text:
         await events.agent_summary(final_text)
+
+
+async def _record_model_call(
+    event: StreamEvent,
+    events: RunEventRecorder,
+    started_at: float,
+    step_tool_names_by_run: dict[str, str],
+) -> None:
+    metadata = event["metadata"]
+    usage = getattr(event["data"].get("output"), "usage_metadata", None) or {}
+    parent_tool = next(
+        (
+            step_tool_names_by_run[parent_id]
+            for parent_id in reversed(event["parent_ids"])
+            if parent_id in step_tool_names_by_run
+        ),
+        None,
+    )
+    await events.llm_call(
+        node=metadata.get("langgraph_node", UNKNOWN_MODEL_FIELD),
+        parent_tool=parent_tool,
+        model=metadata.get("ls_model_name", UNKNOWN_MODEL_FIELD),
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        duration_ms=round((monotonic() - started_at) * MILLISECONDS_PER_SECOND),
+    )
 
 
 def _task_message(state: RunState) -> str:

@@ -28,7 +28,7 @@ TERMINAL_INBOX_STATUSES = frozenset(
     }
 )
 SEQUENCE_POLL_SECONDS = 1.0
-STEP_TIMEOUT_SECONDS = 150
+STEP_TIMEOUT_SECONDS = 900
 STEP_TIMEOUT_ERROR = "step did not finish in time"
 UNEXPECTED_ERROR = "unexpected error"
 

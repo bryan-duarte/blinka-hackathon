@@ -4,12 +4,11 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from contracts.auth import CurrentUser, LoginRequest, TokenResponse
+from contracts.auth import CurrentUser
 from contracts.demo import (
     DemoCatalogView,
     DemoLaunchView,
     DemoResetResult,
-    DemoStatusView,
     KitDestinations,
 )
 from contracts.realtime import RealtimeEvent, RealtimeEventType
@@ -54,7 +53,6 @@ logger = get_logger(__name__)
 LAUNCH_NONCE_MIN = 100_000
 LAUNCH_NONCE_SPAN = 900_000
 MAX_LAUNCHES_PER_OWNER = 50
-MAX_RUNNING_LAUNCHES_PER_OWNER = 5
 RESET_EVENT_STATUS = "reset"
 
 
@@ -90,20 +88,6 @@ class DemoService:
         self._is_malware_scan_enabled = is_malware_scan_enabled
         self._launches: dict[UUID, DemoLaunch] = {}
         self._lock = asyncio.Lock()
-
-    def status(self) -> DemoStatusView:
-        email = self._settings.email if self._settings.enabled else None
-        return DemoStatusView(is_enabled=self._settings.enabled, email=email)
-
-    async def login(self) -> TokenResponse:
-        password = self._settings.password
-        if not self._settings.enabled or password is None:
-            raise DemoDisabledError
-        token = await self._auth.login(
-            LoginRequest(email=self._settings.email, password=password.get_secret_value())
-        )
-        logger.info("demo_login_issued", email=self._settings.email)
-        return token
 
     async def ensure_demo_account(self) -> CurrentUser:
         password = self._settings.password
@@ -141,7 +125,7 @@ class DemoService:
             for launch in self._launches.values()
             if launch.owner_id == owner.user_id and launch.is_running
         )
-        if running_count >= MAX_RUNNING_LAUNCHES_PER_OWNER:
+        if running_count >= self._settings.max_running_launches:
             raise DemoLaunchLimitError
         context = LaunchContext(
             today=datetime.now(UTC).date(),
