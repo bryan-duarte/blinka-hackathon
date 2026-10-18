@@ -36,7 +36,7 @@ class StorageSettings(BaseSettings):
 
     bucket: str = "blinka-evidence"
     region: str = "us-east-1"
-    aws_profile: str | None = "panoptico"
+    aws_profile: str | None = None
     malware_scan_enabled: bool = True
     scan_timeout_seconds: float = 60
     scan_poll_interval_seconds: float = 2
@@ -47,7 +47,7 @@ class TextractSettings(BaseSettings):
         env_prefix="BLINKA_TEXTRACT__", env_file=".env", extra="ignore", frozen=True
     )
 
-    aws_profile: str | None = "panoptico"
+    aws_profile: str | None = None
     region: str = "us-east-1"
 
 
@@ -113,7 +113,7 @@ class RealtimeSettings(BaseSettings):
     enabled: bool = False
     http_domain: str = ""
     region: str = "us-east-1"
-    aws_profile: str | None = "panoptico"
+    aws_profile: str | None = None
     namespace: str = "inbox"
     thinking_flush_ms: int = 400
 

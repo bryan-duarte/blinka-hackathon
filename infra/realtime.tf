@@ -45,7 +45,7 @@ resource "aws_lambda_function" "realtime_authorizer" {
 
   environment {
     variables = {
-      JWT_SECRET = var.jwt_secret
+      JWT_SECRET = random_password.jwt_secret.result
     }
   }
 }
@@ -124,7 +124,7 @@ data "aws_iam_policy_document" "backend_realtime_publish" {
   }
 }
 
-# Today the developer IAM user; on deploy, attach the same document to the instance role.
+# Local development publishes as the developer IAM user; ECS gets the same document on its task role.
 resource "aws_iam_user_policy" "backend_realtime" {
   name   = "blinka-backend-realtime"
   user   = var.backend_iam_user

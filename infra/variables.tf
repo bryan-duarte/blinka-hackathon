@@ -34,8 +34,29 @@ variable "events_api_name" {
   default     = "blinka-events"
 }
 
-variable "jwt_secret" {
-  description = "Backend JWT signing secret (BLINKA_JWT__SECRET); the realtime authorizer verifies login tokens with it."
+variable "domain_name" {
+  description = "Route53 zone Terraform creates for the API, delegated from the parent domain's DNS (e.g. blinka.bryanjavier.com)."
   type        = string
-  sensitive   = true
+}
+
+variable "api_subdomain" {
+  description = "API host label; the API is served at <api_subdomain>.<domain_name>."
+  type        = string
+  default     = "api"
+}
+
+variable "frontend_origin" {
+  description = "Origin of the Vercel frontend, e.g. https://blinka-web.vercel.app, no trailing slash."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://[^/]+$", var.frontend_origin))
+    error_message = "frontend_origin must be an https:// origin with no path or trailing slash."
+  }
+}
+
+variable "vpc_cidr" {
+  description = "CIDR range of the backend VPC."
+  type        = string
+  default     = "10.20.0.0/16"
 }
