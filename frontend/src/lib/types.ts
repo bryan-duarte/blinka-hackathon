@@ -333,6 +333,8 @@ export const PENDING_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
   "analyzing",
 ]);
 
+export const NOT_A_BILL_STATUSES: ReadonlySet<InboxEmailStatus> = new Set(["no_invoice", "no_info"]);
+
 export type RealtimeEventType =
   | "inbox.item"
   | "pipeline.stage"

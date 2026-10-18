@@ -16,6 +16,10 @@ const STATUS_FILTERS: { status: RunStatus | null; label: string }[] = [
   { status: "failed", label: "Failed" },
 ];
 
+function isNotABillRun(run: RunListItemView): boolean {
+  return run.status === "completed" && run.verdict === null;
+}
+
 export default function RunsPage() {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<RunStatus | null>(null);
@@ -34,7 +38,7 @@ export default function RunsPage() {
         .runs(statusFilter ?? undefined)
         .then((loadedRuns) => {
           if (isCancelled) return;
-          setRuns(loadedRuns);
+          setRuns(loadedRuns.filter((run) => !isNotABillRun(run)));
           setLoadError(null);
         })
         .catch((error: unknown) => {
