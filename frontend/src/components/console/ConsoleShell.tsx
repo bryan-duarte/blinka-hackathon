@@ -10,18 +10,20 @@ type NavItem = { href: string; label: string };
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
-    label: "Pagos",
+    label: "Payments",
     items: [
-      { href: "/inbox", label: "Bandeja" },
-      { href: "/bills", label: "Cola de revisión" },
+      { href: "/inbox", label: "Inbox" },
+      { href: "/bills", label: "Review queue" },
+      { href: "/ledger", label: "Agent ledger" },
+      { href: "/runs", label: "Executions" },
     ],
   },
   {
-    label: "Reglas de pago",
+    label: "Payment rules",
     items: [
-      { href: "/settings/policy", label: "Política" },
-      { href: "/settings/payees", label: "Beneficiarios" },
-      { href: "/settings/blacklist", label: "Lista negra" },
+      { href: "/settings/policy", label: "Policy" },
+      { href: "/settings/payees", label: "Payees" },
+      { href: "/settings/blacklist", label: "Blacklist" },
     ],
   },
 ];
@@ -30,6 +32,10 @@ const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 
 const NAV_LINK_CLASS =
   "flex min-h-10 shrink-0 items-center rounded px-3 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent";
+
+function isCurrentSection(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function navLinkClass(isCurrent: boolean): string {
   return `${NAV_LINK_CLASS} ${isCurrent ? "bg-accent-wash text-accent" : "text-ink hover:bg-sunken"}`;
@@ -57,8 +63,8 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={pathname === item.href ? "page" : undefined}
-                className={navLinkClass(pathname === item.href)}
+                aria-current={isCurrentSection(pathname, item.href) ? "page" : undefined}
+                className={navLinkClass(isCurrentSection(pathname, item.href))}
               >
                 {item.label}
               </Link>
@@ -67,7 +73,7 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
         ))}
         <div className="mt-auto border-t border-line pt-4">
           <button type="button" onClick={logout} className={`${navLinkClass(false)} w-full text-muted`}>
-            Salir
+            Sign out
           </button>
         </div>
       </aside>
@@ -78,16 +84,16 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
             <Wordmark />
           </Link>
           <button type="button" onClick={logout} className={`${navLinkClass(false)} text-muted`}>
-            Salir
+            Sign out
           </button>
         </div>
-        <nav aria-label="Consola" className="flex gap-1 overflow-x-auto px-4 py-2">
+        <nav aria-label="Console" className="flex gap-1 overflow-x-auto px-4 py-2">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              aria-current={pathname === item.href ? "page" : undefined}
-              className={navLinkClass(pathname === item.href)}
+              aria-current={isCurrentSection(pathname, item.href) ? "page" : undefined}
+              className={navLinkClass(isCurrentSection(pathname, item.href))}
             >
               {item.label}
             </Link>

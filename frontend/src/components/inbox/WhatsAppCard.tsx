@@ -13,7 +13,7 @@ import { ApiError, HTTP_CONFLICT, api } from "@/lib/api";
 import type { MailboxConnectionView, WhatsAppSandboxView } from "@/lib/types";
 
 const HTTP_UNPROCESSABLE = 422;
-const FALLBACK_SANDBOX_NUMBER = "demo de Kapso";
+const FALLBACK_SANDBOX_NUMBER = "the Kapso demo number";
 
 type WhatsAppCardProps = {
   connections: MailboxConnectionView[];
@@ -32,10 +32,10 @@ function activeWhatsAppConnection(
 }
 
 function sandboxRegistrationError(error: unknown): string {
-  if (!(error instanceof ApiError)) return "No se pudo activar el demo";
-  if (error.status === HTTP_UNPROCESSABLE) return "Revisa el número: usa el formato +56 9 1234 5678";
-  if (error.status === HTTP_CONFLICT) return "Ese número ya está registrado por otra cuenta";
-  return "No se pudo activar el demo";
+  if (!(error instanceof ApiError)) return "The demo could not be activated";
+  if (error.status === HTTP_UNPROCESSABLE) return "Check the number: use the format +56 9 1234 5678";
+  if (error.status === HTTP_CONFLICT) return "Another account already registered that number";
+  return "The demo could not be activated";
 }
 
 export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAppCardProps) {
@@ -74,7 +74,7 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
       setIsRedirecting(false);
       if (onUnauthorized(error)) return;
       const isAlreadyConnected = error instanceof ApiError && error.status === HTTP_CONFLICT;
-      setCardError(isAlreadyConnected ? "WhatsApp ya conectado" : "No se pudo iniciar la conexión");
+      setCardError(isAlreadyConnected ? "WhatsApp already connected" : "The connection could not be started");
     }
   }
 
@@ -85,7 +85,7 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
       onClick={connectOwnNumber}
       className={`${SECONDARY_BUTTON_CLASS} self-start`}
     >
-      {isRedirecting ? "Redirigiendo…" : "Conectar mi número"}
+      {isRedirecting ? "Redirecting…" : "Connect my number"}
     </button>
   );
 
@@ -94,26 +94,26 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
       <p className={EYEBROW_CLASS}>WhatsApp</p>
       {ownNumber ? (
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-ink">Conectado: {ownNumber.phone_number}</p>
-          <p className={HINT_CLASS}>Escaneamos los documentos que recibe tu número.</p>
+          <p className="text-sm text-ink">Connected: {ownNumber.phone_number}</p>
+          <p className={HINT_CLASS}>We scan the documents your number receives.</p>
         </div>
       ) : sandboxPhone ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-ink">Modo demo (sandbox)</p>
+          <p className="text-sm text-ink">Demo mode (sandbox)</p>
           <p className="text-sm text-nav-ink">
-            Reenvía tus facturas en PDF, ZIP o XML al número {sandboxNumber} desde {sandboxPhone}.
+            Forward your PDF, ZIP or XML invoices to {sandboxNumber} from {sandboxPhone}.
           </p>
           <p className={HINT_CLASS}>
-            Para activarlo, escríbele al número {sandboxNumber} con el código de activación que te
-            compartimos desde el panel de Kapso. El código vence en 15 minutos.
+            To activate it, message {sandboxNumber} with the activation code we share from the Kapso
+            panel. The code expires in 15 minutes.
           </p>
           {connectOwnNumberButton}
         </div>
       ) : (
         <form onSubmit={registerSandbox} className="flex flex-col gap-3">
-          <p className="text-sm text-nav-ink">Por defecto usamos el número demo de Blinka.</p>
+          <p className="text-sm text-nav-ink">By default we use the Blinka demo number.</p>
           <label htmlFor="whatsapp-phone" className={LABEL_CLASS}>
-            Tu número de WhatsApp
+            Your WhatsApp number
           </label>
           <input
             id="whatsapp-phone"
@@ -127,7 +127,7 @@ export function WhatsAppCard({ connections, onUnauthorized, onChanged }: WhatsAp
           />
           <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={isSubmitting} className={PRIMARY_BUTTON_CLASS}>
-              {isSubmitting ? "Activando…" : "Activar demo"}
+              {isSubmitting ? "Activating…" : "Activate demo"}
             </button>
             {connectOwnNumberButton}
           </div>

@@ -7,26 +7,27 @@ const LINK_FOCUS = "rounded focus-visible:outline-2 focus-visible:outline-offset
 
 const FEATURES = [
   {
-    label: "Leer",
-    title: "Entiende cada factura",
-    body: "Extrae a quién, cuánto, en qué moneda y para cuándo, con la cita exacta del documento.",
+    label: "Read",
+    title: "Understands every invoice",
+    body: "Extracts who, how much, in which currency and by when, with the exact quote from the document.",
   },
   {
-    label: "Decidir",
-    title: "Dentro de tus límites",
-    body: "Topes por pago y por mes, beneficiarios permitidos y presupuestos por categoría.",
+    label: "Decide",
+    title: "Within your limits",
+    body: "Per-payment and monthly caps, allowed payees and budgets per category.",
   },
   {
-    label: "Explicar",
-    title: "Nada sin su porqué",
-    body: "Pagó, frenó o escaló: cada resultado viene con las reglas que lo produjeron.",
+    label: "Explain",
+    title: "Nothing without a reason",
+    body: "Paid, held or escalated: every outcome comes with the rules that produced it.",
   },
 ];
 
 const FOOTER_LINKS = [
-  { href: "/inbox", label: "Bandeja" },
-  { href: "/bills", label: "Cola de revisión" },
-  { href: "/settings/policy", label: "Reglas de pago" },
+  { href: "/inbox", label: "Inbox" },
+  { href: "/bills", label: "Review queue" },
+  { href: "/ledger", label: "Agent ledger" },
+  { href: "/settings/policy", label: "Payment rules" },
 ];
 
 export default function LandingPage() {
@@ -38,18 +39,18 @@ export default function LandingPage() {
             <Link href="/" className={LINK_FOCUS}>
               <Wordmark />
             </Link>
-            <nav aria-label="Sitio" className="hidden md:block">
-              <a href="#como-funciona" className={`${LINK_FOCUS} px-3 py-2 text-sm font-normal text-nav-ink hover:text-accent`}>
-                Cómo funciona
+            <nav aria-label="Site" className="hidden md:block">
+              <a href="#how-it-works" className={`${LINK_FOCUS} px-3 py-2 text-sm font-normal text-nav-ink hover:text-accent`}>
+                How it works
               </a>
             </nav>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/login" className={`${SECONDARY_BUTTON_CLASS} px-4`}>
-              Inicia sesión
+              Sign in
             </Link>
             <Link href="/login?mode=register" className={`${PRIMARY_BUTTON_CLASS} px-4`}>
-              Crea tu cuenta
+              Create your account
             </Link>
           </div>
         </div>
@@ -57,25 +58,25 @@ export default function LandingPage() {
 
       <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 md:px-10">
         <section className="flex max-w-[1100px] flex-col gap-8 py-16 md:py-24">
-          <p className="text-xs tracking-[0.5px] text-muted uppercase">Agente de pagos para equipos de finanzas</p>
+          <p className="text-xs tracking-[0.5px] text-muted uppercase">Payments agent for finance teams</p>
           <h1 className="max-w-[15ch] text-[36px] leading-[1.03] font-light tracking-[-0.9px] text-ink md:text-[56px] md:tracking-[-1.4px]">
-            Tu agente paga las cuentas. Tú pones las reglas.
+            Your agent pays the bills. You set the rules.
           </h1>
           <p className="max-w-[40ch] text-lg leading-[1.4] text-muted md:text-[22px] md:tracking-[-0.22px]">
-            Blinka lee cada factura que llega por correo, la compara con lo acordado y decide si pagarla, frenarla o
-            pedirte permiso. Cada decisión queda registrada con su porqué.
+            Blinka reads every invoice that arrives by email, compares it with what was agreed and decides whether to
+            pay it, hold it or ask you first. Every decision is recorded with its reason.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/login?mode=register" className={`${PRIMARY_BUTTON_CLASS} ${HERO_BUTTON_SIZE}`}>
-              Crea tu cuenta
+              Create your account
             </Link>
-            <a href="#como-funciona" className={`${SECONDARY_BUTTON_CLASS} ${HERO_BUTTON_SIZE}`}>
-              Cómo funciona
+            <a href="#how-it-works" className={`${SECONDARY_BUTTON_CLASS} ${HERO_BUTTON_SIZE}`}>
+              How it works
             </a>
           </div>
         </section>
 
-        <section id="como-funciona" aria-label="Cómo funciona" className="scroll-mt-8 border-t border-line py-16 md:py-24">
+        <section id="how-it-works" aria-label="How it works" className="scroll-mt-8 border-t border-line py-16 md:py-24">
           <div className="grid gap-6 md:grid-cols-3">
             {FEATURES.map((feature) => (
               <div key={feature.label} className="flex flex-col gap-2 py-8 md:p-8 md:first:pl-0">
@@ -93,11 +94,11 @@ export default function LandingPage() {
           <div className="flex flex-col gap-2">
             <Wordmark />
             <p className="max-w-[32ch] text-xs text-muted">
-              Agente de pagos para empresas de EE. UU. con equipos en Latinoamérica.
+              Payments agent for US companies with teams in Latin America.
             </p>
           </div>
-          <nav aria-label="Producto" className="flex flex-col gap-2 text-sm">
-            <p className="mb-2 font-normal text-ink">Producto</p>
+          <nav aria-label="Product" className="flex flex-col gap-2 text-sm">
+            <p className="mb-2 font-normal text-ink">Product</p>
             {FOOTER_LINKS.map((link) => (
               <Link key={link.href} href={link.href} className={`${LINK_FOCUS} self-start text-nav-ink hover:text-accent`}>
                 {link.label}

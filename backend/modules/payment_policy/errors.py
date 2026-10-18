@@ -32,3 +32,7 @@ class IdentifierMissingError(PaymentPolicyError):
 
 class PayeeInUseError(PaymentPolicyError):
     pass
+
+
+class TrustedForwarderMissingError(PaymentPolicyError):
+    pass

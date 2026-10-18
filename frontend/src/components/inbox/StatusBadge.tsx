@@ -6,16 +6,16 @@ const STOPPED = "border-night bg-panel text-night";
 const NEUTRAL = "border-line bg-panel text-muted";
 
 const BADGES: Record<InboxEmailStatus, { label: string; glyph: string; className: string }> = {
-  received: { label: "Recibido", glyph: "…", className: NEUTRAL },
-  processing: { label: "Revisando", glyph: "…", className: NEUTRAL },
-  blocked: { label: "Bloqueado", glyph: "✕", className: STOPPED },
-  analyzing: { label: "Evaluando", glyph: "…", className: NEUTRAL },
-  paid: { label: "Pagado", glyph: "✓", className: SETTLED },
-  held: { label: "Frenado", glyph: "✕", className: STOPPED },
-  review: { label: "En revisión", glyph: "!", className: NEEDS_ACTION },
-  duplicate: { label: "Duplicado", glyph: "", className: NEUTRAL },
-  no_invoice: { label: "Sin factura", glyph: "", className: NEUTRAL },
-  no_info: { label: "Sin datos", glyph: "!", className: NEUTRAL },
+  received: { label: "Received", glyph: "…", className: NEUTRAL },
+  processing: { label: "Checking", glyph: "…", className: NEUTRAL },
+  blocked: { label: "Blocked", glyph: "✕", className: STOPPED },
+  analyzing: { label: "Analyzing", glyph: "…", className: NEUTRAL },
+  paid: { label: "Paid", glyph: "✓", className: SETTLED },
+  held: { label: "Held", glyph: "✕", className: STOPPED },
+  review: { label: "In review", glyph: "!", className: NEEDS_ACTION },
+  duplicate: { label: "Duplicate", glyph: "", className: NEUTRAL },
+  no_invoice: { label: "Not an invoice", glyph: "", className: NEUTRAL },
+  no_info: { label: "Missing data", glyph: "!", className: NEUTRAL },
   error: { label: "Error", glyph: "✕", className: STOPPED },
 };
 

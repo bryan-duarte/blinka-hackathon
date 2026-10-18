@@ -5,7 +5,12 @@ from fastapi import APIRouter, status
 from api.deps import ClientsDep, CurrentUserDep
 from contracts.bills import UPLOAD_SOURCE_REF_PREFIX, BillSourceType
 from contracts.guardrails import GuardrailCheckRequest
-from contracts.payments import PaymentRunAccepted, PaymentRunStatus, UploadRunRequest
+from contracts.payments import (
+    PaymentRunAccepted,
+    PaymentRunStatus,
+    RunTraceView,
+    UploadRunRequest,
+)
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -26,3 +31,8 @@ async def trigger_run(
 @payments_router.get("/runs/{run_id}", response_model=PaymentRunStatus)
 async def get_run(run_id: UUID, user: CurrentUserDep, clients: ClientsDep) -> PaymentRunStatus:
     return await clients.payments.get_run(run_id, user)
+
+
+@payments_router.get("/runs/{run_id}/trace", response_model=RunTraceView)
+async def get_run_trace(run_id: UUID, user: CurrentUserDep, clients: ClientsDep) -> RunTraceView:
+    return await clients.payments.run_trace(user, run_id)

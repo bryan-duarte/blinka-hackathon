@@ -23,7 +23,13 @@ async def match_payee(
 ) -> PayeeMatch:
     on_bill = bill_identifiers(candidate)
     from_sender = sender_identifiers(sender)
-    all_identifiers = list(dict.fromkeys([*on_bill, *from_sender]))
+    sender_email = _sender_value(from_sender, IdentifierKind.EMAIL)
+    sender_domain = _sender_value(from_sender, IdentifierKind.DOMAIN)
+    is_trusted_forwarder = await repository.is_trusted_forwarder(
+        owner_id, sender_email, sender_domain
+    )
+    matched_sender_identifiers = [] if is_trusted_forwarder else from_sender
+    all_identifiers = list(dict.fromkeys([*on_bill, *matched_sender_identifiers]))
     owners = await repository.find_identifier_owners(owner_id, all_identifiers)
     normalized_payee_name = normalize_name(candidate.payee_name or "")
     name_candidates = await repository.find_payees_by_name(owner_id, normalized_payee_name)
@@ -50,8 +56,9 @@ async def match_payee(
         registered_senders=[value for kind, value in registered if kind in SENDER_IDENTIFIER_KINDS],
         normalized_payee_name=normalized_payee_name or None,
         bill_bank_account=bill_bank_account or None,
-        sender_email=_sender_value(from_sender, IdentifierKind.EMAIL),
-        sender_domain=_sender_value(from_sender, IdentifierKind.DOMAIN),
+        sender_email=sender_email,
+        sender_domain=sender_domain,
+        is_trusted_forwarder=is_trusted_forwarder,
     )
 
 

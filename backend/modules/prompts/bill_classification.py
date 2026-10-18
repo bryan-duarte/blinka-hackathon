@@ -20,7 +20,8 @@ Decide:
   If the document claims to come from a well-known service but asks for a transfer to a
   personal account, still classify it by what it claims to be ("service"). Other checks
   catch the mismatch. When is_bill is false, kind is null.
-- reason: one sentence in Spanish explaining the decision.
+- reason: one sentence in English explaining the decision. Documents may be in Spanish,
+  Portuguese or English; always answer in English.
 - confidence: a number between 0 and 1.
 """
 

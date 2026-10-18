@@ -6,12 +6,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { UnauthorizedError, api } from "@/lib/api";
 
 const COMPLETED_STATUS = "completed";
-const UNKNOWN_FAILURE_MESSAGE = "No se pudo conectar WhatsApp";
+const UNKNOWN_FAILURE_MESSAGE = "WhatsApp could not be connected";
 const SETUP_ERROR_MESSAGES: Record<string, string> = {
-  facebook_auth_failed: "No se pudo autenticar con Meta",
-  phone_verification_failed: "No se pudo verificar el número",
-  link_expired: "El enlace expiró, vuelve a intentarlo",
-  already_used: "Este enlace ya se usó",
+  facebook_auth_failed: "Authentication with Meta failed",
+  phone_verification_failed: "The number could not be verified",
+  link_expired: "The link expired, try again",
+  already_used: "This link was already used",
 };
 
 function setupFailureMessage(errorCode: string | null): string {
@@ -51,7 +51,7 @@ function CallbackContent() {
       <div role="alert" className="flex flex-col gap-3">
         <p className="text-sm text-danger">{failureMessage}</p>
         <Link href="/inbox" className="text-sm font-normal text-accent hover:underline">
-          Volver a la bandeja
+          Back to the inbox
         </Link>
       </div>
     );
@@ -66,7 +66,7 @@ function CallbackProgress() {
         aria-hidden
         className="size-4 animate-spin rounded-full border-2 border-line border-t-accent"
       />
-      Confirmando tu número de WhatsApp…
+      Confirming your WhatsApp number…
     </p>
   );
 }

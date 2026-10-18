@@ -34,14 +34,14 @@ GENERIC_FAILURE_REASON = "processing failed"
 INTAKE_VIOLATIONS = {
     EvidenceIntakeStatus.UNREADABLE: GuardrailViolation(
         code="attachment.unreadable",
-        message="El adjunto no se pudo abrir de forma segura (ZIP dañado, protegido o sin PDF/XML)",
+        message="The attachment could not be opened safely (damaged ZIP, protected, or no PDF/XML)",
     ),
     EvidenceIntakeStatus.MALWARE: GuardrailViolation(
-        code="attachment.malware", message="El archivo no pasó el análisis antivirus de AWS"
+        code="attachment.malware", message="The file did not pass the AWS malware scan"
     ),
     EvidenceIntakeStatus.SCAN_FAILED: GuardrailViolation(
         code="attachment.scan_failed",
-        message="El análisis antivirus de AWS no terminó a tiempo; el archivo no se abrió",
+        message="The AWS malware scan did not finish in time; the file was not opened",
     ),
 }
 KNOWN_FAILURE_REASONS: dict[type[Exception], str] = {

@@ -11,7 +11,6 @@ from contracts.inbox import (
     InboxEmailView,
     MailboxConnectionView,
     MailboxConnectStarted,
-    SimulateEmailRequest,
 )
 from contracts.whatsapp_gateway import (
     ConfirmWhatsAppRequest,
@@ -80,10 +79,3 @@ async def list_emails(
 @inbox_router.get("/emails/{email_id}", response_model=InboxEmailDetail)
 async def get_email(email_id: UUID, user: CurrentUserDep, clients: ClientsDep) -> InboxEmailDetail:
     return await clients.inbox.get_email(user, email_id)
-
-
-@inbox_router.post("/simulate", response_model=InboxEmailView, status_code=status.HTTP_202_ACCEPTED)
-async def simulate_email(
-    request: SimulateEmailRequest, user: CurrentUserDep, clients: ClientsDep
-) -> InboxEmailView:
-    return await clients.inbox.simulate(user, request.kind, request.channel)

@@ -2,9 +2,17 @@ from uuid import UUID
 
 from contracts.auth import CurrentUser, LoginRequest, RegisterRequest, TokenResponse
 from core.config import JwtSettings
+from core.logging_config import get_logger
 from modules.auth import security
-from modules.auth.errors import InvalidCredentialsError, InvalidTokenError, UserMissingError
+from modules.auth.errors import (
+    EmailTakenError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    UserMissingError,
+)
 from modules.auth.repository import UsersRepository
+
+logger = get_logger(__name__)
 
 
 class AuthService:
@@ -38,6 +46,27 @@ class AuthService:
         if user is None:
             raise UserMissingError
         return CurrentUser(user_id=user.user_id, email=user.email)
+
+    async def ensure_user_with_password(self, email: str, password: str) -> CurrentUser:
+        normalized_email = email.lower()
+        existing = await self._repository.get_by_email(normalized_email)
+        if existing is not None:
+            if not security.verify_password(password, existing.password_hash):
+                await self._repository.set_password_hash(
+                    existing.user_id, security.hash_password(password)
+                )
+                logger.warning("user_password_synced", user_id=existing.user_id)
+            return CurrentUser(user_id=existing.user_id, email=existing.email)
+        try:
+            user_id = await self._repository.insert(
+                normalized_email, security.hash_password(password)
+            )
+        except EmailTakenError:
+            concurrent_user = await self._repository.get_by_email(normalized_email)
+            if concurrent_user is None:
+                raise
+            user_id = concurrent_user.user_id
+        return CurrentUser(user_id=user_id, email=normalized_email)
 
     def _issue_token(self, user_id: UUID) -> TokenResponse:
         access_token = security.encode_token(user_id, self._jwt_settings)

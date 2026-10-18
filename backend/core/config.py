@@ -56,7 +56,7 @@ class GuardrailsSettings(BaseSettings):
         env_prefix="BLINKA_GUARDRAILS__", env_file=".env", extra="ignore", frozen=True
     )
 
-    enforce: bool = False
+    enforce: bool = True
     guardrail_id: str = ""
     guardrail_version: str = "DRAFT"
     aws_profile: str | None = None
@@ -118,6 +118,35 @@ class RealtimeSettings(BaseSettings):
     thinking_flush_ms: int = 400
 
 
+class FxSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_FX__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    latest_url: str = "https://open.er-api.com/v6/latest/USD"
+    timeout_seconds: float = 2.0
+    max_stale_days: int = 7
+    live_enabled: bool = True
+
+
+class DemoSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_DEMO__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    enabled: bool = False
+    email: str = "demo@blinka.dev"
+    password: SecretStr | None = None
+    company_name: str = "Andescape Labs, Inc."
+    inbox_address: str | None = None
+
+    @model_validator(mode="after")
+    def _require_password_when_enabled(self) -> Self:
+        if self.enabled and self.password is None:
+            raise ValueError("BLINKA_DEMO__PASSWORD is required when demo mode is enabled")
+        return self
+
+
 class CorsSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="BLINKA_CORS__", env_file=".env", extra="ignore", frozen=True
@@ -141,4 +170,6 @@ class Settings(BaseSettings):
     composio: ComposioSettings = Field(default_factory=ComposioSettings)
     kapso: KapsoSettings = Field(default_factory=KapsoSettings)
     realtime: RealtimeSettings = Field(default_factory=RealtimeSettings)
+    fx: FxSettings = Field(default_factory=FxSettings)
+    demo: DemoSettings = Field(default_factory=DemoSettings)
     log_format: Literal["console", "json"] = "console"

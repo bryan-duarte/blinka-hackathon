@@ -1,47 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { QUIET_BUTTON_CLASS } from "@/components/settings/styles";
 import { api } from "@/lib/api";
+import { formatToolDuration } from "@/lib/format";
 import { TODO_STATUS_LABELS } from "@/lib/labels";
+import { collectToolRuns, latestSummary, latestTodos, mergeEvents, type ToolRun } from "@/lib/runEvents";
 import type { AgentTodo, AgentTodoStatus, PaymentRunEvent, RealtimeEvent } from "@/lib/types";
 
-const TODOS_UPDATED_STEP = "todos_updated";
-const TOOL_STARTED_STEP = "tool_started";
-const TOOL_FINISHED_STEP = "tool_finished";
-const AGENT_SUMMARY_STEP = "agent_summary";
 const THINKING_VISIBLE_CHARS = 160;
-const MS_PER_SECOND = 1000;
-const TODO_STATUSES: ReadonlySet<string> = new Set<AgentTodoStatus>([
-  "pending",
-  "in_progress",
-  "completed",
-]);
 
 const TODO_ROW_CLASSES: Record<AgentTodoStatus, string> = {
   pending: "text-quiet",
   in_progress: "bg-accent-wash text-ink",
   completed: "text-muted",
-};
-
-const durationFormatter = new Intl.NumberFormat("es-CL", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-type ActivityEvent = {
-  sequence: number;
-  step: string;
-  payload: Record<string, unknown>;
-};
-
-type ToolRunStatus = "running" | "ok" | "error";
-
-type ToolRun = {
-  callId: string;
-  message: string;
-  status: ToolRunStatus;
-  durationMs: number | null;
 };
 
 type AgentActivityProps = {
@@ -88,39 +61,47 @@ export function AgentActivity({
   if (!isRunning && !isExpanded) {
     return (
       <section className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-4 text-sm">
-        <p className="text-muted">Plan completado en {toolRuns.length} pasos</p>
+        <p className="text-muted">Plan completed in {toolRuns.length} steps</p>
         <button type="button" onClick={() => setIsExpanded(true)} className={QUIET_BUTTON_CLASS}>
-          Ver detalle
+          View details
         </button>
       </section>
     );
   }
   return (
-    <section aria-label="Actividad del agente" className="flex flex-col gap-4 border-t border-line pt-4">
+    <section aria-label="Agent activity" className="flex flex-col gap-4 border-t border-line pt-4">
       {todos.length > 0 && <PlanChecklist todos={todos} />}
-      <ol aria-live="polite" aria-label="Pasos del agente" className="flex flex-col gap-1">
+      <ol aria-live="polite" aria-label="Agent steps" className="flex flex-col gap-1">
         {toolRuns.map((toolRun) => (
           <ToolRunRow key={toolRun.callId} toolRun={toolRun} />
         ))}
       </ol>
       {isRunning && visibleThinking && (
-        <p className="text-sm text-muted">Pensando: {visibleThinking}</p>
+        <p className="text-sm text-muted">Thinking: {visibleThinking}</p>
       )}
       {!isRunning && (
         <div className="flex flex-col gap-2">
           {summary && (
             <p className="text-sm text-nav-ink">
-              <span className="text-muted">Resumen del agente: </span>
+              <span className="text-muted">Agent summary: </span>
               {summary}
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(false)}
-            className={`${QUIET_BUTTON_CLASS} self-start`}
-          >
-            Ocultar detalle
-          </button>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className={QUIET_BUTTON_CLASS}
+            >
+              Hide details
+            </button>
+            <Link
+              href={`/runs/${runId}`}
+              className="rounded text-sm font-normal text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Open full execution ›
+            </Link>
+          </div>
         </div>
       )}
     </section>
@@ -129,7 +110,7 @@ export function AgentActivity({
 
 function PlanChecklist({ todos }: { todos: AgentTodo[] }) {
   return (
-    <ul aria-label="Plan del agente" className="flex flex-col gap-1">
+    <ul aria-label="Agent plan" className="flex flex-col gap-1">
       {todos.map((todo, index) => (
         <li
           key={`${index}-${todo.content}`}
@@ -170,7 +151,7 @@ function ToolRunRow({ toolRun }: { toolRun: ToolRun }) {
           {toolRun.message}
         </span>
         {toolRun.durationMs !== null && (
-          <span className="shrink-0 text-xs text-muted">{formatDuration(toolRun.durationMs)}</span>
+          <span className="shrink-0 text-xs text-muted">{formatToolDuration(toolRun.durationMs)}</span>
         )}
       </p>
       {isRunning && <div aria-hidden className="h-0.5 w-full animate-pulse rounded bg-accent-wash" />}
@@ -185,68 +166,4 @@ function ActivitySkeleton() {
       <div className="h-3.5 w-1/4 animate-pulse rounded bg-sunken" />
     </div>
   );
-}
-
-function mergeEvents(persisted: PaymentRunEvent[], live: RealtimeEvent[]): ActivityEvent[] {
-  const eventsBySequence = new Map<number, ActivityEvent>();
-  for (const event of persisted) {
-    eventsBySequence.set(event.id, { sequence: event.id, step: event.step, payload: event.payload });
-  }
-  for (const event of live) {
-    if (event.sequence === null) continue;
-    eventsBySequence.set(event.sequence, {
-      sequence: event.sequence,
-      step: event.step,
-      payload: event.payload,
-    });
-  }
-  return [...eventsBySequence.values()].sort((first, second) => first.sequence - second.sequence);
-}
-
-function latestTodos(events: ActivityEvent[]): AgentTodo[] {
-  const latestTodoEvent = events.findLast((event) => event.step === TODOS_UPDATED_STEP);
-  const rawTodos = latestTodoEvent?.payload.todos;
-  if (!Array.isArray(rawTodos)) return [];
-  return rawTodos.filter(isAgentTodo);
-}
-
-function isAgentTodo(candidate: unknown): candidate is AgentTodo {
-  if (!candidate || typeof candidate !== "object") return false;
-  const { content, status } = candidate as Record<string, unknown>;
-  return typeof content === "string" && typeof status === "string" && TODO_STATUSES.has(status);
-}
-
-function collectToolRuns(events: ActivityEvent[], isRunning: boolean): ToolRun[] {
-  const toolRunsByCallId = new Map<string, ToolRun>();
-  for (const event of events) {
-    const callId = event.payload.call_id;
-    const message = event.payload.message;
-    if (typeof callId !== "string" || typeof message !== "string") continue;
-    if (event.step === TOOL_STARTED_STEP && !toolRunsByCallId.has(callId)) {
-      toolRunsByCallId.set(callId, { callId, message, status: "running", durationMs: null });
-    }
-    if (event.step === TOOL_FINISHED_STEP) {
-      const durationMs = event.payload.duration_ms;
-      toolRunsByCallId.set(callId, {
-        callId,
-        message,
-        status: event.payload.ok === false ? "error" : "ok",
-        durationMs: typeof durationMs === "number" ? durationMs : null,
-      });
-    }
-  }
-  const toolRuns = [...toolRunsByCallId.values()];
-  if (isRunning) return toolRuns;
-  return toolRuns.map((toolRun) =>
-    toolRun.status === "running" ? { ...toolRun, status: "error" } : toolRun,
-  );
-}
-
-function latestSummary(events: ActivityEvent[]): string | null {
-  const summaryText = events.findLast((event) => event.step === AGENT_SUMMARY_STEP)?.payload.text;
-  return typeof summaryText === "string" && summaryText ? summaryText : null;
-}
-
-function formatDuration(durationMs: number): string {
-  return `${durationFormatter.format(durationMs / MS_PER_SECOND)} s`;
 }

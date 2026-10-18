@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+from contracts.fx import FxQuote, FxSource
 from contracts.payment_candidates import PersonCandidate
 from contracts.payment_policy import IdentifierKind
 from modules.bills.hashing import bill_fingerprint, normalize_invoice_number
@@ -11,7 +12,7 @@ from modules.payment_policy.normalize import (
     normalize_name,
     strong_identifiers,
 )
-from modules.payments.fx import names_currency_explicitly, to_usd
+from modules.payments.fx import names_currency_explicitly
 from modules.payments.presentation import format_usd, mask_account
 
 
@@ -70,9 +71,14 @@ def test_fingerprint_uses_due_date_when_number_is_missing():
 
 
 def test_money_formatting_and_conversion():
-    assert to_usd(Decimal("1400000"), "CLP") == Decimal("1470.00")
-    assert to_usd(Decimal("10"), "XYZ") is None
-    assert format_usd(Decimal("1250")) == "USD 1.250,00"
+    clp_quote = FxQuote(
+        currency="CLP",
+        usd_per_unit=Decimal("0.00105"),
+        rate_date=date(2026, 10, 17),
+        source=FxSource.STATIC_FALLBACK,
+    )
+    assert clp_quote.convert(Decimal("1400000")) == Decimal("1470.00")
+    assert format_usd(Decimal("1250")) == "USD 1,250.00"
     assert mask_account("CLBE99887766") == "••••7766"
 
 

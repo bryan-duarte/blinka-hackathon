@@ -10,9 +10,5 @@ class EmailMissingError(InboxError):
     pass
 
 
-class WhatsAppSimulationUnsupportedError(InboxError):
-    pass
-
-
 class WhatsAppPhoneTakenError(InboxError):
     pass

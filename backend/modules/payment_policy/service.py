@@ -19,6 +19,10 @@ from contracts.payment_policy import (
     PaymentPolicy,
     PaymentPolicyUpdate,
     PaymentPolicyView,
+    TrustedForwarderCreate,
+    TrustedForwarderKind,
+    TrustedForwarderRecord,
+    TrustedForwarderView,
 )
 from core.logging_config import get_logger
 from modules.payment_policy import matching
@@ -28,8 +32,11 @@ from modules.payment_policy.errors import (
     PayeeMissingError,
     PayeeVersionConflictError,
     PolicyMissingError,
+    TrustedForwarderMissingError,
 )
 from modules.payment_policy.normalize import (
+    normalize_domain,
+    normalize_email,
     normalize_identifier,
     normalize_name,
     strong_identifiers,
@@ -138,6 +145,28 @@ class PaymentPolicyService:
         if not was_deleted:
             raise BlacklistEntryMissingError
 
+    async def list_trusted_forwarders(self, owner: CurrentUser) -> list[TrustedForwarderView]:
+        forwarders = await self._repository.list_trusted_forwarders(owner.user_id)
+        return [_to_trusted_forwarder_view(forwarder) for forwarder in forwarders]
+
+    async def add_trusted_forwarder(
+        self, owner: CurrentUser, forwarder: TrustedForwarderCreate
+    ) -> TrustedForwarderView:
+        created = await self._repository.add_trusted_forwarder(
+            owner.user_id,
+            forwarder.kind,
+            _normalized_forwarder(forwarder.kind, forwarder.value),
+            forwarder.note,
+        )
+        logger.info("trusted_forwarder_added", forwarder_id=created.forwarder_id, kind=created.kind)
+        return _to_trusted_forwarder_view(created)
+
+    async def delete_trusted_forwarder(self, owner: CurrentUser, forwarder_id: UUID) -> None:
+        was_deleted = await self._repository.delete_trusted_forwarder(owner.user_id, forwarder_id)
+        if not was_deleted:
+            raise TrustedForwarderMissingError
+        logger.info("trusted_forwarder_deleted", forwarder_id=forwarder_id)
+
     async def match_payee(
         self, owner_id: UUID, candidate: PaymentCandidateBase, sender: str
     ) -> PayeeMatch:
@@ -224,4 +253,20 @@ def _to_blacklist_view(entry: BlacklistEntryRecord) -> BlacklistEntryView:
         normalized_value=entry.normalized_value,
         reason=entry.reason,
         created_at=entry.created_at,
+    )
+
+
+def _normalized_forwarder(kind: TrustedForwarderKind, raw_value: str) -> str:
+    if kind is TrustedForwarderKind.EMAIL:
+        return normalize_email(raw_value)
+    return normalize_domain(raw_value)
+
+
+def _to_trusted_forwarder_view(forwarder: TrustedForwarderRecord) -> TrustedForwarderView:
+    return TrustedForwarderView(
+        forwarder_id=forwarder.forwarder_id,
+        kind=forwarder.kind,
+        normalized_value=forwarder.normalized_value,
+        note=forwarder.note,
+        created_at=forwarder.created_at,
     )

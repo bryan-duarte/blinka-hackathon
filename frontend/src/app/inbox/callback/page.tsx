@@ -15,9 +15,9 @@ type CallbackState =
   | { phase: "failed"; message: string };
 
 const FINAL_STATUS_MESSAGES: Record<Exclude<MailAccountStatus, "active">, string> = {
-  initiated: "La conexión sigue pendiente. Intenta de nuevo en unos segundos.",
-  failed: "El proveedor rechazó la conexión.",
-  expired: "La conexión expiró. Vuelve a conectar el correo.",
+  initiated: "The connection is still pending. Try again in a few seconds.",
+  failed: "The provider rejected the connection.",
+  expired: "The connection expired. Connect the inbox again.",
 };
 
 function wait(milliseconds: number): Promise<void> {
@@ -58,7 +58,7 @@ function CallbackContent() {
           router.replace("/login");
           return;
         }
-        setState({ phase: "failed", message: "No se pudo confirmar la conexión." });
+        setState({ phase: "failed", message: "The connection could not be confirmed." });
       });
     return () => {
       isCancelled = true;
@@ -67,7 +67,7 @@ function CallbackContent() {
 
   const failureMessage =
     !isProviderSuccess || !connectedAccountId
-      ? "El proveedor no completó la autorización."
+      ? "The provider did not complete the authorization."
       : state.phase === "failed"
         ? state.message
         : null;
@@ -77,7 +77,7 @@ function CallbackContent() {
       <div role="alert" className="space-y-3">
         <p className="text-sm text-danger">{failureMessage}</p>
         <Link href="/inbox" className="text-sm font-medium text-accent hover:underline">
-          Volver a la bandeja
+          Back to the inbox
         </Link>
       </div>
     );
@@ -92,7 +92,7 @@ function CallbackSpinner() {
         aria-hidden
         className="size-4 animate-spin rounded-full border-2 border-line border-t-accent"
       />
-      Confirmando la conexión con tu correo...
+      Confirming the connection with your inbox...
     </p>
   );
 }

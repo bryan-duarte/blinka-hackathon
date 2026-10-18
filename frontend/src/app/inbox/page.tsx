@@ -7,18 +7,20 @@ import { ConnectionBar } from "@/components/inbox/ConnectionBar";
 import { EmailDetail } from "@/components/inbox/EmailDetail";
 import { EmailList, EmailListSkeleton } from "@/components/inbox/EmailList";
 import { InboxMetrics } from "@/components/inbox/InboxMetrics";
-import { EYEBROW_CLASS, PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
+import { DemoScenariosPanel } from "@/components/demo/DemoScenariosPanel";
+import { SECONDARY_BUTTON_CLASS } from "@/components/settings/styles";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import { SOURCE_LABELS } from "@/lib/labels";
+import { TERMINAL_RUN_STEPS } from "@/lib/runEvents";
 import type {
   BudgetUsageView,
+  DemoCatalogView,
   InboxChannel,
   InboxEmailDetail,
   InboxEmailStatus,
   InboxEmailView,
   MailboxConnectionView,
   RealtimeEvent,
-  SimulatedEmailKind,
 } from "@/lib/types";
 import { PENDING_STATUSES } from "@/lib/types";
 import { useInboxChannel } from "@/lib/useInboxChannel";
@@ -27,48 +29,8 @@ const POLL_INTERVAL_MS = 4000;
 const IDLE_POLL_INTERVAL_MS = 15000;
 const SAFETY_REFRESH_MS = 60000;
 const THINKING_BUFFER_CHARS = 400;
-const TERMINAL_RUN_STEPS: ReadonlySet<string> = new Set([
-  "completed",
-  "failed",
-  "cancelled",
-  "decided",
-  "not_a_bill",
-  "extraction_failed",
-]);
+const RESET_ITEM_STATUS = "reset";
 const SOURCE_FILTERS: InboxChannel[] = ["email", "whatsapp"];
-
-type SimulationOption = { kind: SimulatedEmailKind; label: string };
-
-const WHATSAPP_SIMULATION_OPTIONS: SimulationOption[] = [
-  { kind: "invoice_usd_pdf", label: "Factura de ACME en PDF por WhatsApp" },
-  { kind: "invoice_zip_xml", label: "Factura chilena en ZIP (XML + PDF) por WhatsApp" },
-  { kind: "scanned_pdf", label: "Factura escaneada por WhatsApp" },
-];
-
-const EMAIL_SIMULATION_OPTIONS: SimulationOption[] = [
-  { kind: "invoice_usd", label: "Factura normal de ACME (USD)" },
-  { kind: "invoice_usd_pdf", label: "La misma factura de ACME en PDF" },
-  { kind: "invoice_zip_xml", label: "Factura electrónica chilena en ZIP (XML + PDF)" },
-  { kind: "scanned_pdf", label: "Factura escaneada sin texto" },
-  { kind: "aws_card", label: "Factura de AWS con tarjeta registrada" },
-  { kind: "person_cuenta_cobro", label: "Cuenta de cobro de una contratista" },
-  { kind: "person_cuenta_cobro_second", label: "Segunda cuenta de cobro del mes" },
-  { kind: "aws_impersonation", label: "Suplantación de AWS (cuenta personal)" },
-  { kind: "amaz0n_blacklisted", label: "Dominio en lista negra" },
-  { kind: "over_auto_pay", label: "Supera tope de autopago" },
-  { kind: "over_hard_cap", label: "Supera tope por pago" },
-  { kind: "agreement_mismatch", label: "No cuadra con lo acordado" },
-  { kind: "unknown_payee", label: "Beneficiario no registrado" },
-  { kind: "no_currency", label: "Sin moneda explícita" },
-  { kind: "invoice_clp", label: "Factura con remitente desconocido" },
-  { kind: "prompt_injection", label: "Intento de prompt injection" },
-  { kind: "plain", label: "Correo sin factura" },
-];
-
-const SIMULATION_GROUPS: { channel: InboxChannel; options: SimulationOption[] }[] = [
-  { channel: "email", options: EMAIL_SIMULATION_OPTIONS },
-  { channel: "whatsapp", options: WHATSAPP_SIMULATION_OPTIONS },
-];
 
 type InboxFilter = "all" | "review";
 
@@ -102,14 +64,14 @@ function withEvent(existingEvents: RealtimeEvent[] = [], event: RealtimeEvent): 
 
 export default function InboxPage() {
   const router = useRouter();
-  const simulateMenuRef = useRef<HTMLDetailsElement>(null);
   const [connections, setConnections] = useState<MailboxConnectionView[]>([]);
   const [emails, setEmails] = useState<InboxEmailView[] | null>(null);
   const [budgets, setBudgets] = useState<BudgetUsageView[] | null>(null);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<InboxEmailDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [demoCatalog, setDemoCatalog] = useState<DemoCatalogView | null>(null);
+  const [isDemoPanelOpen, setIsDemoPanelOpen] = useState(false);
   const [inboxFilter, setInboxFilter] = useState<InboxFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<InboxChannel | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
@@ -124,12 +86,23 @@ export default function InboxPage() {
   const hasPendingEmails = (emails ?? []).some((email) => PENDING_STATUSES.has(email.status));
   const isReviewQueueEmpty = isReviewFilter && visibleEmails?.length === 0;
   const caption = emails
-    ? `${emails.length} mensajes · ${reviewCount} en revisión`
-    : "Cargando mensajes…";
-  const requestRefresh = () => setRefreshCount((count) => count + 1);
+    ? `${emails.length} messages · ${reviewCount} in review`
+    : "Loading messages…";
+  const requestRefresh = useCallback(() => setRefreshCount((count) => count + 1), []);
+
+  function resetInboxView() {
+    setSelectedEmailId(null);
+    setRunEvents({});
+    setThinkingByRun({});
+    requestRefresh();
+  }
 
   function routeInboxItemEvent(event: RealtimeEvent) {
     const itemStatus = event.payload.status;
+    if (itemStatus === RESET_ITEM_STATUS) {
+      resetInboxView();
+      return;
+    }
     const isKnownItem = (emails ?? []).some((email) => email.email_id === event.item_id);
     const isSelectedItem = event.item_id === selectedEmailId;
     if (!isKnownItem || isSelectedItem || typeof itemStatus !== "string") {
@@ -189,6 +162,10 @@ export default function InboxPage() {
       return;
     }
     reloadConnections();
+    api
+      .demoCatalog()
+      .then(setDemoCatalog)
+      .catch(() => setDemoCatalog(null));
   }, [router, reloadConnections]);
 
   useEffect(() => {
@@ -215,7 +192,7 @@ export default function InboxPage() {
         })
         .catch((error: unknown) => {
           if (isCancelled || handleUnauthorized(error)) return;
-          setLoadError("No se pudo cargar la bandeja. Reintentando…");
+          setLoadError("The inbox could not be loaded. Retrying…");
         })
         .finally(() => {
           isLoading = false;
@@ -229,19 +206,6 @@ export default function InboxPage() {
     };
   }, [selectedEmailId, sourceFilter, hasPendingEmails, isChannelLive, handleUnauthorized, refreshCount]);
 
-  async function simulate(kind: SimulatedEmailKind, channel: InboxChannel) {
-    if (simulateMenuRef.current) simulateMenuRef.current.open = false;
-    setIsSimulating(true);
-    try {
-      const simulatedEmail = await api.simulate(kind, channel);
-      setSelectedEmailId(simulatedEmail.email_id);
-    } catch (error) {
-      if (!handleUnauthorized(error)) setLoadError("No se pudo simular el mensaje.");
-    } finally {
-      setIsSimulating(false);
-    }
-  }
-
   function selectSourceFilter(nextFilter: InboxChannel | null) {
     setSourceFilter(nextFilter);
     const isSelectedOutsideFilter =
@@ -252,7 +216,7 @@ export default function InboxPage() {
   return (
     <ConsoleShell>
       <ConsoleTopBar
-        title="Bandeja"
+        title="Inbox"
         caption={caption}
         actions={
           <>
@@ -261,35 +225,15 @@ export default function InboxPage() {
               onUnauthorized={handleUnauthorized}
               onChanged={reloadConnections}
             />
-            <details ref={simulateMenuRef} className="relative">
-              <summary
-                aria-disabled={isSimulating}
-                className={`${PRIMARY_BUTTON_CLASS} h-9 cursor-pointer list-none px-4 select-none [&::-webkit-details-marker]:hidden`}
+            {demoCatalog && (
+              <button
+                type="button"
+                onClick={() => setIsDemoPanelOpen(true)}
+                className={`${SECONDARY_BUTTON_CLASS} h-9 px-4`}
               >
-                {isSimulating ? "Simulando…" : "Simular mensaje"}
-              </summary>
-              <div className="absolute left-0 z-10 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded border border-line bg-panel py-1 md:right-0 md:left-auto">
-                {SIMULATION_GROUPS.map((group) => (
-                  <section key={group.channel} aria-label={SOURCE_LABELS[group.channel]}>
-                    <p className={`${EYEBROW_CLASS} px-4 pt-3 pb-1`}>{SOURCE_LABELS[group.channel]}</p>
-                    <ul>
-                      {group.options.map((option) => (
-                        <li key={`${group.channel}-${option.kind}`}>
-                          <button
-                            type="button"
-                            disabled={isSimulating}
-                            onClick={() => simulate(option.kind, group.channel)}
-                            className="block w-full px-4 py-2 text-left text-sm text-ink hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:opacity-50"
-                          >
-                            {option.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            </details>
+                Demo scenarios
+              </button>
+            )}
           </>
         }
       />
@@ -301,22 +245,32 @@ export default function InboxPage() {
         </p>
       )}
 
+      {demoCatalog && (
+        <DemoScenariosPanel
+          catalog={demoCatalog}
+          isOpen={isDemoPanelOpen}
+          onClose={() => setIsDemoPanelOpen(false)}
+          onLaunched={requestRefresh}
+          onReset={resetInboxView}
+        />
+      )}
+
       <InboxMetrics emails={emails} budgets={budgets} />
 
       <div className="flex flex-1 flex-col gap-4 px-4 py-6 md:px-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="group" aria-label="Filtrar mensajes" className="flex gap-1">
-            <FilterTab label="Todos" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
+          <div role="group" aria-label="Filter messages" className="flex gap-1">
+            <FilterTab label="All" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
             <FilterTab
-              label="En revisión"
+              label="In review"
               count={reviewCount}
               isActive={isReviewFilter}
               onSelect={() => setInboxFilter("review")}
             />
           </div>
-          <div role="group" aria-label="Filtrar por canal" className="flex gap-1">
+          <div role="group" aria-label="Filter by channel" className="flex gap-1">
             <SourceChip
-              label="Todos"
+              label="All"
               isActive={sourceFilter === null}
               onSelect={() => selectSourceFilter(null)}
             />
@@ -332,14 +286,14 @@ export default function InboxPage() {
         </div>
         <main className="grid flex-1 items-start gap-8 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
           <section
-            aria-label="Mensajes"
+            aria-label="Messages"
             className={`overflow-hidden rounded-lg border border-line bg-panel ${selectedEmailId ? "hidden md:block" : ""}`}
           >
             {visibleEmails === null ? (
               <EmailListSkeleton />
             ) : isReviewQueueEmpty ? (
               <p className="px-6 py-12 text-sm text-muted">
-                No hay facturas esperando una decisión.
+                No invoices are waiting for a decision.
               </p>
             ) : (
               <EmailList
@@ -350,7 +304,7 @@ export default function InboxPage() {
             )}
           </section>
           <section
-            aria-label="Detalle del mensaje"
+            aria-label="Message detail"
             className={selectedEmailId ? "" : "hidden md:block"}
           >
             {selectedEmail && selectedEmail.email_id === selectedEmailId ? (
@@ -366,8 +320,8 @@ export default function InboxPage() {
             ) : (
               <p className="py-4 text-sm text-muted">
                 {selectedEmailId
-                  ? "Cargando mensaje…"
-                  : "Selecciona un mensaje para ver la decisión del agente."}
+                  ? "Loading message…"
+                  : "Select a message to see the agent's decision."}
               </p>
             )}
           </section>

@@ -23,6 +23,8 @@ SHA256_HEX_LENGTH = 64
 CURRENCY_CODE_LENGTH = 3
 AMOUNT = Numeric(18, 4)
 USD_AMOUNT = Numeric(18, 2)
+USD_PER_UNIT = Numeric(20, 10)
+FX_SOURCE_LENGTH = 24
 SOURCE_CONSTRAINT = "uq_bill_sources_owner_type_ref"
 
 
@@ -61,6 +63,9 @@ class BillRow(ProductBase):
     amount: Mapped[Decimal | None] = mapped_column(AMOUNT, nullable=True)
     currency: Mapped[str | None] = mapped_column(String(CURRENCY_CODE_LENGTH), nullable=True)
     amount_usd: Mapped[Decimal | None] = mapped_column(USD_AMOUNT, nullable=True)
+    fx_usd_per_unit: Mapped[Decimal | None] = mapped_column(USD_PER_UNIT, nullable=True)
+    fx_rate_date: Mapped[date | None] = mapped_column(nullable=True)
+    fx_source: Mapped[str | None] = mapped_column(String(FX_SOURCE_LENGTH), nullable=True)
     category: Mapped[str | None] = mapped_column(nullable=True)
     due_date: Mapped[date | None] = mapped_column(nullable=True)
     candidate: Mapped[dict] = mapped_column(JSONB, default=dict)

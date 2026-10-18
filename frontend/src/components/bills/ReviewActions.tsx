@@ -16,8 +16,8 @@ type ReviewAction = "approve" | "reject";
 
 const NOTE_MIN_LENGTH = 3;
 const NOTE_MAX_LENGTH = 500;
-const ALREADY_RESOLVED_MESSAGE = "Esta factura ya fue resuelta por otra persona.";
-const GENERIC_FAILURE_MESSAGE = "No se pudo registrar la decisión. Intenta de nuevo.";
+const ALREADY_RESOLVED_MESSAGE = "Another person already resolved this invoice.";
+const GENERIC_FAILURE_MESSAGE = "The decision could not be recorded. Try again.";
 
 export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
   const noteId = useId();
@@ -50,15 +50,15 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
   return (
     <div className="flex flex-col gap-4 border-t border-line pt-6">
       <div className="space-y-1">
-        <h3 className={SECTION_HEADING_CLASS}>Tu decisión</h3>
+        <h3 className={SECTION_HEADING_CLASS}>Your decision</h3>
         <p className="text-sm text-muted">
-          Aprobar acepta los puntos en revisión. Los topes, la lista negra y el presupuesto se vuelven a revisar
-          antes de pagar, así que la factura puede quedar frenada.
+          Approving accepts the review points. Caps, the blacklist and the budget are checked again before
+          paying, so the invoice can still be held.
         </p>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor={noteId} className={LABEL_CLASS}>
-          Nota para el registro (obligatoria)
+          Note for the record (required)
         </label>
         <textarea
           id={noteId}
@@ -68,7 +68,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           maxLength={NOTE_MAX_LENGTH}
           rows={2}
           disabled={isBusy}
-          placeholder="Ej.: confirmado con el proveedor por teléfono"
+          placeholder="E.g. confirmed with the vendor by phone"
           className="block w-full resize-y rounded border border-line bg-panel px-4 py-2 text-sm leading-[1.4] text-ink placeholder:text-muted transition-colors focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-accent disabled:opacity-60"
         />
         <p className="text-right text-xs text-muted tabular-nums">
@@ -88,7 +88,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           disabled={!hasValidNote || isBusy}
           className={PRIMARY_BUTTON_CLASS}
         >
-          {pendingAction === "approve" ? "Aprobando..." : "Aprobar pago"}
+          {pendingAction === "approve" ? "Approving..." : "Approve payment"}
         </button>
         <button
           type="button"
@@ -96,7 +96,7 @@ export function ReviewActions({ billId, onResolved }: ReviewActionsProps) {
           disabled={!hasValidNote || isBusy}
           className={SECONDARY_BUTTON_CLASS}
         >
-          {pendingAction === "reject" ? "Rechazando..." : "Rechazar"}
+          {pendingAction === "reject" ? "Rejecting..." : "Reject"}
         </button>
       </div>
     </div>

@@ -15,9 +15,8 @@ from contracts.inbox import (
     MailboxConnectionRecord,
     MailboxConnectionView,
     MailboxConnectStarted,
-    SimulatedEmailKind,
 )
-from contracts.mail_gateway import MailAccountStatus, MailProvider
+from contracts.mail_gateway import FetchedEmail, MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView, PaymentRunStatus, RunStatus, Verdict
 from contracts.whatsapp_gateway import (
     ConfirmWhatsAppRequest,
@@ -32,15 +31,9 @@ from modules.inbox.errors import (
     EmailMissingError,
     MailboxConnectionMissingError,
     WhatsAppPhoneTakenError,
-    WhatsAppSimulationUnsupportedError,
 )
 from modules.inbox.pipeline import InboxDependencies, InboxSource, process_email
 from modules.inbox.repository import InboxRepository
-from modules.inbox.samples import (
-    SIMULATED_EMAILS,
-    WHATSAPP_SIMULATABLE_KINDS,
-    as_whatsapp_message,
-)
 from modules.whatsapp_gateway import normalize_user_phone
 
 if TYPE_CHECKING:
@@ -223,32 +216,40 @@ class InboxService:
             if email_id is not None:
                 logger.info("inbox_whatsapp_received", email_id=email_id)
 
-    async def simulate(
-        self, owner: CurrentUser, kind: SimulatedEmailKind, channel: InboxChannel
+    async def inject(
+        self, owner: CurrentUser, message: FetchedEmail, channel: InboxChannel
     ) -> InboxEmailView:
-        is_whatsapp = channel == "whatsapp"
-        if is_whatsapp and kind not in WHATSAPP_SIMULATABLE_KINDS:
-            raise WhatsAppSimulationUnsupportedError
-        provider = MailProvider.WHATSAPP if is_whatsapp else MailProvider.SIMULATED
-        simulated_message = (
-            as_whatsapp_message(SIMULATED_EMAILS[kind]) if is_whatsapp else SIMULATED_EMAILS[kind]
-        )
+        provider = MailProvider.WHATSAPP if channel == "whatsapp" else MailProvider.SIMULATED
         email_id = await self._repository.insert_email(
             owner.user_id, provider, f"{SIMULATED_MESSAGE_PREFIX}{uuid4()}"
         )
         assert email_id is not None
-        await self._accept(email_id, owner, simulated_message)
-        logger.info("inbox_email_simulated", email_id=email_id, kind=kind, channel=channel)
+        await self._accept(email_id, owner, message)
+        logger.info("inbox_email_injected", email_id=email_id, channel=channel)
         return InboxEmailView(
             email_id=email_id,
             provider=provider,
-            sender=simulated_message.sender,
-            subject=simulated_message.subject,
-            preview=_preview(simulated_message.body),
+            sender=message.sender,
+            subject=message.subject,
+            preview=_preview(message.body),
             received_at=None,
             status=InboxEmailStatus.RECEIVED,
             source_type=SOURCE_TYPE_BY_PROVIDER[provider],
         )
+
+    async def get_email_status(self, owner: CurrentUser, email_id: UUID) -> InboxEmailStatus:
+        record = await self._repository.get_email(email_id, owner.user_id)
+        if record is None:
+            raise EmailMissingError
+        run = await self._linked_run(owner, record) if _is_waiting_on_run(record) else None
+        status, _, _ = _resolve_status(record, run)
+        return status
+
+    async def cancel_owner(self, owner_id: UUID) -> int:
+        cancelled_count = await self._registry.cancel_owner(owner_id)
+        if cancelled_count:
+            logger.info("inbox_items_cancelled", owner_id=owner_id, count=cancelled_count)
+        return cancelled_count
 
     async def list_emails(
         self, owner: CurrentUser, source: InboxChannel | None
@@ -302,7 +303,11 @@ class InboxService:
         await self._dependencies.notifier.item_changed(
             owner.user_id, email_id, InboxEmailStatus.RECEIVED
         )
-        self._registry.spawn(email_id, process_email(email_id, owner, source, self._dependencies))
+        self._registry.spawn(
+            email_id,
+            process_email(email_id, owner, source, self._dependencies),
+            owner_id=owner.user_id,
+        )
 
     async def _whatsapp_connection_for(
         self, event: WhatsAppDocumentEvent

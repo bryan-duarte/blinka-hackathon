@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { MoneyWithUsd } from "@/components/money/MoneyWithUsd";
 import { EYEBROW_CLASS } from "@/components/settings/styles";
 import { api } from "@/lib/api";
-import { formatDateTime, formatMoney, isForeignCurrency } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
 import { ACTOR_LABELS, CATEGORY_LABELS, FIELD_LABELS, VERDICT_LABELS } from "@/lib/labels";
 import type {
   BillDecisionView,
@@ -31,9 +32,9 @@ const VERDICT_CHIP: Record<Verdict, { className: string; glyph: string }> = {
 };
 
 const EFFECT_ROW: Record<RuleEffect, { glyph: string; glyphColor: string; label: string }> = {
-  hold: { glyph: "✕", glyphColor: "text-danger", label: "Bloquea" },
-  review: { glyph: "!", glyphColor: "text-accent", label: "Revisar" },
-  pass: { glyph: "✓", glyphColor: "text-muted", label: "Cumple" },
+  hold: { glyph: "✕", glyphColor: "text-danger", label: "Blocks" },
+  review: { glyph: "!", glyphColor: "text-accent", label: "Review" },
+  pass: { glyph: "✓", glyphColor: "text-muted", label: "Passes" },
 };
 
 const RULE_ROW_CLASS = "grid grid-cols-[1rem_minmax(0,1fr)] gap-4 border-t border-line py-4";
@@ -67,7 +68,7 @@ export function DecisionCard({
       )}
       {failingRules.length > 0 && (
         <div className="space-y-2">
-          <h3 className={EYEBROW_CLASS}>Puntos que impiden pagar solo</h3>
+          <h3 className={EYEBROW_CLASS}>Points that stop automatic payment</h3>
           <RuleList rules={failingRules} />
         </div>
       )}
@@ -75,7 +76,7 @@ export function DecisionCard({
         <details className="group">
           <summary className={DISCLOSURE_SUMMARY_CLASS}>
             <DisclosureChevron />
-            {passingRules.length} reglas cumplidas
+            {passingRules.length} rules passed
           </summary>
           <div className="mt-2">
             <RuleList rules={passingRules} />
@@ -91,7 +92,7 @@ export function DecisionCard({
 }
 
 function VerdictHeader({ decision }: { decision: BillDecisionView }) {
-  const decidedBy = decision.actor === "human" ? "Decisión de una persona" : "Decisión del agente";
+  const decidedBy = decision.actor === "human" ? "Decision by a person" : "Decision by the agent";
   const chip = decision.status === "duplicate" ? DUPLICATE_CHIP : VERDICT_CHIP[decision.verdict];
   return (
     <header className="space-y-3">
@@ -107,22 +108,25 @@ function VerdictHeader({ decision }: { decision: BillDecisionView }) {
       <p className="text-base leading-[1.4] text-ink">{decision.explanation}</p>
       {decision.note && (
         <p className="text-sm text-muted">
-          Nota: <span className="text-ink">{decision.note}</span>
+          Note: <span className="text-ink">{decision.note}</span>
         </p>
       )}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-line py-4 text-sm sm:grid-cols-4">
-        <Fact label="Beneficiario" value={decision.payee_name} />
-        <Fact
-          label="Monto"
-          value={decision.amount !== null ? formatMoney(decision.amount, decision.currency) : null}
-          numeric
-        />
-        <Fact
-          label={isForeignCurrency(decision.currency) ? "≈ USD" : "USD"}
-          value={decision.amount_usd !== null ? formatMoney(decision.amount_usd, null) : null}
-          numeric
-        />
-        <Fact label="Categoría" value={decision.category ? CATEGORY_LABELS[decision.category] : null} />
+        <Fact label="Payee" value={decision.payee_name} />
+        <div className="min-w-0 sm:col-span-2">
+          <dt className="text-xs text-muted">Amount</dt>
+          <dd className="mt-1 text-base">
+            <MoneyWithUsd
+              amount={decision.amount}
+              currency={decision.currency}
+              amountUsd={decision.amount_usd}
+              usdPerUnit={decision.fx_usd_per_unit}
+              rateDate={decision.fx_rate_date}
+              fxSource={decision.fx_source}
+            />
+          </dd>
+        </div>
+        <Fact label="Category" value={decision.category ? CATEGORY_LABELS[decision.category] : null} />
       </dl>
     </header>
   );
@@ -137,16 +141,16 @@ function DisclosureChevron() {
 }
 
 function verdictLabel(decision: BillDecisionView): string {
-  if (decision.status === "duplicate") return "Duplicada";
-  if (decision.status === "rejected") return "Rechazada";
+  if (decision.status === "duplicate") return "Duplicate";
+  if (decision.status === "rejected") return "Rejected";
   return VERDICT_LABELS[decision.verdict];
 }
 
-function Fact({ label, value, numeric = false }: { label: string; value: string | null; numeric?: boolean }) {
+function Fact({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className={`mt-1 truncate text-base text-ink ${numeric ? "tabular-nums" : ""}`}>{value ?? "Sin dato"}</dd>
+      <dd className="mt-1 truncate text-base text-ink">{value ?? "No data"}</dd>
     </div>
   );
 }
@@ -200,7 +204,7 @@ function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
   if (readFields.length === 0) return null;
   return (
     <div className="space-y-2">
-      <h3 className={EYEBROW_CLASS}>Datos leídos de la factura</h3>
+      <h3 className={EYEBROW_CLASS}>Data read from the invoice</h3>
       <dl className="divide-y divide-line border-y border-line">
         {readFields.map((readField) => (
           <div key={readField.field} className="grid gap-1 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
@@ -211,7 +215,7 @@ function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
                 <p className="text-xs text-muted">
                   <q className="text-ink/80">{readField.evidence.quote}</q>
                   <span className="ml-2 tabular-nums">
-                    confianza {Math.round(readField.evidence.confidence * PERCENT)} %
+                    confidence {Math.round(readField.evidence.confidence * PERCENT)}%
                   </span>
                 </p>
               )}
@@ -226,9 +230,9 @@ function EvidenceTable({ candidate }: { candidate: PaymentCandidate }) {
 function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
   return (
     <div className="space-y-2">
-      <h3 className={EYEBROW_CLASS}>Opinión del verificador (modelo)</h3>
+      <h3 className={EYEBROW_CLASS}>Checker opinion (model)</h3>
       <p className="text-xs text-muted">
-        Un segundo modelo revisa las facturas que pasan las reglas. Solo puede enviar a revisión, nunca aprobar.
+        A second model reviews invoices that pass the rules. It can only send them to review, never approve.
       </p>
       <ul className="flex flex-col">
         {rules.map((rule) => (
@@ -237,10 +241,10 @@ function CheckerOpinion({ rules }: { rules: RuleResult[] }) {
               {EFFECT_ROW[rule.effect].glyph}
             </span>
             <div className="min-w-0 space-y-0.5">
-              {rule.evidence.pregunta && <p className="text-xs text-muted">{rule.evidence.pregunta}</p>}
+              {rule.evidence.question && <p className="text-xs text-muted">{rule.evidence.question}</p>}
               <p className="text-sm text-ink">{rule.reason}</p>
-              {rule.evidence.probabilidad && (
-                <p className="text-xs text-muted tabular-nums">probabilidad {rule.evidence.probabilidad}</p>
+              {rule.evidence.probability && (
+                <p className="text-xs text-muted tabular-nums">probability {rule.evidence.probability}</p>
               )}
             </div>
           </li>
@@ -270,9 +274,9 @@ function DuplicateLink({
         onSelectEmail(originalEmailId);
         return;
       }
-      setMessage("La factura original no llegó por correo; está registrada desde el chat o una carga.");
+      setMessage("The original invoice did not arrive by email; it was registered from chat or an upload.");
     } catch {
-      setMessage("No se pudo abrir la factura original.");
+      setMessage("The original invoice could not be opened.");
     } finally {
       setIsLoading(false);
     }
@@ -286,7 +290,7 @@ function DuplicateLink({
         disabled={isLoading}
         className="rounded font-normal text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
       >
-        {isLoading ? "Abriendo..." : "Ver la factura original ›"}
+        {isLoading ? "Opening..." : "View the original invoice ›"}
       </button>
       {message && (
         <p role="alert" className="mt-1 text-muted">
@@ -313,10 +317,10 @@ function DecisionHistory({ billId }: { billId: string }) {
     <details onToggle={(event) => loadHistory(event.currentTarget.open)} className="group">
       <summary className={DISCLOSURE_SUMMARY_CLASS}>
         <DisclosureChevron />
-        Historial de decisiones
+        Decision history
       </summary>
       <div className="mt-2" aria-live="polite">
-        {loadError && <p className="text-sm text-danger">No se pudo cargar el historial.</p>}
+        {loadError && <p className="text-sm text-danger">The history could not be loaded.</p>}
         {!loadError && history === null && (
           <div aria-hidden className="space-y-2">
             <div className="h-3.5 w-2/3 animate-pulse rounded bg-sunken" />

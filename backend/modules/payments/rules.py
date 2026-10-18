@@ -28,51 +28,52 @@ PROBABLE_DUPLICATE_TOLERANCE = Decimal("0.005")
 SAME_CYCLE_DUE_DATE_DAYS = 10
 EVIDENCE_QUOTE_MAX_CHARS = 160
 REQUIRED_FIELD_LABELS = {
-    "payee_name": "beneficiario",
-    "amount": "monto",
-    "currency": "moneda",
-    "due_date": "fecha de vencimiento",
+    "payee_name": "payee",
+    "amount": "amount",
+    "currency": "currency",
+    "due_date": "due date",
 }
 CATEGORY_LIKE_KINDS = frozenset({PayeeKind.SERVICE, PayeeKind.COMPANY})
-NO_USD_AMOUNT_REASON = "No aplica: sin monto en USD."
-MISSING_CURRENCY_PROBLEM = "la factura no indica la moneda de forma explícita; no se infiere"
+NO_USD_AMOUNT_REASON = "Not applicable: no USD amount."
+MISSING_CURRENCY_PROBLEM = "the invoice does not state its currency explicitly; it is not inferred"
 IMPLICIT_CURRENCY_PROBLEM = (
-    "la moneda leída no aparece escrita de forma explícita en la factura; no se infiere"
+    "the currency read is not written explicitly on the invoice; it is not inferred"
 )
 CURRENCY_FIELD = "currency"
-RULE_FAILURE_REASON = "No se pudo evaluar la regla; se envía a revisión."
+RULE_FAILURE_REASON = "The rule could not be evaluated; sending to review."
 IDENTIFIER_LABELS = {
-    IdentifierKind.TAX_ID: "El identificador tributario",
-    IdentifierKind.BANK_ACCOUNT: "La cuenta",
-    IdentifierKind.SERVICE_ACCOUNT_ID: "La cuenta de servicio",
-    IdentifierKind.EMAIL: "El correo",
-    IdentifierKind.DOMAIN: "El dominio",
-    IdentifierKind.ALIAS: "El nombre",
+    IdentifierKind.TAX_ID: "The tax ID",
+    IdentifierKind.BANK_ACCOUNT: "The account",
+    IdentifierKind.SERVICE_ACCOUNT_ID: "The service account",
+    IdentifierKind.EMAIL: "The email",
+    IdentifierKind.DOMAIN: "The domain",
+    IdentifierKind.ALIAS: "The name",
 }
+REVIEW_DATE_FORMAT = "%b %d"
 
 RULE_NAMES = {
-    "R01": "datos_completos",
-    "R02": "sin_instrucciones",
-    "R03": "no_bloqueado",
-    "R04": "beneficiario_registrado",
-    "R05": "identidad_consistente",
-    "R05b": "remitente_conocido",
-    "R06": "tipo_coincide",
-    "R07": "categoria_permitida",
-    "R08": "categoria_confiable",
-    "R09": "moneda_permitida",
-    "R11": "sin_duplicado_probable",
-    "R12": "tope_por_pago",
-    "R13": "tope_autopago",
-    "R14": "presupuesto_disponible",
-    "R17": "coincide_con_acuerdo",
-    "R18": "identidad_tributaria_consistente",
-    "CHK1": "servicio_coincide",
-    "CHK2": "suplantacion",
-    "CHK3": "monto_habitual",
-    "DUP": "duplicado_exacto",
-    "PAY": "pago_ejecutable",
-    "ERR": "error_tecnico",
+    "R01": "complete_data",
+    "R02": "no_embedded_instructions",
+    "R03": "not_blacklisted",
+    "R04": "registered_payee",
+    "R05": "consistent_identity",
+    "R05b": "known_sender",
+    "R06": "kind_matches",
+    "R07": "category_allowed",
+    "R08": "category_confident",
+    "R09": "currency_allowed",
+    "R11": "no_probable_duplicate",
+    "R12": "hard_cap",
+    "R13": "auto_pay_limit",
+    "R14": "budget_available",
+    "R17": "matches_agreement",
+    "R18": "tax_identity_consistent",
+    "CHK1": "checker_service_matches",
+    "CHK2": "checker_impersonation",
+    "CHK3": "checker_usual_amount",
+    "DUP": "exact_duplicate",
+    "PAY": "payment_execution",
+    "ERR": "technical_error",
 }
 
 BudgetSnapshot = Mapping[str, Decimal]
@@ -152,7 +153,7 @@ def _complete_data(context: DecisionContext) -> RuleResult:
         "due_date": candidate.due_date is not None,
     }
     problems = [
-        f"falta {REQUIRED_FIELD_LABELS[field]}"
+        f"missing {REQUIRED_FIELD_LABELS[field]}"
         for field, is_present in present.items()
         if not is_present
     ]
@@ -169,17 +170,17 @@ def _complete_data(context: DecisionContext) -> RuleResult:
         }
     )
     if uncertain_fields:
-        problems.append(f"lectura dudosa de {', '.join(uncertain_fields)}")
+        problems.append(f"uncertain reading of {', '.join(uncertain_fields)}")
     classification = context.classification
     is_doubtful_classification = (
         classification is not None
         and Decimal(str(classification.confidence)) < policy.min_field_confidence
     )
     if is_doubtful_classification:
-        problems.append("clasificación dudosa del documento")
+        problems.append("uncertain document classification")
     if problems:
         return rule_result("R01", RuleEffect.REVIEW, _sentence("; ".join(dict.fromkeys(problems))))
-    return rule_result("R01", RuleEffect.PASS, "Beneficiario, monto, moneda y vencimiento leídos.")
+    return rule_result("R01", RuleEffect.PASS, "Payee, amount, currency and due date were read.")
 
 
 def _no_embedded_instructions(context: DecisionContext) -> RuleResult:
@@ -189,10 +190,10 @@ def _no_embedded_instructions(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R02",
             RuleEffect.HOLD,
-            "La factura contiene instrucciones dirigidas al agente; no se siguen.",
-            {"instruccion": first_instruction},
+            "The invoice contains instructions aimed at the agent; they are not followed.",
+            {"instruction": first_instruction},
         )
-    return rule_result("R02", RuleEffect.PASS, "Sin instrucciones dirigidas al agente.")
+    return rule_result("R02", RuleEffect.PASS, "No instructions aimed at the agent.")
 
 
 def _not_blacklisted(context: DecisionContext) -> RuleResult:
@@ -203,30 +204,28 @@ def _not_blacklisted(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R03",
             RuleEffect.HOLD,
-            f"{IDENTIFIER_LABELS[hit.kind]} {shown_value} está en la lista negra: {hit.reason}.",
-            {"tipo": str(hit.kind), "valor": shown_value},
+            f"{IDENTIFIER_LABELS[hit.kind]} {shown_value} is blacklisted: {hit.reason}.",
+            {"kind": str(hit.kind), "value": shown_value},
         )
     if payee is not None and payee.status is PayeeStatus.BLACKLISTED:
         return rule_result(
-            "R03", RuleEffect.HOLD, f"{payee.display_name} está bloqueado en el registro."
+            "R03", RuleEffect.HOLD, f"{payee.display_name} is blocked in the registry."
         )
-    return rule_result("R03", RuleEffect.PASS, "Ningún dato de la factura está en la lista negra.")
+    return rule_result("R03", RuleEffect.PASS, "No invoice detail is on the blacklist.")
 
 
 def _registered_payee(context: DecisionContext) -> RuleResult:
     match = context.match
     if match.payee is not None:
-        return rule_result(
-            "R04", RuleEffect.PASS, f"Beneficiario registrado: {match.payee.display_name}."
-        )
+        return rule_result("R04", RuleEffect.PASS, f"Registered payee: {match.payee.display_name}.")
     if _identifiers_have_several_owners(match):
-        reason = "Los identificadores apuntan a varios beneficiarios registrados."
+        reason = "The identifiers point to several registered payees."
     elif match.name_candidates:
         names = ", ".join(payee.display_name for payee in match.name_candidates)
-        reason = f"Coincide por nombre con {names}, sin identificadores que lo confirmen."
+        reason = f"Matches {names} by name only, with no identifiers to confirm it."
     else:
-        payee_name = context.candidate.payee_name or "sin nombre"
-        reason = f"El beneficiario «{payee_name}» no está registrado."
+        payee_name = context.candidate.payee_name or "unnamed"
+        reason = f"The payee “{payee_name}” is not registered."
     return rule_result("R04", RuleEffect.REVIEW, reason)
 
 
@@ -237,10 +236,10 @@ def _consistent_identity(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            "Los identificadores de la factura pertenecen a beneficiarios distintos.",
+            "The invoice identifiers belong to different payees.",
         )
     if payee is None:
-        return rule_result("R05", RuleEffect.PASS, "Sin beneficiario registrado; se evalúa en R04.")
+        return rule_result("R05", RuleEffect.PASS, "No registered payee; evaluated by R04.")
     claimed_payee_ids = {name_candidate.payee_id for name_candidate in match.name_candidates}
     claims_other_payee = bool(claimed_payee_ids) and payee.payee_id not in claimed_payee_ids
     if claims_other_payee:
@@ -248,7 +247,7 @@ def _consistent_identity(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            f"La factura dice ser de {claimed_name}, pero sus datos de pago pertenecen a "
+            f"The invoice claims to be from {claimed_name}, but its payment details belong to "
             f"{payee.display_name}.",
         )
     account = match.bill_bank_account
@@ -262,22 +261,23 @@ def _consistent_identity(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            f"La cuenta {mask_account(account)} pertenece a la persona {payee.display_name}, "
-            "pero la factura es de un servicio o empresa.",
+            f"Account {mask_account(account)} belongs to the person {payee.display_name}, "
+            "but the invoice is from a service or company.",
         )
     if account and payee.payment_method is not PaymentMethod.BANK_TRANSFER:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            f"{payee.display_name} se paga con {payee.payment_method}; la factura pide "
-            f"transferir a la cuenta {mask_account(account)}.",
+            f"{payee.display_name} is paid by {payee.payment_method}; the invoice asks for a "
+            f"transfer to account {mask_account(account)}.",
         )
     if account and account not in match.registered_bank_accounts:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            f"La cuenta {mask_account(account)} no es la registrada para {payee.display_name}. "
-            "Si el proveedor cambió de cuenta, registra la nueva y pide reenviar la factura.",
+            f"Account {mask_account(account)} is not the one registered for "
+            f"{payee.display_name}. If the vendor changed accounts, register the new one and ask "
+            "them to resend the invoice.",
         )
     has_unconfirmed_identifiers = match.matched_by is IdentifierKind.ALIAS and bool(
         match.unknown_identifiers
@@ -286,41 +286,48 @@ def _consistent_identity(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R05",
             RuleEffect.HOLD,
-            f"El nombre coincide con {payee.display_name}, pero sus identificadores no.",
+            f"The name matches {payee.display_name}, but its identifiers do not.",
         )
     return rule_result(
-        "R05", RuleEffect.PASS, "Identificadores consistentes con el beneficiario registrado."
+        "R05", RuleEffect.PASS, "Identifiers are consistent with the registered payee."
     )
 
 
 def _known_sender(context: DecisionContext) -> RuleResult:
     match = context.match
+    if match.is_trusted_forwarder:
+        return rule_result(
+            "R05b",
+            RuleEffect.PASS,
+            f"Forwarded by trusted forwarder {match.sender_email}; identity checked from the "
+            "document.",
+        )
     registered_senders = match.registered_senders
     is_checkable_email = context.source.source_type is BillSourceType.EMAIL and bool(
         registered_senders
     )
     if not is_checkable_email:
-        return rule_result("R05b", RuleEffect.PASS, "Sin remitentes registrados que comparar.")
+        return rule_result("R05b", RuleEffect.PASS, "No registered senders to compare.")
     if _sender_is_registered(match.sender_email, match.sender_domain, registered_senders):
-        return rule_result("R05b", RuleEffect.PASS, "Remitente registrado para el beneficiario.")
-    sender = match.sender_email or "desconocido"
-    payee_name = match.payee.display_name if match.payee else "el beneficiario"
+        return rule_result("R05b", RuleEffect.PASS, "Sender is registered for the payee.")
+    sender = match.sender_email or "unknown"
+    payee_name = match.payee.display_name if match.payee else "the payee"
     return rule_result(
         "R05b",
         RuleEffect.REVIEW,
-        f"El remitente {sender} no es uno de los registrados para {payee_name}.",
+        f"Sender {sender} is not one of the registered senders for {payee_name}.",
     )
 
 
 def _kind_matches(context: DecisionContext) -> RuleResult:
     payee = context.match.payee
     if payee is None or payee.kind == context.candidate.kind:
-        return rule_result("R06", RuleEffect.PASS, "El tipo de beneficiario coincide.")
+        return rule_result("R06", RuleEffect.PASS, "The payee kind matches.")
     return rule_result(
         "R06",
         RuleEffect.REVIEW,
-        f"La factura parece de tipo {context.candidate.kind}, pero {payee.display_name} está "
-        f"registrado como {payee.kind}.",
+        f"The invoice looks like a {context.candidate.kind}, but {payee.display_name} is "
+        f"registered as a {payee.kind}.",
     )
 
 
@@ -330,19 +337,19 @@ def _tax_identity_consistent(context: DecisionContext) -> RuleResult:
     tax_country = candidate.issuer_tax_country
     if not tax_country or not tax_id:
         return rule_result(
-            "R18", RuleEffect.PASS, "No aplica: sin país tributario o sin identificador."
+            "R18", RuleEffect.PASS, "Not applicable: no tax country or no identifier."
         )
-    evidence = {"identificador": tax_id, "pais_tributario": tax_country}
+    evidence = {"identifier": tax_id, "tax_country": tax_country}
     if tax_id_fits_country(tax_id, tax_country) is False:
         return rule_result(
             "R18",
             RuleEffect.REVIEW,
-            f"El identificador tributario {tax_id} no tiene el formato de {tax_country}, "
-            "el país del estándar de la factura.",
+            f"Tax ID {tax_id} does not have the {tax_country} format, the country of the "
+            "invoice standard.",
             evidence,
         )
     return rule_result(
-        "R18", RuleEffect.PASS, f"Identificador tributario coherente con {tax_country}.", evidence
+        "R18", RuleEffect.PASS, f"Tax ID is consistent with {tax_country}.", evidence
     )
 
 
@@ -350,13 +357,13 @@ def _category_allowed(context: DecisionContext) -> RuleResult:
     category = context.candidate.category
     if category is None:
         return rule_result(
-            "R07", RuleEffect.REVIEW, "No se pudo determinar la categoría del gasto."
+            "R07", RuleEffect.REVIEW, "The spending category could not be determined."
         )
     if category not in context.policy.allowed_categories:
         return rule_result(
-            "R07", RuleEffect.REVIEW, f"La categoría {category} no está permitida por la política."
+            "R07", RuleEffect.REVIEW, f"Category {category} is not allowed by the policy."
         )
-    return rule_result("R07", RuleEffect.PASS, f"Categoría permitida: {category}.")
+    return rule_result("R07", RuleEffect.PASS, f"Allowed category: {category}.")
 
 
 def _category_confident(context: DecisionContext) -> RuleResult:
@@ -366,7 +373,7 @@ def _category_confident(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R08",
             RuleEffect.REVIEW,
-            f"La categoría {candidate.category} se infirió con baja confianza ({confidence:.2f}).",
+            f"Category {candidate.category} was inferred with low confidence ({confidence:.2f}).",
         )
     has_conflicting_category = (
         payee is not None
@@ -377,25 +384,25 @@ def _category_confident(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R08",
             RuleEffect.REVIEW,
-            f"La factura se clasificó como {candidate.category}, pero {payee.display_name} "
-            f"está registrado en {payee.default_category}.",
+            f"The invoice was classified as {candidate.category}, but {payee.display_name} "
+            f"is registered under {payee.default_category}.",
         )
-    return rule_result("R08", RuleEffect.PASS, "Categoría consistente con el registro.")
+    return rule_result("R08", RuleEffect.PASS, "Category is consistent with the registry.")
 
 
 def _currency_allowed(context: DecisionContext) -> RuleResult:
     currency = context.candidate.currency
     if currency is None:
-        return rule_result("R09", RuleEffect.PASS, "Sin moneda; se evalúa en R01.")
+        return rule_result("R09", RuleEffect.PASS, "No currency; evaluated by R01.")
     if currency.upper() not in context.policy.allowed_currencies:
         return rule_result(
-            "R09", RuleEffect.REVIEW, f"La moneda {currency} no está permitida por la política."
+            "R09", RuleEffect.REVIEW, f"Currency {currency} is not allowed by the policy."
         )
     if context.amount_usd is None:
         return rule_result(
-            "R09", RuleEffect.REVIEW, f"No hay tipo de cambio para {currency}; no se convierte."
+            "R09", RuleEffect.REVIEW, f"No exchange rate available for {currency}; escalating."
         )
-    return rule_result("R09", RuleEffect.PASS, f"Moneda permitida: {currency}.")
+    return rule_result("R09", RuleEffect.PASS, f"Allowed currency: {currency}.")
 
 
 def _no_probable_duplicate(context: DecisionContext) -> RuleResult:
@@ -418,13 +425,12 @@ def _no_probable_duplicate(context: DecisionContext) -> RuleResult:
             return rule_result(
                 "R11",
                 RuleEffect.REVIEW,
-                f"Se parece a la factura {previous_label} del {previous.created_at:%d-%m} "
-                f"por {format_usd(previous.amount_usd)}.",
-                {"factura_previa": str(previous.bill_id)},
+                f"Looks like invoice {previous_label} from "
+                f"{previous.created_at:{REVIEW_DATE_FORMAT}} for "
+                f"{format_usd(previous.amount_usd)}.",
+                {"previous_bill": str(previous.bill_id)},
             )
-    return rule_result(
-        "R11", RuleEffect.PASS, "Sin facturas parecidas en la ventana de duplicados."
-    )
+    return rule_result("R11", RuleEffect.PASS, "No similar invoices in the duplicate window.")
 
 
 def _hard_cap(context: DecisionContext) -> RuleResult:
@@ -439,9 +445,9 @@ def _hard_cap(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R12",
             RuleEffect.HOLD,
-            f"{format_usd(amount_usd)} supera el tope por pago de {format_usd(cap)}.",
+            f"{format_usd(amount_usd)} exceeds the per-payment cap of {format_usd(cap)}.",
         )
-    return rule_result("R12", RuleEffect.PASS, f"Dentro del tope por pago de {format_usd(cap)}.")
+    return rule_result("R12", RuleEffect.PASS, f"Within the per-payment cap of {format_usd(cap)}.")
 
 
 def _auto_pay_max(context: DecisionContext) -> RuleResult:
@@ -453,11 +459,11 @@ def _auto_pay_max(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R13",
             RuleEffect.REVIEW,
-            f"{format_usd(amount_usd)} supera el tope de autopago de {format_usd(auto_pay_max)}; "
-            "requiere aprobación humana.",
+            f"{format_usd(amount_usd)} exceeds the auto-pay limit of {format_usd(auto_pay_max)}; "
+            "a person must approve.",
         )
     return rule_result(
-        "R13", RuleEffect.PASS, f"Dentro del tope de autopago de {format_usd(auto_pay_max)}."
+        "R13", RuleEffect.PASS, f"Within the auto-pay limit of {format_usd(auto_pay_max)}."
     )
 
 
@@ -471,12 +477,12 @@ def _budget_available(context: DecisionContext) -> RuleResult:
         projected = context.budget.get(charge.scope, Decimal("0")) + amount_usd
         if projected > charge.limit_usd:
             exceeded.append(
-                f"el presupuesto {describe_scope(charge.scope, context.match.payee)} quedaría en "
-                f"{format_usd(projected)} de {format_usd(charge.limit_usd)}"
+                f"the {describe_scope(charge.scope, context.match.payee)} budget would reach "
+                f"{format_usd(projected)} of {format_usd(charge.limit_usd)}"
             )
     if exceeded:
         return rule_result("R14", RuleEffect.HOLD, _sentence("; ".join(exceeded)))
-    return rule_result("R14", RuleEffect.PASS, "Hay presupuesto disponible en el periodo.")
+    return rule_result("R14", RuleEffect.PASS, "Budget is available for the period.")
 
 
 def _matches_agreement(context: DecisionContext) -> RuleResult:
@@ -484,7 +490,7 @@ def _matches_agreement(context: DecisionContext) -> RuleResult:
     if amount_usd is None:
         return rule_result("R17", RuleEffect.PASS, NO_USD_AMOUNT_REASON)
     if payee is None or payee.agreed_amount_usd is None:
-        return rule_result("R17", RuleEffect.PASS, "Sin monto acordado registrado.")
+        return rule_result("R17", RuleEffect.PASS, "No agreed amount registered.")
     agreed = payee.agreed_amount_usd
     tolerance_pct = payee.agreed_tolerance_pct or Decimal("0")
     tolerance = agreed * tolerance_pct / PERCENT
@@ -492,10 +498,10 @@ def _matches_agreement(context: DecisionContext) -> RuleResult:
         return rule_result(
             "R17",
             RuleEffect.REVIEW,
-            f"{format_usd(amount_usd)} no cuadra con lo acordado: {format_usd(agreed)} "
-            f"± {tolerance_pct:.0f} %.",
+            f"{format_usd(amount_usd)} does not match the agreement: {format_usd(agreed)} "
+            f"± {tolerance_pct:.0f}%.",
         )
-    return rule_result("R17", RuleEffect.PASS, f"Coincide con lo acordado ({format_usd(agreed)}).")
+    return rule_result("R17", RuleEffect.PASS, f"Matches the agreement ({format_usd(agreed)}).")
 
 
 def _identifiers_have_several_owners(match: PayeeMatch) -> bool:

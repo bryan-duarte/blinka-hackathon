@@ -4,6 +4,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from contracts._base import ApiModel, StrictModel
+from contracts.fx import FxSource
 from contracts.payment_policy import PayeeKind, PaymentCategory
 
 
@@ -77,6 +78,9 @@ class BillRecord(StrictModel):
     amount: Decimal | None
     currency: str | None
     amount_usd: Decimal | None
+    fx_usd_per_unit: Decimal | None = None
+    fx_rate_date: date | None = None
+    fx_source: FxSource | None = None
     category: PaymentCategory | None
     due_date: date | None
     candidate: dict
@@ -98,6 +102,9 @@ class BillFields(StrictModel):
     amount: Decimal | None
     currency: str | None
     amount_usd: Decimal | None
+    fx_usd_per_unit: Decimal | None = None
+    fx_rate_date: date | None = None
+    fx_source: FxSource | None = None
     category: PaymentCategory | None
     due_date: date | None
     candidate: dict

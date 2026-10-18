@@ -8,6 +8,7 @@ from modules.payment_policy.errors import (
     PayeeVersionConflictError,
     PaymentPolicyError,
     PolicyMissingError,
+    TrustedForwarderMissingError,
 )
 from modules.payment_policy.normalize import (
     normalize_identifier,
@@ -29,6 +30,7 @@ __all__ = [
     "PaymentPolicyRepository",
     "PaymentPolicyService",
     "PolicyMissingError",
+    "TrustedForwarderMissingError",
     "normalize_identifier",
     "normalize_name",
     "strong_identifiers",

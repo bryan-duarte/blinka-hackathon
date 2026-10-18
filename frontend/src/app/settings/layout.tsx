@@ -6,9 +6,9 @@ import { ConsoleShell, ConsoleTopBar } from "@/components/console/ConsoleShell";
 import { tokenStore } from "@/lib/api";
 
 const SETTINGS_TABS = [
-  { href: "/settings/policy", label: "Política" },
-  { href: "/settings/payees", label: "Beneficiarios" },
-  { href: "/settings/blacklist", label: "Lista negra" },
+  { href: "/settings/policy", label: "Policy" },
+  { href: "/settings/payees", label: "Payees" },
+  { href: "/settings/blacklist", label: "Blacklist" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +23,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <ConsoleShell>
-      <ConsoleTopBar title={currentTab?.label ?? "Reglas de pago"} caption="Reglas de pago" />
+      <ConsoleTopBar title={currentTab?.label ?? "Payment rules"} caption="Payment rules" />
       <main className="w-full max-w-5xl flex-1 px-4 py-6 md:px-8">{children}</main>
     </ConsoleShell>
   );

@@ -20,3 +20,7 @@ class FileQuarantinedError(FilesError):
 
 class UnsafeArchiveError(FilesError):
     pass
+
+
+class UnsafePrefixError(FilesError, ValueError):
+    pass

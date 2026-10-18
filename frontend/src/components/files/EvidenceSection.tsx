@@ -10,7 +10,7 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceFileView[] }) 
   if (evidence.length === 0) return null;
   return (
     <section className="space-y-2">
-      <h3 className={EYEBROW_CLASS}>Evidencia</h3>
+      <h3 className={EYEBROW_CLASS}>Evidence</h3>
       <ul className="divide-y divide-line border-y border-line">
         {evidence.map((file) => (
           <EvidenceRow key={file.file_id} file={file} />
@@ -30,7 +30,7 @@ function EvidenceRow({ file }: { file: EvidenceFileView }) {
     try {
       await api.openFile(file);
     } catch {
-      setOpenError("No se pudo abrir el archivo.");
+      setOpenError("The file could not be opened.");
     } finally {
       setIsOpening(false);
     }
@@ -45,7 +45,7 @@ function EvidenceRow({ file }: { file: EvidenceFileView }) {
           disabled={isOpening}
           className="max-w-full truncate rounded text-left text-sm font-normal text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
         >
-          {isOpening ? "Abriendo..." : `${file.filename} ›`}
+          {isOpening ? "Opening..." : `${file.filename} ›`}
         </button>
         <p className="text-xs text-muted tabular-nums">
           {EVIDENCE_ROLE_LABELS[file.role]} · {formatBytes(file.size_bytes)}

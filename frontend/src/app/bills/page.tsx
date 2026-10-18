@@ -24,7 +24,7 @@ export default function ReviewQueuePage() {
           router.replace("/login");
           return;
         }
-        setLoadError("No se pudo cargar la cola de revisión.");
+        setLoadError("The review queue could not be loaded.");
       });
   }, [router]);
 
@@ -39,8 +39,8 @@ export default function ReviewQueuePage() {
   return (
     <ConsoleShell>
       <ConsoleTopBar
-        title="Cola de revisión"
-        caption="Facturas de cualquier origen (correo, chat o carga) que esperan una decisión humana."
+        title="Review queue"
+        caption="Invoices from any source (email, chat or upload) waiting for a human decision."
       />
       <main className="w-full max-w-3xl flex-1 space-y-4 px-4 py-6 md:px-8">
         {loadError && (
@@ -54,7 +54,7 @@ export default function ReviewQueuePage() {
         )}
         {bills?.length === 0 && (
           <p className="rounded border border-line bg-panel p-8 text-sm text-muted">
-            No hay facturas esperando una decisión.
+            No invoices are waiting for a decision.
           </p>
         )}
         {bills?.map((bill) => (

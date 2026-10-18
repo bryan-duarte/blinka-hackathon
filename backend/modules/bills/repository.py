@@ -16,6 +16,7 @@ from contracts.bills import (
     BillSummary,
     SourceRegistration,
 )
+from contracts.fx import FxSource
 from contracts.payment_policy import PayeeKind, PaymentCategory
 from modules.bills.models import IS_CANONICAL_BILL, SOURCE_CONSTRAINT, BillRow, BillSourceRow
 
@@ -236,6 +237,9 @@ def _bill_columns(
         "amount": fields.amount,
         "currency": fields.currency,
         "amount_usd": fields.amount_usd,
+        "fx_usd_per_unit": fields.fx_usd_per_unit,
+        "fx_rate_date": fields.fx_rate_date,
+        "fx_source": fields.fx_source,
         "category": fields.category,
         "due_date": fields.due_date,
         "candidate": fields.candidate,
@@ -273,6 +277,9 @@ def _to_bill(bill: BillRow) -> BillRecord:
         amount=bill.amount,
         currency=bill.currency,
         amount_usd=bill.amount_usd,
+        fx_usd_per_unit=bill.fx_usd_per_unit,
+        fx_rate_date=bill.fx_rate_date,
+        fx_source=FxSource(bill.fx_source) if bill.fx_source else None,
         category=PaymentCategory(bill.category) if bill.category else None,
         due_date=bill.due_date,
         candidate=dict(bill.candidate),

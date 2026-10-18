@@ -131,6 +131,11 @@ class FilesService:
             if link.file_id in files_by_id
         ]
 
+    async def purge_owner_objects(self, owner_id: UUID) -> int:
+        deleted_count = await self._storage.delete_prefix(f"{owner_id}/")
+        logger.info("owner_objects_purged", owner_id=owner_id, deleted_count=deleted_count)
+        return deleted_count
+
     async def set_parse_status(self, file_id: UUID, status: FileParseStatus) -> None:
         await self._repository.set_parse_status(file_id, status)
 

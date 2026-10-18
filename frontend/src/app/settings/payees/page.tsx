@@ -39,9 +39,9 @@ import type {
 const PAYEE_KINDS: PayeeKind[] = ["service", "company", "person"];
 const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 const PAYEE_STATUSES = Object.keys(PAYEE_STATUS_LABELS) as PayeeStatus[];
-const IDENTIFIER_TAKEN_MESSAGE = "Este identificador ya pertenece a otro beneficiario.";
-const PAYEE_CHANGED_MESSAGE = "Alguien modificó este beneficiario; recarga para ver los cambios.";
-const PAYEE_IN_USE_MESSAGE = "Tiene facturas registradas. Bloquéalo en vez de eliminarlo.";
+const IDENTIFIER_TAKEN_MESSAGE = "This identifier already belongs to another payee.";
+const PAYEE_CHANGED_MESSAGE = "Someone changed this payee; reload to see the changes.";
+const PAYEE_IN_USE_MESSAGE = "It has registered invoices. Block it instead of deleting it.";
 
 type PayeeDraft = Record<
   | "display_name"
@@ -118,7 +118,7 @@ export default function PayeesPage() {
         setLoadError(null);
       })
       .catch((error: unknown) =>
-        setLoadError(reportError(error, "", "No se pudieron cargar los beneficiarios.")),
+        setLoadError(reportError(error, "", "The payees could not be loaded.")),
       );
   }, [reportError]);
 
@@ -134,14 +134,14 @@ export default function PayeesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className={SECTION_HEADING_CLASS}>Beneficiarios registrados</h2>
+          <h2 className={SECTION_HEADING_CLASS}>Registered payees</h2>
           <p className={`${HINT_CLASS} mt-1 max-w-xl`}>
-            El agente reconoce a quién paga por sus identificadores (cuenta, RUT, dominio), no por el nombre. Una
-            factura con un nombre conocido y una cuenta distinta se frena.
+            The agent recognizes who it pays by their identifiers (account, tax ID, domain), not by name. An
+            invoice with a known name and a different account is held.
           </p>
         </div>
         <button type="button" onClick={() => setEditingPayee("new")} className={PRIMARY_BUTTON_CLASS}>
-          Nuevo beneficiario
+          New payee
         </button>
       </div>
 
@@ -153,7 +153,7 @@ export default function PayeesPage() {
       {payees === null && !loadError && <PayeesSkeleton />}
       {payees?.length === 0 && (
         <p className={`${CARD_CLASS} p-5 text-sm text-muted`}>
-          Aún no hay beneficiarios. Crea uno o ejecuta el script de semilla para cargar la empresa de demo.
+          No payees yet. Create one or run the seed script to load the demo company.
         </p>
       )}
       {payees &&
@@ -214,14 +214,14 @@ function PayeeCard({
   const isBlocked = payee.status === "blacklisted";
 
   async function deletePayee() {
-    if (!window.confirm(`¿Eliminar a ${payee.display_name}?`)) return;
+    if (!window.confirm(`Delete ${payee.display_name}?`)) return;
     setIsDeleting(true);
     setCardError(null);
     try {
       await api.deletePayee(payee.payee_id);
       onDeleted();
     } catch (error) {
-      setCardError(reportError(error, PAYEE_IN_USE_MESSAGE, "No se pudo eliminar."));
+      setCardError(reportError(error, PAYEE_IN_USE_MESSAGE, "The payee could not be deleted."));
       setIsDeleting(false);
     }
   }
@@ -243,15 +243,15 @@ function PayeeCard({
         </span>
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <Limit label="Máximo por pago" value={payee.per_payment_max_usd} />
-        <Limit label="Presupuesto mensual" value={payee.monthly_budget_usd} />
+        <Limit label="Per-payment max" value={payee.per_payment_max_usd} />
+        <Limit label="Monthly budget" value={payee.monthly_budget_usd} />
         <Limit
-          label="Monto acordado"
+          label="Agreed amount"
           value={payee.agreed_amount_usd}
-          suffix={payee.agreed_tolerance_pct ? `± ${Number(payee.agreed_tolerance_pct)} %` : undefined}
+          suffix={payee.agreed_tolerance_pct ? `± ${Number(payee.agreed_tolerance_pct)}%` : undefined}
         />
         <div>
-          <dt className="text-xs text-muted">Moneda de cobro</dt>
+          <dt className="text-xs text-muted">Billing currency</dt>
           <dd className="text-ink">{payee.currency}</dd>
         </div>
       </dl>
@@ -263,10 +263,10 @@ function PayeeCard({
       )}
       <div className="flex gap-3 border-t border-line pt-3">
         <button type="button" onClick={onEdit} className={QUIET_BUTTON_CLASS}>
-          Editar
+          Edit
         </button>
         <button type="button" onClick={deletePayee} disabled={isDeleting} className={DANGER_TEXT_BUTTON_CLASS}>
-          {isDeleting ? "Eliminando..." : "Eliminar"}
+          {isDeleting ? "Deleting..." : "Delete"}
         </button>
       </div>
     </li>
@@ -278,7 +278,7 @@ function Limit({ label, value, suffix }: { label: string; value: string | null; 
     <div>
       <dt className="text-xs text-muted">{label}</dt>
       <dd className="text-ink tabular-nums">
-        {value !== null ? formatMoney(value, USD_CURRENCY) : <span className="text-muted">Sin tope</span>}
+        {value !== null ? formatMoney(value, USD_CURRENCY) : <span className="text-muted">No cap</span>}
         {value !== null && suffix && <span className="ml-1 text-xs text-muted">{suffix}</span>}
       </dd>
     </div>
@@ -309,7 +309,7 @@ function IdentifierManager({
       onChanged(await api.addIdentifier(payee.payee_id, { kind, value: value.trim() }));
       setValue("");
     } catch (error) {
-      setIdentifierError(reportError(error, IDENTIFIER_TAKEN_MESSAGE, "No se pudo agregar."));
+      setIdentifierError(reportError(error, IDENTIFIER_TAKEN_MESSAGE, "The identifier could not be added."));
     } finally {
       setIsSaving(false);
     }
@@ -324,15 +324,15 @@ function IdentifierManager({
         identifiers: payee.identifiers.filter((identifier) => identifier.identifier_id !== identifierId),
       });
     } catch (error) {
-      setIdentifierError(reportError(error, "", "No se pudo quitar el identificador."));
+      setIdentifierError(reportError(error, "", "The identifier could not be removed."));
     }
   }
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-ink">Identificadores</p>
+      <p className="text-xs font-medium text-ink">Identifiers</p>
       {payee.identifiers.length === 0 ? (
-        <p className={HINT_CLASS}>Sin identificadores: solo coincidirá por nombre y pasará a revisión.</p>
+        <p className={HINT_CLASS}>No identifiers: it will only match by name and go to review.</p>
       ) : (
         <ul className="divide-y divide-line rounded-md border border-line">
           {payee.identifiers.map((identifier) => (
@@ -343,7 +343,7 @@ function IdentifierManager({
               </div>
               <button
                 type="button"
-                aria-label={`Quitar ${identifier.raw_value}`}
+                aria-label={`Remove ${identifier.raw_value}`}
                 onClick={() => deleteIdentifier(identifier.identifier_id)}
                 className="grid size-8 shrink-0 place-items-center rounded text-muted hover:bg-sunken hover:text-danger focus-visible:outline-2 focus-visible:outline-accent"
               >
@@ -355,7 +355,7 @@ function IdentifierManager({
       )}
       <form onSubmit={addIdentifier} className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor={`${fieldId}-kind`} className="sr-only">
-          Tipo de identificador
+          Identifier type
         </label>
         <select
           id={`${fieldId}-kind`}
@@ -370,17 +370,17 @@ function IdentifierManager({
           ))}
         </select>
         <label htmlFor={`${fieldId}-value`} className="sr-only">
-          Valor del identificador
+          Identifier value
         </label>
         <input
           id={`${fieldId}-value`}
           value={value}
-          placeholder="Valor"
+          placeholder="Value"
           onChange={(event) => setValue(event.target.value)}
           className={INPUT_CLASS}
         />
         <button type="submit" disabled={isSaving || !value.trim()} className={SECONDARY_BUTTON_CLASS}>
-          {isSaving ? "Agregando..." : "Agregar"}
+          {isSaving ? "Adding..." : "Add"}
         </button>
       </form>
       {identifierError && (
@@ -428,7 +428,7 @@ function PayeeDialog({
     ];
     const hasInvalidAmount = amounts.some((amount) => amount !== null && !(Number(amount) >= 0));
     if (hasInvalidAmount) {
-      setDialogError("Los montos deben ser números mayores o iguales a 0.");
+      setDialogError("Amounts must be numbers greater than or equal to 0.");
       return;
     }
     setIsSaving(true);
@@ -441,8 +441,8 @@ function PayeeDialog({
       }
       onSaved();
     } catch (error) {
-      const conflictMessage = isNew ? "Ya existe un beneficiario con ese nombre." : PAYEE_CHANGED_MESSAGE;
-      setDialogError(reportError(error, conflictMessage, "No se pudo guardar. Revisa los datos."));
+      const conflictMessage = isNew ? "A payee with that name already exists." : PAYEE_CHANGED_MESSAGE;
+      setDialogError(reportError(error, conflictMessage, "The payee could not be saved. Check the details."));
       setIsSaving(false);
     }
   }
@@ -456,10 +456,10 @@ function PayeeDialog({
     >
       <form onSubmit={save} className="space-y-4 p-5">
         <h2 id="payee-dialog-title" className={SECTION_HEADING_CLASS}>
-          {isNew ? "Nuevo beneficiario" : `Editar ${payee.display_name}`}
+          {isNew ? "New payee" : `Edit ${payee.display_name}`}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="payee-name" label="Nombre" className="sm:col-span-2">
+          <Field id="payee-name" label="Name" className="sm:col-span-2">
             <input
               id="payee-name"
               required
@@ -468,7 +468,7 @@ function PayeeDialog({
               className={INPUT_CLASS}
             />
           </Field>
-          <Field id="payee-kind" label="Tipo">
+          <Field id="payee-kind" label="Type">
             <select
               id="payee-kind"
               value={draft.kind}
@@ -483,7 +483,7 @@ function PayeeDialog({
               ))}
             </select>
           </Field>
-          <Field id="payee-status" label="Estado">
+          <Field id="payee-status" label="Status">
             <select
               id="payee-status"
               value={draft.status}
@@ -497,7 +497,7 @@ function PayeeDialog({
               ))}
             </select>
           </Field>
-          <Field id="payee-method" label="Medio de pago">
+          <Field id="payee-method" label="Payment method">
             <select
               id="payee-method"
               value={draft.payment_method}
@@ -511,14 +511,14 @@ function PayeeDialog({
               ))}
             </select>
           </Field>
-          <Field id="payee-category" label="Categoría habitual">
+          <Field id="payee-category" label="Usual category">
             <select
               id="payee-category"
               value={draft.default_category}
               onChange={(event) => update({ default_category: event.target.value as PaymentCategory | "" })}
               className={INPUT_CLASS}
             >
-              <option value="">Sin categoría</option>
+              <option value="">No category</option>
               {PAYMENT_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
                   {CATEGORY_LABELS[category]}
@@ -526,7 +526,7 @@ function PayeeDialog({
               ))}
             </select>
           </Field>
-          <Field id="payee-currency" label="Moneda de cobro">
+          <Field id="payee-currency" label="Billing currency">
             <input
               id="payee-currency"
               required
@@ -536,7 +536,7 @@ function PayeeDialog({
               className={`${INPUT_CLASS} uppercase`}
             />
           </Field>
-          <Field id="payee-per-payment" label="Máximo por pago (USD)" hint="Vacío: usa el tope de la política.">
+          <Field id="payee-per-payment" label="Per-payment max (USD)" hint="Empty: uses the policy cap.">
             <input
               id="payee-per-payment"
               inputMode="decimal"
@@ -545,7 +545,7 @@ function PayeeDialog({
               className={`${INPUT_CLASS} tabular-nums`}
             />
           </Field>
-          <Field id="payee-monthly" label="Presupuesto mensual (USD)">
+          <Field id="payee-monthly" label="Monthly budget (USD)">
             <input
               id="payee-monthly"
               inputMode="decimal"
@@ -554,7 +554,7 @@ function PayeeDialog({
               className={`${INPUT_CLASS} tabular-nums`}
             />
           </Field>
-          <Field id="payee-agreed" label="Monto acordado (USD)" hint="Facturas fuera de lo acordado van a revisión.">
+          <Field id="payee-agreed" label="Agreed amount (USD)" hint="Invoices outside the agreement go to review.">
             <input
               id="payee-agreed"
               inputMode="decimal"
@@ -563,7 +563,7 @@ function PayeeDialog({
               className={`${INPUT_CLASS} tabular-nums`}
             />
           </Field>
-          <Field id="payee-tolerance" label="Tolerancia (%)">
+          <Field id="payee-tolerance" label="Tolerance (%)">
             <input
               id="payee-tolerance"
               inputMode="decimal"
@@ -573,7 +573,7 @@ function PayeeDialog({
             />
           </Field>
         </div>
-        {isNew && <p className={HINT_CLASS}>Después de crearlo, agrega sus identificadores en la tarjeta.</p>}
+        {isNew && <p className={HINT_CLASS}>After creating it, add its identifiers on the card.</p>}
         {dialogError && (
           <p role="alert" className="text-sm text-danger">
             {dialogError}
@@ -581,10 +581,10 @@ function PayeeDialog({
         )}
         <div className="flex justify-end gap-2 border-t border-line pt-4">
           <button type="button" onClick={() => dialogRef.current?.close()} className={SECONDARY_BUTTON_CLASS}>
-            Cancelar
+            Cancel
           </button>
           <button type="submit" disabled={isSaving || !draft.display_name.trim()} className={PRIMARY_BUTTON_CLASS}>
-            {isSaving ? "Guardando..." : "Guardar"}
+            {isSaving ? "Saving..." : "Save"}
           </button>
         </div>
       </form>

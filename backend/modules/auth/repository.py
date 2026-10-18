@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -22,6 +22,12 @@ class UsersRepository:
             except IntegrityError as error:
                 raise EmailTakenError from error
             return user.id
+
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None:
+        statement = update(User).where(User.id == user_id).values(password_hash=password_hash)
+        async with self._sessionmaker() as session:
+            await session.execute(statement)
+            await session.commit()
 
     async def get_by_email(self, email: str) -> UserCredentials | None:
         async with self._sessionmaker() as session:

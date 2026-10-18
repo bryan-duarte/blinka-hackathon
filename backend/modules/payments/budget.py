@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from contracts.payment_policy import PayeeRecord, PaymentCategory, PaymentPolicy
+from contracts.payment_policy import PayeeRecord, PayeeView, PaymentCategory, PaymentPolicy
 
 GLOBAL_SCOPE = "global"
 CATEGORY_SCOPE_PREFIX = "category:"
@@ -15,7 +15,9 @@ class BudgetCharge:
 
 
 def budget_charges(
-    policy: PaymentPolicy, payee: PayeeRecord | None, category: PaymentCategory | None
+    policy: PaymentPolicy,
+    payee: PayeeRecord | PayeeView | None,
+    category: PaymentCategory | None,
 ) -> list[BudgetCharge]:
     charges = [BudgetCharge(GLOBAL_SCOPE, policy.monthly_budget_usd)]
     category_budget = policy.category_monthly_budgets_usd.get(category) if category else None
@@ -30,7 +32,7 @@ def budget_charges(
 
 def describe_scope(scope: str, payee: PayeeRecord | None) -> str:
     if scope.startswith(CATEGORY_SCOPE_PREFIX):
-        return f"mensual de {scope.removeprefix(CATEGORY_SCOPE_PREFIX)}"
+        return f"{scope.removeprefix(CATEGORY_SCOPE_PREFIX)} monthly"
     if scope.startswith(PAYEE_SCOPE_PREFIX) and payee is not None:
-        return f"mensual de {payee.display_name}"
-    return "mensual global"
+        return f"{payee.display_name} monthly"
+    return "global monthly"

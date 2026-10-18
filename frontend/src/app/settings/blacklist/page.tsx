@@ -40,7 +40,7 @@ export default function BlacklistPage() {
     api
       .blacklist()
       .then(setEntries)
-      .catch((error: unknown) => reportError(error, "No se pudo cargar la lista negra."));
+      .catch((error: unknown) => reportError(error, "The blacklist could not be loaded."));
   }, [reportError]);
 
   async function addEntry(event: FormEvent<HTMLFormElement>) {
@@ -56,7 +56,7 @@ export default function BlacklistPage() {
       setValue("");
       setReason("");
     } catch (error) {
-      reportError(error, "No se pudo agregar a la lista negra.");
+      reportError(error, "The entry could not be added to the blacklist.");
     } finally {
       setIsSaving(false);
     }
@@ -68,23 +68,23 @@ export default function BlacklistPage() {
       await api.deleteBlacklist(entryId);
       setEntries((current) => current?.filter((entry) => entry.entry_id !== entryId) ?? null);
     } catch (error) {
-      reportError(error, "No se pudo quitar de la lista negra.");
+      reportError(error, "The entry could not be removed from the blacklist.");
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className={SECTION_HEADING_CLASS}>Lista negra</h2>
+        <h2 className={SECTION_HEADING_CLASS}>Blacklist</h2>
         <p className={`${HINT_CLASS} mt-1 max-w-xl`}>
-          Cualquier factura que use uno de estos datos se frena, aunque el beneficiario esté registrado y permitido.
+          Any invoice that uses one of these details is held, even if the payee is registered and allowed.
         </p>
       </div>
 
       <form onSubmit={addEntry} className={`${CARD_CLASS} grid gap-4 p-5 md:grid-cols-[12rem_1fr_1fr_auto] md:items-end`}>
         <div className="space-y-1.5">
           <label htmlFor="blacklist-kind" className={LABEL_CLASS}>
-            Tipo
+            Type
           </label>
           <select
             id="blacklist-kind"
@@ -101,7 +101,7 @@ export default function BlacklistPage() {
         </div>
         <div className="space-y-1.5">
           <label htmlFor="blacklist-value" className={LABEL_CLASS}>
-            Valor
+            Value
           </label>
           <input
             id="blacklist-value"
@@ -113,18 +113,18 @@ export default function BlacklistPage() {
         </div>
         <div className="space-y-1.5">
           <label htmlFor="blacklist-reason" className={LABEL_CLASS}>
-            Motivo
+            Reason
           </label>
           <input
             id="blacklist-reason"
             value={reason}
-            placeholder="Cuenta reportada por fraude"
+            placeholder="Account reported for fraud"
             onChange={(event) => setReason(event.target.value)}
             className={INPUT_CLASS}
           />
         </div>
         <button type="submit" disabled={!canSubmit} className={PRIMARY_BUTTON_CLASS}>
-          {isSaving ? "Agregando..." : "Agregar"}
+          {isSaving ? "Adding..." : "Add"}
         </button>
       </form>
 
@@ -142,7 +142,7 @@ export default function BlacklistPage() {
         </div>
       )}
       {entries?.length === 0 && (
-        <p className={`${CARD_CLASS} p-5 text-sm text-muted`}>La lista negra está vacía.</p>
+        <p className={`${CARD_CLASS} p-5 text-sm text-muted`}>The blacklist is empty.</p>
       )}
       {entries && entries.length > 0 && (
         <ul className={`${CARD_CLASS} divide-y divide-line`}>
@@ -162,7 +162,7 @@ export default function BlacklistPage() {
                 onClick={() => deleteEntry(entry.entry_id)}
                 className={`${DANGER_TEXT_BUTTON_CLASS} justify-self-start`}
               >
-                Quitar
+                Remove
               </button>
             </li>
           ))}

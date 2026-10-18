@@ -15,6 +15,8 @@ from contracts.payment_policy import (
     PaymentPolicy,
     PaymentPolicyUpdate,
     PaymentPolicyView,
+    TrustedForwarderCreate,
+    TrustedForwarderView,
 )
 
 if TYPE_CHECKING:
@@ -73,6 +75,17 @@ class PaymentPolicyClient:
 
     async def delete_blacklist_entry(self, owner: CurrentUser, entry_id: UUID) -> None:
         await self._service.delete_blacklist_entry(owner, entry_id)
+
+    async def list_trusted_forwarders(self, owner: CurrentUser) -> list[TrustedForwarderView]:
+        return await self._service.list_trusted_forwarders(owner)
+
+    async def add_trusted_forwarder(
+        self, owner: CurrentUser, forwarder: TrustedForwarderCreate
+    ) -> TrustedForwarderView:
+        return await self._service.add_trusted_forwarder(owner, forwarder)
+
+    async def delete_trusted_forwarder(self, owner: CurrentUser, forwarder_id: UUID) -> None:
+        await self._service.delete_trusted_forwarder(owner, forwarder_id)
 
     async def match_payee(
         self, owner_id: UUID, candidate: PaymentCandidateBase, sender: str

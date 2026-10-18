@@ -6,10 +6,17 @@ import type {
   BlacklistEntryView,
   BudgetUsageView,
   ConnectableProvider,
+  DemoCatalogView,
+  DemoLaunchView,
+  DemoResetResult,
+  DemoStatusView,
   EvidenceFileView,
   InboxChannel,
   InboxEmailDetail,
   InboxEmailView,
+  LedgerEntryView,
+  LedgerFilters,
+  LedgerSummaryView,
   MailboxConnectionView,
   MailboxConnectStarted,
   PayeeCreate,
@@ -19,8 +26,12 @@ import type {
   PaymentPolicyUpdate,
   PaymentPolicyView,
   PaymentRunStatus,
-  SimulatedEmailKind,
+  RunListItemView,
+  RunStatus,
+  RunTraceView,
   TokenResponse,
+  TrustedForwarderCreate,
+  TrustedForwarderView,
   WhatsAppSandboxView,
 } from "./types";
 
@@ -135,6 +146,24 @@ async function openFile(file: EvidenceFileView): Promise<void> {
   }
 }
 
+async function downloadBlob(path: string, filename: string): Promise<void> {
+  const response = await authorizedFetch(path);
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const downloadLink = document.createElement("a");
+  downloadLink.href = objectUrl;
+  downloadLink.download = filename;
+  downloadLink.click();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), OBJECT_URL_TTL_MS);
+}
+
+function ledgerQuery(filters: LedgerFilters): string {
+  const query = new URLSearchParams({ tab: filters.tab });
+  if (filters.period) query.set("period", filters.period);
+  if (filters.payee_id) query.set("payee_id", filters.payee_id);
+  if (filters.currency) query.set("currency", filters.currency);
+  return query.toString();
+}
+
 function send<T>(method: "POST" | "PUT" | "PATCH", path: string, payload: object): Promise<T> {
   return request<T>(path, { method, body: JSON.stringify(payload) });
 }
@@ -169,8 +198,6 @@ export const api = {
     request<InboxEmailView[]>(source ? `/inbox/emails?source=${source}` : "/inbox/emails"),
   email: (emailId: string) =>
     request<InboxEmailDetail>(`/inbox/emails/${emailId}`),
-  simulate: (kind: SimulatedEmailKind, channel: InboxChannel = "email") =>
-    post<InboxEmailView>("/inbox/simulate", { kind, channel }),
   policy: () => request<PaymentPolicyView>("/payment-policy"),
   updatePolicy: (body: PaymentPolicyUpdate) =>
     send<PaymentPolicyView>("PUT", "/payment-policy", body),
@@ -197,5 +224,33 @@ export const api = {
   budgets: (period?: string) =>
     request<BudgetUsageView[]>(period ? `/budgets?period=${period}` : "/budgets"),
   runStatus: (runId: string) => request<PaymentRunStatus>(`/payments/runs/${runId}`),
+  runTrace: (runId: string) => request<RunTraceView>(`/payments/runs/${runId}/trace`),
+  run: (runId: string) => request<RunListItemView>(`/runs/${runId}`),
+  runs: (status?: RunStatus) => request<RunListItemView[]>(status ? `/runs?status=${status}` : "/runs"),
+  ledgerEntries: (filters: LedgerFilters) =>
+    request<LedgerEntryView[]>(`/ledger/entries?${ledgerQuery(filters)}`),
+  ledgerSummary: (period: string | null, months: number) =>
+    request<LedgerSummaryView>(
+      `/ledger/summary?months=${months}${period ? `&period=${period}` : ""}`,
+    ),
+  exportLedgerCsv: (filters: LedgerFilters) =>
+    downloadBlob(
+      `/ledger/export.csv?${ledgerQuery(filters)}`,
+      `agent-ledger-${filters.period ?? "all"}.csv`,
+    ),
+  demoStatus: () => request<DemoStatusView>("/demo/status"),
+  demoLogin: () => post<TokenResponse>("/demo/login", {}),
+  demoCatalog: () => request<DemoCatalogView>("/demo/scenarios"),
+  launchScenario: (scenarioId: string) =>
+    post<DemoLaunchView>(`/demo/scenarios/${scenarioId}/launch`, {}),
+  demoLaunch: (launchId: string) => request<DemoLaunchView>(`/demo/launches/${launchId}`),
+  resetDemo: () => post<DemoResetResult>("/demo/reset", {}),
+  downloadDemoKit: () => downloadBlob("/demo/kit", "andescape-demo-kit.zip"),
+  downloadScenarioKit: (scenarioId: string) =>
+    downloadBlob(`/demo/scenarios/${scenarioId}/kit`, `${scenarioId}.zip`),
+  trustedForwarders: () => request<TrustedForwarderView[]>("/trusted-forwarders"),
+  addTrustedForwarder: (body: TrustedForwarderCreate) =>
+    post<TrustedForwarderView>("/trusted-forwarders", body),
+  deleteTrustedForwarder: (forwarderId: string) => remove(`/trusted-forwarders/${forwarderId}`),
   openFile,
 };

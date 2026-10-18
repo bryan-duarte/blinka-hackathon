@@ -3,8 +3,8 @@ from uuid import UUID
 
 VISIBLE_ACCOUNT_DIGITS = 4
 ACCOUNT_MASK = "••••"
-THOUSANDS_PLACEHOLDER = "_"
 SHORT_BILL_ID_CHARS = 8
+RATE_SIGNIFICANT_DIGITS = 4
 
 
 def format_usd(amount: Decimal) -> str:
@@ -12,13 +12,12 @@ def format_usd(amount: Decimal) -> str:
 
 
 def format_amount(amount: Decimal) -> str:
-    us_style = f"{amount:,.2f}"
-    chilean_style = (
-        us_style.replace(",", THOUSANDS_PLACEHOLDER)
-        .replace(".", ",")
-        .replace(THOUSANDS_PLACEHOLDER, ".")
-    )
-    return chilean_style
+    return f"{amount:,.2f}"
+
+
+def format_rate(usd_per_unit: Decimal) -> str:
+    rate_step = Decimal(1).scaleb(usd_per_unit.adjusted() - RATE_SIGNIFICANT_DIGITS + 1)
+    return f"{usd_per_unit.quantize(rate_step).normalize():f}"
 
 
 def mask_account(account: str) -> str:

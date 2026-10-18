@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -25,6 +25,8 @@ CURRENCY_CODE_LENGTH = 3
 EVIDENCE_ROLE_LENGTH = 16
 AMOUNT = Numeric(18, 4)
 USD_AMOUNT = Numeric(18, 2)
+USD_PER_UNIT = Numeric(20, 10)
+FX_SOURCE_LENGTH = 24
 PAYMENT_BILL_CONSTRAINT = "uq_payments_bill_id"
 BUDGET_COUNTER_CONSTRAINT = "pk_budget_counters"
 
@@ -111,6 +113,9 @@ class PaymentRow(ProductBase):
     amount: Mapped[Decimal] = mapped_column(AMOUNT)
     currency: Mapped[str] = mapped_column(String(CURRENCY_CODE_LENGTH))
     amount_usd: Mapped[Decimal] = mapped_column(USD_AMOUNT)
+    fx_usd_per_unit: Mapped[Decimal | None] = mapped_column(USD_PER_UNIT, nullable=True)
+    fx_rate_date: Mapped[date | None] = mapped_column(nullable=True)
+    fx_source: Mapped[str | None] = mapped_column(String(FX_SOURCE_LENGTH), nullable=True)
     category: Mapped[str | None] = mapped_column(nullable=True)
     period: Mapped[str] = mapped_column(String(PERIOD_LENGTH))
     scopes: Mapped[list] = mapped_column(JSONB, default=list)

@@ -11,7 +11,7 @@ from contracts.payment_candidates import (
 from contracts.payment_policy import PayeeMatch, PaymentPolicy
 from modules.payments.budget import budget_charges
 from modules.payments.dependencies import PaymentRunDependencies
-from modules.payments.fx import current_period, to_usd
+from modules.payments.fx import current_period
 from modules.payments.rules import DecisionContext
 
 PAYMENT_CANDIDATE_ADAPTER: TypeAdapter[PaymentCandidateBase] = TypeAdapter(PaymentCandidate)
@@ -48,7 +48,7 @@ async def build_context(
         match=match,
         policy=policy,
         blacklist_hits=blacklist_hits,
-        amount_usd=to_usd(candidate.amount, candidate.currency),
+        amount_usd=bill.amount_usd,
         recent_bills=recent_bills,
         budget=budget,
         today=today,

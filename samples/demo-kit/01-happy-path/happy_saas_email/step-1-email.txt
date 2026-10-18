@@ -1,0 +1,24 @@
+Subject: Invoice INV-7000 - ACME Cloud
+
+Hi Andescape team,
+
+Here is your monthly ACME Cloud invoice.
+
+ACME Cloud Inc.
+500 Howard St, San Francisco, CA, USA
+
+INVOICE No. INV-7000
+Issue date: 2026-10-18
+Due date: 2026-11-02
+Bill to: Andescape Labs, Inc. · 251 Little Falls Dr, Wilmington, DE 19808, USA
+
+- ACME Cloud Pro subscription (SaaS) x1: USD 100.00
+- Extra storage 50 GB (SaaS) x1: USD 20.00
+
+Total: USD 120.00
+
+Payment details:
+Bank transfer to account: 000123456789
+
+Thanks,
+ACME Cloud Billing · billing@acmecloud.io

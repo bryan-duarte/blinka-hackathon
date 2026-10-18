@@ -379,7 +379,7 @@ def _dte_currency(collector: _FieldCollector, raw_currency: str | None, document
     explicit_currency = collector.currency("currency", named_currency or raw_currency)
     if explicit_currency is not None:
         return explicit_currency
-    standard_quote = f"TipoDTE {document_type} sin TpoMoneda: montos en CLP (estándar SII)"
+    standard_quote = f"TipoDTE {document_type} without TpoMoneda: amounts in CLP (SII standard)"
     return collector.implied("currency", CHILEAN_PESO, standard_quote)
 
 

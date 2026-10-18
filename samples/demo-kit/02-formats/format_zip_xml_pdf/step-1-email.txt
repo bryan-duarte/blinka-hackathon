@@ -1,0 +1,8 @@
+Subject: Factura electrónica N° 70052 (XML + PDF)
+
+Estimado cliente,
+
+Adjuntamos la factura electrónica (XML del SII y PDF) en un archivo ZIP.
+
+Saludos,
+Servicios Integrales del Sur SpA

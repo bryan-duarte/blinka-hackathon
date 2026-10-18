@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useState } from "react";
+import { type FormEvent, Suspense, useEffect, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import {
   INPUT_CLASS,
@@ -16,18 +16,18 @@ type AuthMode = "login" | "register";
 
 const MODE_COPY: Record<AuthMode, { title: string; hint: string; submit: string; pending: string; toggle: string }> = {
   login: {
-    title: "Inicia sesión",
-    hint: "Usa el correo de tu equipo de finanzas.",
-    submit: "Entrar",
-    pending: "Entrando...",
-    toggle: "Crear una cuenta",
+    title: "Sign in",
+    hint: "Use your finance team email.",
+    submit: "Sign in",
+    pending: "Signing in...",
+    toggle: "Create an account",
   },
   register: {
-    title: "Crea tu cuenta",
-    hint: "La contraseña debe tener al menos 8 caracteres.",
-    submit: "Crear cuenta",
-    pending: "Creando cuenta...",
-    toggle: "Ya tengo cuenta",
+    title: "Create your account",
+    hint: "The password needs at least 8 characters.",
+    submit: "Create account",
+    pending: "Creating account...",
+    toggle: "I already have an account",
   },
 };
 
@@ -43,10 +43,10 @@ export default function LoginPage() {
         </Link>
         <div className="flex max-w-[480px] flex-col gap-6">
           <h2 className="text-[48px] leading-[1.03] font-light tracking-[-0.96px] text-ink">
-            Las facturas de hoy ya están revisadas.
+            Today&apos;s invoices are already reviewed.
           </h2>
           <p className="text-[22px] leading-[1.4] tracking-[-0.22px] text-muted">
-            Entra para ver qué pagó el agente, qué frenó y qué espera tu decisión.
+            Sign in to see what the agent paid, what it held and what is waiting for you.
           </p>
         </div>
         <p className="text-xs text-muted">© 2026 Blinka</p>
@@ -81,7 +81,7 @@ function LoginForm() {
       tokenStore.set(access_token);
       router.replace("/inbox");
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Error inesperado");
+      setFormError(error instanceof Error ? error.message : "Unexpected error");
       setIsSubmitting(false);
     }
   }
@@ -97,7 +97,7 @@ function LoginForm() {
       </div>
       <form onSubmit={submit} className="flex max-w-md flex-col gap-6">
         <label className="flex flex-col gap-2">
-          <span className={LABEL_CLASS}>Correo</span>
+          <span className={LABEL_CLASS}>Email</span>
           <input
             type="email"
             required
@@ -108,7 +108,7 @@ function LoginForm() {
           />
         </label>
         <label className="flex flex-col gap-2">
-          <span className={LABEL_CLASS}>Contraseña</span>
+          <span className={LABEL_CLASS}>Password</span>
           <input
             type="password"
             required
@@ -141,6 +141,62 @@ function LoginForm() {
           </button>
         </div>
       </form>
+      <DemoEntry />
     </section>
+  );
+}
+
+function DemoEntry() {
+  const router = useRouter();
+  const [isDemoEnabled, setIsDemoEnabled] = useState(false);
+  const [isEntering, setIsEntering] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    api
+      .demoStatus()
+      .then((status) => {
+        if (!isCancelled) setIsDemoEnabled(status.is_enabled);
+      })
+      .catch(() => undefined);
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  async function enterDemo() {
+    setIsEntering(true);
+    setDemoError(null);
+    tokenStore.clear();
+    try {
+      const { access_token } = await api.demoLogin();
+      tokenStore.set(access_token);
+      router.replace("/inbox");
+    } catch {
+      setDemoError("The demo is not available right now. Try again in a moment.");
+      setIsEntering(false);
+    }
+  }
+
+  if (!isDemoEnabled) return null;
+  return (
+    <div className="flex max-w-md flex-col gap-2 border-t border-line pt-6">
+      <button
+        type="button"
+        onClick={enterDemo}
+        disabled={isEntering}
+        className={`${SECONDARY_BUTTON_CLASS} h-12`}
+      >
+        {isEntering ? "Opening the demo..." : "Enter the demo"}
+      </button>
+      <p className="text-xs text-muted">Andescape Labs, Inc. · demo data, resettable</p>
+      {demoError && (
+        <p role="alert" className="text-sm text-danger">
+          <span aria-hidden>✕ </span>
+          {demoError}
+        </p>
+      )}
+    </div>
   );
 }

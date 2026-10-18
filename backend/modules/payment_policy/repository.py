@@ -20,6 +20,8 @@ from contracts.payment_policy import (
     PaymentMethod,
     PaymentPolicy,
     PaymentPolicyUpdate,
+    TrustedForwarderKind,
+    TrustedForwarderRecord,
 )
 from modules.payment_policy.errors import (
     IdentifierTakenError,
@@ -30,10 +32,12 @@ from modules.payment_policy.models import (
     BLACKLIST_CONSTRAINT,
     PAYEE_IDENTIFIER_CONSTRAINT,
     PAYEE_NAME_CONSTRAINT,
+    TRUSTED_FORWARDER_CONSTRAINT,
     BlacklistEntryRow,
     PayeeIdentifierRow,
     PayeeRow,
     PaymentPolicyRow,
+    TrustedForwarderRow,
 )
 from modules.payment_policy.normalize import StrongIdentifier
 
@@ -323,6 +327,75 @@ class PaymentPolicyRepository:
         )
         return await self._deleted(statement)
 
+    async def list_trusted_forwarders(self, owner_id: UUID) -> list[TrustedForwarderRecord]:
+        statement = (
+            select(TrustedForwarderRow)
+            .where(TrustedForwarderRow.owner_id == owner_id)
+            .order_by(TrustedForwarderRow.created_at.desc())
+        )
+        async with self._sessionmaker() as session:
+            forwarders = (await session.execute(statement)).scalars().all()
+        return [_to_trusted_forwarder(forwarder) for forwarder in forwarders]
+
+    async def add_trusted_forwarder(
+        self,
+        owner_id: UUID,
+        kind: TrustedForwarderKind,
+        normalized_value: str,
+        note: str | None,
+    ) -> TrustedForwarderRecord:
+        statement = (
+            insert(TrustedForwarderRow)
+            .values(owner_id=owner_id, kind=kind, normalized_value=normalized_value, note=note)
+            .on_conflict_do_nothing(constraint=TRUSTED_FORWARDER_CONSTRAINT)
+            .returning(TrustedForwarderRow)
+        )
+        existing_statement = select(TrustedForwarderRow).where(
+            TrustedForwarderRow.owner_id == owner_id,
+            TrustedForwarderRow.kind == kind,
+            TrustedForwarderRow.normalized_value == normalized_value,
+        )
+        async with self._sessionmaker() as session, session.begin():
+            forwarder = (await session.execute(statement)).scalar_one_or_none()
+            if forwarder is None:
+                forwarder = (await session.execute(existing_statement)).scalar_one()
+        return _to_trusted_forwarder(forwarder)
+
+    async def delete_trusted_forwarder(self, owner_id: UUID, forwarder_id: UUID) -> bool:
+        statement = (
+            delete(TrustedForwarderRow)
+            .where(TrustedForwarderRow.id == forwarder_id, TrustedForwarderRow.owner_id == owner_id)
+            .returning(TrustedForwarderRow.id)
+        )
+        return await self._deleted(statement)
+
+    async def is_trusted_forwarder(
+        self, owner_id: UUID, sender_email: str | None, sender_domain: str | None
+    ) -> bool:
+        candidate_forwarders = [
+            (kind, sender_value)
+            for kind, sender_value in (
+                (TrustedForwarderKind.EMAIL, sender_email),
+                (TrustedForwarderKind.DOMAIN, sender_domain),
+            )
+            if sender_value
+        ]
+        if not candidate_forwarders:
+            return False
+        statement = (
+            select(TrustedForwarderRow.id)
+            .where(
+                TrustedForwarderRow.owner_id == owner_id,
+                tuple_(TrustedForwarderRow.kind, TrustedForwarderRow.normalized_value).in_(
+                    candidate_forwarders
+                ),
+            )
+            .limit(1)
+        )
+        async with self._sessionmaker() as session:
+            trusted_id = (await session.execute(statement)).scalar_one_or_none()
+        return trusted_id is not None
+
     async def _payees(self, statement: Select) -> list[PayeeRecord]:
         async with self._sessionmaker() as session:
             payees = (await session.execute(statement)).scalars().all()
@@ -447,4 +520,15 @@ def _to_blacklist_entry(entry: BlacklistEntryRow) -> BlacklistEntryRecord:
         normalized_value=entry.normalized_value,
         reason=entry.reason,
         created_at=entry.created_at,
+    )
+
+
+def _to_trusted_forwarder(forwarder: TrustedForwarderRow) -> TrustedForwarderRecord:
+    return TrustedForwarderRecord(
+        forwarder_id=forwarder.id,
+        owner_id=forwarder.owner_id,
+        kind=TrustedForwarderKind(forwarder.kind),
+        normalized_value=forwarder.normalized_value,
+        note=forwarder.note,
+        created_at=forwarder.created_at,
     )

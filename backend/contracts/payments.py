@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Literal
@@ -9,6 +9,7 @@ from pydantic import Field
 from contracts._base import ApiModel, StrictModel
 from contracts.bills import BillSourceView, BillStatus
 from contracts.files import EvidenceFileView, EvidenceLink
+from contracts.fx import FxSource
 from contracts.payment_candidates import PaymentCandidate
 from contracts.payment_policy import PaymentCategory
 
@@ -88,7 +89,7 @@ class RuleResult(ApiModel):
 class CheckerAnswer(ApiModel):
     question_id: CheckerQuestionId
     probability: float = Field(ge=0, le=1)
-    rationale: str = Field(description="One sentence in Spanish.")
+    rationale: str = Field(description="One sentence in English.")
 
 
 class CheckerAssessment(ApiModel):
@@ -122,6 +123,9 @@ class PaymentRecord(StrictModel):
     amount: Decimal
     currency: str
     amount_usd: Decimal
+    fx_usd_per_unit: Decimal | None = None
+    fx_rate_date: date | None = None
+    fx_source: FxSource | None = None
     category: PaymentCategory | None
     period: str
     scopes: list[str]
@@ -144,6 +148,9 @@ class BillDecisionView(ApiModel):
     amount: Decimal | None
     currency: str | None
     amount_usd: Decimal | None
+    fx_usd_per_unit: Decimal | None = None
+    fx_rate_date: date | None = None
+    fx_source: FxSource | None = None
     category: PaymentCategory | None
     duplicate_of_bill_id: UUID | None
     actor: DecisionActor
@@ -158,6 +165,9 @@ class PaymentView(ApiModel):
     amount: Decimal
     currency: str
     amount_usd: Decimal
+    fx_usd_per_unit: Decimal | None = None
+    fx_rate_date: date | None = None
+    fx_source: FxSource | None = None
     period: str
     rail_reference: str | None
     executed_at: datetime | None
@@ -190,3 +200,33 @@ class PaymentRunStatus(ApiModel):
     is_bill: bool | None = None
     extraction_failed: bool = False
     evidence: list[EvidenceFileView] = []
+
+
+class TraceRole(StrEnum):
+    SYSTEM = "system"
+    HUMAN = "human"
+    AI = "ai"
+    TOOL = "tool"
+
+
+class TraceToolCall(ApiModel):
+    call_id: str
+    name: str
+    args: dict
+
+
+class TraceMessage(ApiModel):
+    index: int
+    role: TraceRole
+    text: str
+    tool_calls: list[TraceToolCall] = []
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+    output_json: dict | list | None = None
+
+
+class RunTraceView(ApiModel):
+    run_id: UUID
+    is_available: bool
+    checkpoint_id: str | None
+    messages: list[TraceMessage]

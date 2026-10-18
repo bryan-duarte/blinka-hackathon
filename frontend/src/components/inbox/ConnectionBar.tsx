@@ -16,10 +16,10 @@ const PROVIDER_LABELS: Record<ConnectableProvider, string> = {
 };
 
 const STATUS_LABELS: Record<MailAccountStatus, string> = {
-  initiated: "pendiente",
-  active: "conectado",
-  failed: "falló",
-  expired: "expirado",
+  initiated: "pending",
+  active: "connected",
+  failed: "failed",
+  expired: "expired",
 };
 
 const CONNECTABLE_PROVIDERS: ConnectableProvider[] = ["gmail", "outlook"];
@@ -60,8 +60,8 @@ export function ConnectionBar({ connections, onUnauthorized, onChanged }: Connec
         error instanceof ApiError && error.status === HTTP_CONFLICT;
       setConnectError(
         isAlreadyConnected
-          ? `${PROVIDER_LABELS[provider]} ya conectado`
-          : "No se pudo iniciar la conexión",
+          ? `${PROVIDER_LABELS[provider]} already connected`
+          : "The connection could not be started",
       );
     }
   }
@@ -94,8 +94,8 @@ export function ConnectionBar({ connections, onUnauthorized, onChanged }: Connec
           className={`${SECONDARY_BUTTON_CLASS} h-9 px-4`}
         >
           {connectingProvider === provider
-            ? "Redirigiendo..."
-            : `Conectar ${PROVIDER_LABELS[provider]}`}
+            ? "Redirecting..."
+            : `Connect ${PROVIDER_LABELS[provider]}`}
         </button>
       ))}
       <details className="relative">

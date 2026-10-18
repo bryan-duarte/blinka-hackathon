@@ -2,10 +2,12 @@ import asyncio
 import json
 import re
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from langchain_core.tools import BaseTool, StructuredTool
 
 from contracts.bills import BillClaim, BillFields, BillStatus
+from contracts.fx import FxQuote
 from contracts.payment_candidates import PaymentCandidateBase
 from contracts.payment_policy import PayeeMatch
 from contracts.payments import DecisionActor, RuleEffect, Verdict
@@ -24,7 +26,6 @@ from modules.payments.events import (
     NOT_A_BILL_STEP,
     RunEventRecorder,
 )
-from modules.payments.fx import to_usd
 from modules.payments.rules import decide
 from modules.payments.settlement import record_duplicate, settle
 
@@ -72,7 +73,7 @@ TOOL_DESCRIPTIONS = {
         "Step 6. Record the final decision computed by the rules and the checker. Takes no input."
     ),
 }
-CHECKER_SKIPPED_REASON = "solo aplica cuando las reglas permiten pagar"
+CHECKER_SKIPPED_REASON = "only applies when the rules allow paying"
 
 StepCoroutine = Callable[[], Awaitable[str]]
 
@@ -131,7 +132,7 @@ class PaymentStepTools:
     async def _classify_document(self) -> str:
         state = self._state
         if state.classification is not None:
-            return _out_of_order("El documento ya fue clasificado.", state)
+            return _out_of_order("The document was already classified.", state)
         classification = await self._dependencies.invoice_ingestor.classify(
             state.owner, state.document
         )
@@ -159,7 +160,7 @@ class PaymentStepTools:
             and state.extraction is None
         )
         if not is_ready:
-            return _out_of_order("Primero clasifica un documento que sea factura.", state)
+            return _out_of_order("First classify a document that is a bill.", state)
         try:
             extraction = await self._dependencies.invoice_ingestor.extract_candidate(
                 state.owner, state.document, state.classification.kind
@@ -202,21 +203,28 @@ class PaymentStepTools:
     async def _register_bill(self) -> str:
         state = self._state
         if state.extraction is None or state.claim is not None:
-            return _out_of_order("Primero extrae los datos de la factura.", state)
+            return _out_of_order("First extract the invoice data.", state)
         owner = state.owner
         candidate = state.extraction.candidate
         policy_client = self._dependencies.policy
         state.policy = await policy_client.get_policy(owner)
         state.match = await policy_client.match_payee(owner.user_id, candidate, state.source.sender)
+        currency = _iso_currency(candidate.currency)
+        quote = await self._dependencies.fx.quote(currency, datetime.now(UTC).date())
         claim = await self._dependencies.bills.claim_bill(
-            owner.user_id, state.source, _bill_fields(candidate, state.match)
+            owner.user_id, state.source, _bill_fields(candidate, state.match, currency, quote)
         )
         state.claim = claim
         try:
             await self._dependencies.repository.set_run_bill(state.run_id, claim.bill.bill_id)
             claim_payload = _claim_payload(claim)
             await self._events.step(CLAIMED_STEP, claim_payload)
-            summary = {**claim_payload, "payee_known": state.match.payee is not None}
+            summary = {
+                **claim_payload,
+                "payee_known": state.match.payee is not None,
+                "amount_usd": claim.bill.amount_usd,
+                "fx_source": claim.bill.fx_source,
+            }
             if claim.duplicate_of is None:
                 return _summary(summary)
             state.decision = await record_duplicate(
@@ -234,7 +242,7 @@ class PaymentStepTools:
         state = self._state
         is_ready = state.claim is not None and state.decision is None and state.evaluation is None
         if not is_ready:
-            return _out_of_order("Primero registra la factura.", state)
+            return _out_of_order("First register the bill.", state)
         try:
             state.context = await build_context(
                 self._dependencies,
@@ -271,7 +279,7 @@ class PaymentStepTools:
         state = self._state
         is_ready = state.evaluation is not None and state.decision is None and not state.checker_ran
         if not is_ready:
-            return _out_of_order("Primero evalúa las reglas.", state)
+            return _out_of_order("First evaluate the rules.", state)
         if state.evaluation.verdict is not Verdict.PAY:
             return _summary({"skipped": True, "reason": CHECKER_SKIPPED_REASON})
         try:
@@ -299,10 +307,10 @@ class PaymentStepTools:
     async def _settle_decision(self) -> str:
         state = self._state
         if state.evaluation is None or state.decision is not None:
-            return _out_of_order("Primero evalúa las reglas.", state)
+            return _out_of_order("First evaluate the rules.", state)
         needs_checker = state.evaluation.verdict is Verdict.PAY and not state.checker_ran
         if needs_checker:
-            return _out_of_order("Antes de pagar corre la segunda revisión.", state)
+            return _out_of_order("Run the second review before paying.", state)
         try:
             state.decision = await settle(
                 self._dependencies,
@@ -359,7 +367,13 @@ def _out_of_order(hint: str, state: RunState) -> str:
     return _summary({"error": hint, "next_tool": next_step_tool(state)})
 
 
-def _bill_fields(candidate: PaymentCandidateBase, match: PayeeMatch) -> BillFields:
+def _bill_fields(
+    candidate: PaymentCandidateBase,
+    match: PayeeMatch,
+    currency: str | None,
+    quote: FxQuote | None,
+) -> BillFields:
+    is_convertible = quote is not None and candidate.amount is not None
     return BillFields(
         kind=candidate.kind,
         payee_id=match.payee.payee_id if match.payee else None,
@@ -367,8 +381,11 @@ def _bill_fields(candidate: PaymentCandidateBase, match: PayeeMatch) -> BillFiel
         normalized_payee_name=match.normalized_payee_name,
         invoice_number=candidate.invoice_number,
         amount=candidate.amount,
-        currency=_iso_currency(candidate.currency),
-        amount_usd=to_usd(candidate.amount, candidate.currency),
+        currency=currency,
+        amount_usd=quote.convert(candidate.amount) if is_convertible else None,
+        fx_usd_per_unit=quote.usd_per_unit if quote else None,
+        fx_rate_date=quote.rate_date if quote else None,
+        fx_source=quote.source if quote else None,
         category=candidate.category,
         due_date=candidate.due_date,
         candidate=candidate.model_dump(mode="json"),

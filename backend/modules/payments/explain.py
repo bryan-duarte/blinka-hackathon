@@ -1,11 +1,21 @@
 from decimal import Decimal
 
+from contracts.bills import BillRecord
+from contracts.fx import USD, FxSource
 from contracts.payments import RuleEffect, RuleResult, Verdict
 from modules.payments.budget import GLOBAL_SCOPE
-from modules.payments.presentation import format_amount, format_usd
+from modules.payments.presentation import format_amount, format_rate, format_usd
 from modules.payments.rules import DecisionContext
 
 EFFECT_ORDER = {RuleEffect.HOLD: 0, RuleEffect.REVIEW: 1}
+FX_SOURCE_LABELS = {
+    FxSource.IDENTITY: "USD",
+    FxSource.OPEN_ER_API: "live rate",
+    FxSource.CACHED: "cached rate",
+    FxSource.STATIC_FALLBACK: "fallback rate",
+    FxSource.SEED: "historical rate",
+}
+UNREAD_AMOUNT_TEXT = "amount not read"
 
 
 def explain(verdict: Verdict, results: list[RuleResult], context: DecisionContext) -> str:
@@ -17,35 +27,53 @@ def explain(verdict: Verdict, results: list[RuleResult], context: DecisionContex
         return f"{_paid_headline(results, failing)} {_payment_summary(context)}"
     blocking = [result for result in failing if result.effect is RuleEffect.HOLD]
     if verdict is Verdict.HOLD:
-        headline = f"Frenada: {len(blocking)} regla(s) bloquean el pago."
+        headline = f"Held: {len(blocking)} rule(s) block the payment."
         reasons = blocking
     else:
-        headline = f"En revisión: {len(failing)} punto(s) necesitan una persona."
+        headline = f"In review: {len(failing)} point(s) need a person."
         reasons = failing
     return " ".join([headline, *(result.reason for result in reasons)])
 
 
 def _paid_headline(results: list[RuleResult], failing: list[RuleResult]) -> str:
     if failing:
-        return f"Pagada con aprobación humana: se aceptaron {len(failing)} punto(s) en revisión."
-    return f"Pagada automáticamente: cumple las {len(results)} reglas."
+        return f"Paid with human approval: {len(failing)} review point(s) were accepted."
+    return f"Paid automatically: passes all {len(results)} rules."
 
 
 def _payment_summary(context: DecisionContext) -> str:
     candidate = context.candidate
     payee_name = context.match.payee.display_name if context.match.payee else candidate.payee_name
+    has_amount = candidate.amount is not None and bool(candidate.currency)
     amount_text = (
-        f"{candidate.currency} {format_amount(candidate.amount)}"
-        if candidate.amount is not None and candidate.currency
-        else "monto sin leer"
+        _amount_text(context.bill, candidate.amount, candidate.currency or "", context.amount_usd)
+        if has_amount
+        else UNREAD_AMOUNT_TEXT
     )
     summary = f"{payee_name}: {amount_text}"
-    if context.amount_usd is not None and candidate.currency != "USD":
-        summary += f" (≈ {format_usd(context.amount_usd)})"
     if candidate.category:
-        summary += f", categoría {candidate.category}"
+        summary += f", category {candidate.category}"
     if context.amount_usd is not None:
         global_reserved = context.budget.get(GLOBAL_SCOPE, Decimal("0")) + context.amount_usd
         remaining = context.policy.monthly_budget_usd - global_reserved
-        summary += f". Presupuesto mensual restante: {format_usd(remaining)}"
+        summary += f". Monthly budget left: {format_usd(remaining)}"
     return f"{summary}."
+
+
+def _amount_text(
+    bill: BillRecord, amount: Decimal, currency: str, amount_usd: Decimal | None
+) -> str:
+    original = f"{format_amount(amount)} {currency}"
+    has_conversion = (
+        currency.upper() != USD
+        and amount_usd is not None
+        and bill.fx_usd_per_unit is not None
+        and bill.fx_rate_date is not None
+        and bill.fx_source is not None
+    )
+    if not has_conversion:
+        return original
+    return (
+        f"{original} ≈ {format_usd(amount_usd)} (rate {format_rate(bill.fx_usd_per_unit)} on "
+        f"{bill.fx_rate_date:%b %d, %Y}, {FX_SOURCE_LABELS[bill.fx_source]})"
+    )

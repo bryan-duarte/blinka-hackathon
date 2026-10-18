@@ -11,6 +11,7 @@ from contracts.payments import (
     PaymentRunStatus,
     PaymentRunTrigger,
     ReviewActionRequest,
+    RunTraceView,
 )
 
 if TYPE_CHECKING:
@@ -65,6 +66,15 @@ class PaymentsClient:
 
     async def fail_unfinished(self, reason: str) -> None:
         await self._service.fail_unfinished(reason)
+
+    async def run_trace(self, owner: CurrentUser, run_id: UUID) -> RunTraceView:
+        return await self._service.run_trace(owner, run_id)
+
+    async def cancel_owner(self, owner_id: UUID) -> int:
+        return await self._service.cancel_owner(owner_id)
+
+    async def purge_run_threads(self, run_ids: list[UUID]) -> int:
+        return await self._service.purge_run_threads(run_ids)
 
     async def shutdown_runs(self) -> None:
         await self._service.shutdown()

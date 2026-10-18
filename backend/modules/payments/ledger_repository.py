@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid5
 
@@ -6,6 +7,7 @@ from sqlalchemy import Select, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from contracts.fx import FxSource
 from contracts.payment_policy import PaymentCategory
 from contracts.payments import (
     CheckerAssessment,
@@ -42,6 +44,9 @@ class ReservationRequest:
     amount: Decimal
     currency: str
     amount_usd: Decimal
+    fx_usd_per_unit: Decimal | None
+    fx_rate_date: date | None
+    fx_source: FxSource | None
     category: PaymentCategory | None
     period: str
     charges: list[BudgetCharge]
@@ -62,6 +67,9 @@ class LedgerRepository:
                 amount=request.amount,
                 currency=request.currency,
                 amount_usd=request.amount_usd,
+                fx_usd_per_unit=request.fx_usd_per_unit,
+                fx_rate_date=request.fx_rate_date,
+                fx_source=request.fx_source,
                 category=request.category,
                 period=request.period,
                 scopes=[charge.scope for charge in request.charges],
@@ -256,6 +264,9 @@ def _to_payment(payment: PaymentRow) -> PaymentRecord:
         amount=payment.amount,
         currency=payment.currency,
         amount_usd=payment.amount_usd,
+        fx_usd_per_unit=payment.fx_usd_per_unit,
+        fx_rate_date=payment.fx_rate_date,
+        fx_source=FxSource(payment.fx_source) if payment.fx_source else None,
         category=PaymentCategory(payment.category) if payment.category else None,
         period=payment.period,
         scopes=list(payment.scopes),

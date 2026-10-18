@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 
+from clients.accountability import AccountabilityClient
 from clients.auth import AuthClient
 from clients.bills import BillsClient
+from clients.demo import DemoClient
 from clients.document_vision import DocumentVisionClient
 from clients.files import FilesClient
+from clients.fx import FxClient
 from clients.guardrails import GuardrailsClient
 from clients.inbox import InboxClient
 from clients.invoice_ingestor import InvoiceIngestorClient
@@ -15,11 +18,14 @@ from clients.payments import PaymentsClient
 from clients.prompts import PromptsClient
 from clients.realtime import RealtimeClient
 from clients.whatsapp_gateway import WhatsAppGatewayClient
+from contracts.demo import KitDestinations
 from core.background import ExecutionRegistry
 from core.config import Settings
 from core.db import Checkpointers, Pools
+from modules.accountability import AccountabilityRepository, AccountabilityService
 from modules.auth import AuthService, UsersRepository
 from modules.bills import BillsRepository, BillsService
+from modules.demo import DemoResetRepository, DemoSeeder, DemoSeedRepository, DemoService
 from modules.document_vision import TextractExpenseReader
 from modules.files import (
     FilesRepository,
@@ -27,6 +33,7 @@ from modules.files import (
     MalwareScanService,
     ObjectStorageBackend,
 )
+from modules.fx import FxRepository, FxService, OpenErApiProvider
 from modules.guardrails import BedrockGuardrailBackend, GuardrailsService
 from modules.inbox import InboxDependencies, InboxNotifier, InboxRepository, InboxService
 from modules.invoice_ingestor import InvoiceIngestorService
@@ -56,6 +63,7 @@ MILLISECONDS_PER_SECOND = 1000
 class Clients:
     auth: AuthClient
     files: FilesClient
+    fx: FxClient
     invoice_ingestor: InvoiceIngestorClient
     guardrails: GuardrailsClient
     llm: LlmGatewayClient
@@ -68,6 +76,8 @@ class Clients:
     inbox: InboxClient
     payment_policy: PaymentPolicyClient
     bills: BillsClient
+    demo: DemoClient
+    accountability: AccountabilityClient
 
 
 async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpointers) -> Clients:
@@ -108,6 +118,9 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         PaymentPolicyService(PaymentPolicyRepository(product_sessionmaker))
     )
     bills = BillsClient(BillsService(BillsRepository(product_sessionmaker)))
+    fx = FxClient(
+        FxService(FxRepository(product_sessionmaker), OpenErApiProvider(settings.fx), settings.fx)
+    )
 
     document_vision = DocumentVisionClient(
         TextractExpenseReader(settings.textract.aws_profile, settings.textract.region)
@@ -122,6 +135,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         repository=runs_repository,
         ledger=LedgerRepository(product_sessionmaker),
         bills=bills,
+        fx=fx,
         policy=payment_policy,
         invoice_ingestor=invoice_ingestor,
         llm_gateway=llm,
@@ -154,9 +168,36 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
     )
     inbox = InboxClient(inbox_service)
 
+    demo = DemoClient(
+        DemoService(
+            settings.demo,
+            auth=auth,
+            policy=payment_policy,
+            inbox=inbox,
+            payments=payments,
+            files=files,
+            realtime=realtime,
+            seeder=DemoSeeder(payment_policy, DemoSeedRepository(product_sessionmaker)),
+            reset_repository=DemoResetRepository(product_sessionmaker),
+            registry=ExecutionRegistry(),
+            destinations=KitDestinations(
+                email_address=settings.demo.inbox_address,
+                whatsapp_number=settings.kapso.sandbox_display_number or None,
+            ),
+            is_guardrail_enforced=guardrails_settings.enforce,
+            is_malware_scan_enabled=storage_settings.malware_scan_enabled,
+        )
+    )
+    accountability = AccountabilityClient(
+        AccountabilityService(
+            AccountabilityRepository(product_sessionmaker), payments, payment_policy
+        )
+    )
+
     return Clients(
         auth=auth,
         files=files,
+        fx=fx,
         invoice_ingestor=invoice_ingestor,
         guardrails=guardrails,
         llm=llm,
@@ -169,6 +210,8 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         inbox=inbox,
         payment_policy=payment_policy,
         bills=bills,
+        demo=demo,
+        accountability=accountability,
     )
 
 

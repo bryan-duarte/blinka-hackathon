@@ -29,26 +29,27 @@ VERDICT_STATUS = {
     Verdict.REVIEW: BillStatus.REVIEW,
 }
 BILL_STATUS_WORDS = {
-    BillStatus.DECIDING: "en decisión",
-    BillStatus.PAID: "pagada",
-    BillStatus.HELD: "frenada",
-    BillStatus.REVIEW: "en revisión",
-    BillStatus.APPROVING: "en aprobación",
-    BillStatus.REJECTED: "rechazada",
-    BillStatus.DUPLICATE: "duplicada",
+    BillStatus.DECIDING: "being decided",
+    BillStatus.PAID: "paid",
+    BillStatus.HELD: "held",
+    BillStatus.REVIEW: "in review",
+    BillStatus.APPROVING: "being approved",
+    BillStatus.REJECTED: "rejected",
+    BillStatus.DUPLICATE: "a duplicate",
 }
 UNPAYABLE_REASON = (
-    "Sin un monto positivo y una moneda confirmados no se puede pagar; corrige la factura y "
-    "reenvíala."
+    "It cannot be paid without a confirmed positive amount and currency; fix the invoice and "
+    "resend it."
 )
 TECHNICAL_ERROR_EXPLANATION = (
-    "En revisión: ocurrió un error técnico al decidir y el agente no paga sin terminar sus "
-    "controles."
+    "In review: a technical error happened while deciding, and the agent does not pay without "
+    "finishing its checks."
 )
 RESTART_INTERRUPTION_EXPLANATION = (
-    "En revisión: la decisión se interrumpió por un reinicio antes de terminar."
+    "In review: the decision was interrupted by a restart before it finished."
 )
-RECOVERED_PAYMENT_EXPLANATION = "Pagada: el pago reservado se completó tras una interrupción."
+RECOVERED_PAYMENT_EXPLANATION = "Paid: the reserved payment completed after an interruption."
+DUPLICATE_DATE_FORMAT = "%b %d, %Y"
 
 
 async def settle(
@@ -100,11 +101,12 @@ async def record_duplicate(
 ) -> DecisionRecord:
     original_label = bill_label(original.invoice_number, original.bill_id)
     duplicate_reason = (
-        f"Ya se recibió esta factura ({original_label}) el {original.created_at:%d-%m-%Y}; "
-        f"la original está {BILL_STATUS_WORDS[original.status]}."
+        f"This invoice ({original_label}) was already received on "
+        f"{original.created_at:{DUPLICATE_DATE_FORMAT}}; the original is "
+        f"{BILL_STATUS_WORDS[original.status]}."
     )
     duplicate_result = rule_result(
-        "DUP", RuleEffect.HOLD, duplicate_reason, {"factura_original": str(original.bill_id)}
+        "DUP", RuleEffect.HOLD, duplicate_reason, {"original_bill": str(original.bill_id)}
     )
     return await dependencies.ledger.append_decision(
         DecisionRecord(
@@ -115,7 +117,7 @@ async def record_duplicate(
             verdict=Verdict.HOLD,
             rule_results=[duplicate_result],
             checker=None,
-            explanation=f"Frenada: duplicado exacto. {duplicate_reason}",
+            explanation=f"Held: exact duplicate. {duplicate_reason}",
             policy_id=policy.policy_id,
             policy_version=policy.version,
         )
@@ -203,8 +205,11 @@ async def _pay(
         bill_id=bill.bill_id,
         payee_id=payee.payee_id if payee else None,
         amount=candidate.amount,
-        currency=candidate.currency.upper(),
+        currency=bill.currency,
         amount_usd=context.amount_usd,
+        fx_usd_per_unit=bill.fx_usd_per_unit,
+        fx_rate_date=bill.fx_rate_date,
+        fx_source=bill.fx_source,
         category=candidate.category,
         period=current_period(context.today),
         charges=budget_charges(context.policy, payee, candidate.category),
@@ -217,7 +222,7 @@ async def _pay(
         return rule_result(
             "R14",
             RuleEffect.HOLD,
-            f"Presupuesto {scope_description} agotado al reservar el pago.",
+            f"{scope_description.capitalize()} budget exhausted while reserving the payment.",
             {"scope": exhausted.scope},
         )
     await dependencies.ledger.execute(payment.payment_id)

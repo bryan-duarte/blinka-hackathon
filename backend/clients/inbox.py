@@ -6,12 +6,12 @@ from contracts.auth import CurrentUser
 from contracts.inbox import (
     InboxChannel,
     InboxEmailDetail,
+    InboxEmailStatus,
     InboxEmailView,
     MailboxConnectionView,
     MailboxConnectStarted,
-    SimulatedEmailKind,
 )
-from contracts.mail_gateway import MailProvider
+from contracts.mail_gateway import FetchedEmail, MailProvider
 from contracts.whatsapp_gateway import ConfirmWhatsAppRequest, WhatsAppSandboxView
 
 if TYPE_CHECKING:
@@ -54,10 +54,16 @@ class InboxClient:
     async def ingest_whatsapp_webhook(self, body: bytes, headers: Mapping[str, str]) -> None:
         await self._service.ingest_whatsapp_webhook(body, headers)
 
-    async def simulate(
-        self, owner: CurrentUser, kind: SimulatedEmailKind, channel: InboxChannel
+    async def inject(
+        self, owner: CurrentUser, message: FetchedEmail, channel: InboxChannel
     ) -> InboxEmailView:
-        return await self._service.simulate(owner, kind, channel)
+        return await self._service.inject(owner, message, channel)
+
+    async def get_email_status(self, owner: CurrentUser, email_id: UUID) -> InboxEmailStatus:
+        return await self._service.get_email_status(owner, email_id)
+
+    async def cancel_owner(self, owner_id: UUID) -> int:
+        return await self._service.cancel_owner(owner_id)
 
     async def list_emails(
         self, owner: CurrentUser, source: InboxChannel | None

@@ -22,6 +22,7 @@ else:
     import modules.auth.models  # noqa: F401
     import modules.bills.models  # noqa: F401
     import modules.files.models  # noqa: F401
+    import modules.fx.models  # noqa: F401
     import modules.inbox.models  # noqa: F401
     import modules.payment_policy.models  # noqa: F401
     import modules.payments.models  # noqa: F401

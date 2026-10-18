@@ -103,7 +103,7 @@ class BillClassification(ApiModel):
 
     is_bill: bool
     kind: PayeeKind | None
-    reason: str = Field(description="One sentence in Spanish.")
+    reason: str = Field(description="One sentence in English.")
     confidence: float = Field(ge=MIN_CONFIDENCE, le=MAX_CONFIDENCE)
 
 

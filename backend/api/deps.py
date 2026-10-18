@@ -7,6 +7,7 @@ from container import Clients
 from contracts.auth import CurrentUser
 from core.config import Settings
 from modules.auth.errors import InvalidTokenError
+from modules.demo.errors import DemoAccessDeniedError, DemoDisabledError
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -42,3 +43,14 @@ def _unauthorized(detail: str) -> HTTPException:
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
+
+
+def require_demo_user(user: CurrentUserDep, settings: SettingsDep) -> CurrentUser:
+    if not settings.demo.enabled:
+        raise DemoDisabledError
+    if user.email.casefold() != settings.demo.email.casefold():
+        raise DemoAccessDeniedError
+    return user
+
+
+DemoUserDep = Annotated[CurrentUser, Depends(require_demo_user)]

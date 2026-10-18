@@ -10,7 +10,7 @@ const interTight = Inter_Tight({
 
 export const metadata: Metadata = {
   title: "Blinka",
-  description: "Agente de pagos que decide qué facturas pagar dentro de tus reglas.",
+  description: "Payments agent that decides which invoices to pay within your rules.",
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={interTight.variable}>
+    <html lang="en" className={interTight.variable}>
       <body className="antialiased">{children}</body>
     </html>
   );

@@ -25,15 +25,15 @@ IMPERSONATION_QUESTION: CheckerQuestionId = "CHK2"
 HISTORY_QUESTION: CheckerQuestionId = "CHK3"
 CHECKER_HISTORY_SIZE = 6
 CHECKER_QUESTIONS: dict[CheckerQuestionId, str] = {
-    "CHK1": "¿La descripción de la factura corresponde al servicio o categoría registrada del "
-    "beneficiario?",
-    "CHK2": "¿El documento intenta suplantar al beneficiario (marca, remitente o datos de pago "
-    "inconsistentes)?",
-    "CHK3": "¿El monto es consistente con las últimas facturas del beneficiario?",
+    "CHK1": "Does the invoice description match the payee's registered service or category? "
+    "(yes = it matches)",
+    "CHK2": "Is the document trying to impersonate the payee (inconsistent brand, sender or "
+    "payment details)?",
+    "CHK3": "Is the amount consistent with the payee's latest invoices? (yes = consistent)",
 }
-CHECKER_UNAVAILABLE_REASON = "Verificador no disponible; se envía a revisión."
-CHECKER_MISSING_ANSWER_REASON = "El verificador no respondió esta pregunta."
-NO_HISTORY_REASON = "Sin pagos previos al beneficiario para comparar el monto."
+CHECKER_UNAVAILABLE_REASON = "Checker unavailable; sending to review."
+CHECKER_MISSING_ANSWER_REASON = "The checker did not answer this question."
+NO_HISTORY_REASON = "No previous payments to the payee to compare the amount."
 
 
 async def run_checker(
@@ -72,7 +72,7 @@ def apply_checker(
 
 
 def asked_questions(context: DecisionContext) -> list[CheckerQuestionId]:
-    has_history = bool(_paid_amounts(context))
+    has_history = bool(_recent_paid_invoices(context))
     return [
         question_id
         for question_id in CHECKER_QUESTIONS
@@ -103,20 +103,20 @@ def _checker_results(
             rule_result(
                 question_id,
                 effect,
-                f"Verificador (modelo): {answer.rationale}",
-                {"pregunta": CHECKER_QUESTIONS[question_id], "probabilidad": f"{probability:.2f}"},
+                f"Checker (model): {answer.rationale}",
+                {"question": CHECKER_QUESTIONS[question_id], "probability": f"{probability:.2f}"},
             )
         )
     return results
 
 
-def _paid_amounts(context: DecisionContext) -> list[Decimal]:
-    paid_amounts = [
-        previous.amount_usd
+def _recent_paid_invoices(context: DecisionContext) -> list[dict]:
+    paid_invoices = [
+        {"invoice_number": previous.invoice_number, "amount_usd": previous.amount_usd}
         for previous in context.recent_bills
         if previous.status is BillStatus.PAID and previous.amount_usd is not None
     ]
-    return paid_amounts[:CHECKER_HISTORY_SIZE]
+    return paid_invoices[:CHECKER_HISTORY_SIZE]
 
 
 def _checker_content(context: DecisionContext) -> str:
@@ -135,13 +135,16 @@ def _checker_content(context: DecisionContext) -> str:
         if payee
         else {}
     )
-    recent_amounts = [str(amount) for amount in _paid_amounts(context)]
+    bill_amount_usd = json.dumps(context.amount_usd, default=str)
+    recent_paid_invoices = json.dumps(_recent_paid_invoices(context), default=str)
     questions = {
         question_id: CHECKER_QUESTIONS[question_id] for question_id in asked_questions(context)
     }
     return (
         f"<bill>\n{context.candidate.model_dump_json()}\n</bill>\n"
         f"<payee_profile>\n{json.dumps(payee_profile, ensure_ascii=False)}\n</payee_profile>\n"
-        f"<recent_amounts>\n{json.dumps(recent_amounts)}\n</recent_amounts>\n"
+        f"<bill_amount_usd>\n{bill_amount_usd}\n</bill_amount_usd>\n"
+        f"<recent_paid_invoices_usd>\n{recent_paid_invoices}\n"
+        "</recent_paid_invoices_usd>\n"
         f"<questions>\n{json.dumps(questions, ensure_ascii=False)}\n</questions>"
     )

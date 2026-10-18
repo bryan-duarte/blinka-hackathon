@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, Index, Numeric, UniqueConstraint, func
+from sqlalchemy import ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +15,9 @@ PERCENTAGE = Numeric(5, 2)
 PAYEE_NAME_CONSTRAINT = "uq_payees_owner_name"
 PAYEE_IDENTIFIER_CONSTRAINT = "uq_payee_identifiers_owner_kind_value"
 BLACKLIST_CONSTRAINT = "uq_blacklist_entries_owner_kind_value"
+TRUSTED_FORWARDER_CONSTRAINT = "uq_trusted_forwarders_owner_kind_value"
+TRUSTED_FORWARDER_KIND_LENGTH = 16
+TRUSTED_FORWARDER_NOTE_LENGTH = 120
 
 
 class PaymentPolicyRow(ProductBase):
@@ -98,4 +101,18 @@ class BlacklistEntryRow(ProductBase):
     kind: Mapped[str]
     normalized_value: Mapped[str]
     reason: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class TrustedForwarderRow(ProductBase):
+    __tablename__ = "trusted_forwarders"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "kind", "normalized_value", name=TRUSTED_FORWARDER_CONSTRAINT),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(TRUSTED_FORWARDER_KIND_LENGTH))
+    normalized_value: Mapped[str]
+    note: Mapped[str | None] = mapped_column(String(TRUSTED_FORWARDER_NOTE_LENGTH), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

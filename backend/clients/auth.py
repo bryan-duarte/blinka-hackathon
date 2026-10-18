@@ -22,3 +22,6 @@ class AuthClient:
 
     async def get_user(self, user_id: UUID) -> CurrentUser:
         return await self._service.get_user(user_id)
+
+    async def ensure_user_with_password(self, email: str, password: str) -> CurrentUser:
+        return await self._service.ensure_user_with_password(email, password)

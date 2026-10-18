@@ -26,26 +26,6 @@ class InboxEmailStatus(StrEnum):
     ERROR = "error"
 
 
-class SimulatedEmailKind(StrEnum):
-    INVOICE_USD = "invoice_usd"
-    INVOICE_USD_PDF = "invoice_usd_pdf"
-    INVOICE_ZIP_XML = "invoice_zip_xml"
-    SCANNED_PDF = "scanned_pdf"
-    INVOICE_CLP = "invoice_clp"
-    AWS_CARD = "aws_card"
-    AWS_IMPERSONATION = "aws_impersonation"
-    AMAZ0N_BLACKLISTED = "amaz0n_blacklisted"
-    OVER_AUTO_PAY = "over_auto_pay"
-    OVER_HARD_CAP = "over_hard_cap"
-    UNKNOWN_PAYEE = "unknown_payee"
-    NO_CURRENCY = "no_currency"
-    PERSON_CUENTA_COBRO = "person_cuenta_cobro"
-    PERSON_CUENTA_COBRO_SECOND = "person_cuenta_cobro_second"
-    AGREEMENT_MISMATCH = "agreement_mismatch"
-    PROMPT_INJECTION = "prompt_injection"
-    PLAIN = "plain"
-
-
 InboxChannel = Literal["email", "whatsapp"]
 
 SOURCE_TYPE_BY_PROVIDER: dict[MailProvider, BillSourceType] = {
@@ -93,11 +73,6 @@ class ConnectMailboxRequest(ApiModel):
 
 class ConfirmMailboxRequest(ApiModel):
     connected_account_id: str
-
-
-class SimulateEmailRequest(ApiModel):
-    kind: SimulatedEmailKind
-    channel: InboxChannel = "email"
 
 
 class MailboxConnectStarted(ApiModel):

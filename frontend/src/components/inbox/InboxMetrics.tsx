@@ -5,7 +5,7 @@ const GLOBAL_SCOPE = "global";
 const PERCENT = 100;
 const NEAR_LIMIT_PERCENT = 90;
 
-const monthFormatter = new Intl.DateTimeFormat("es-CL", { month: "long" });
+const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "long" });
 
 type InboxMetricsProps = {
   emails: InboxEmailView[] | null;
@@ -35,26 +35,26 @@ export function InboxMetrics({ emails, budgets }: InboxMetricsProps) {
   const month = monthFormatter.format(new Date());
 
   return (
-    <section aria-label="Resumen del mes" className="grid divide-y divide-line border-b border-line md:grid-cols-3 md:divide-x md:divide-y-0">
-      <Metric label="Espera tu decisión" isLoading={pending === null}>
+    <section aria-label="Month summary" className="grid divide-y divide-line border-b border-line md:grid-cols-3 md:divide-x md:divide-y-0">
+      <Metric label="Waiting for you" isLoading={pending === null}>
         {pending && (
           <>
             <MetricValue amountUsd={pending.totalUsd} />
             <p className="text-xs text-muted">
-              {pending.count === 1 ? "1 factura en revisión" : `${pending.count} facturas en revisión`}
+              {pending.count === 1 ? "1 invoice in review" : `${pending.count} invoices in review`}
             </p>
           </>
         )}
       </Metric>
-      <Metric label={`Pagado en ${month}`} isLoading={budgets === null}>
+      <Metric label={`Paid in ${month}`} isLoading={budgets === null}>
         {budgets && (
           <>
             <MetricValue amountUsd={Number(globalBudget?.reserved_usd ?? 0)} />
-            <p className="text-xs text-muted">Pagos ejecutados y en curso del mes.</p>
+            <p className="text-xs text-muted">Payments executed and in progress this month.</p>
           </>
         )}
       </Metric>
-      <Metric label="Presupuesto disponible" isLoading={budgets === null || pending === null}>
+      <Metric label="Budget available" isLoading={budgets === null || pending === null}>
         {budgets && pending && (
           <BudgetLeft
             limitUsd={globalBudget?.limit_usd != null ? Number(globalBudget.limit_usd) : null}
@@ -96,8 +96,8 @@ function BudgetLeft({ limitUsd, reservedUsd, pendingUsd }: BudgetSummary) {
   if (limitUsd === null) {
     return (
       <>
-        <p className="text-[32px] leading-[1.03] font-light tracking-[-0.64px] text-ink md:text-[48px]">Sin tope</p>
-        <p className="text-xs text-muted">La política no define un presupuesto mensual.</p>
+        <p className="text-[32px] leading-[1.03] font-light tracking-[-0.64px] text-ink md:text-[48px]">No cap</p>
+        <p className="text-xs text-muted">The policy sets no monthly budget.</p>
       </>
     );
   }
@@ -109,7 +109,7 @@ function BudgetLeft({ limitUsd, reservedUsd, pendingUsd }: BudgetSummary) {
       <MetricValue amountUsd={Math.max(0, limitUsd - reservedUsd)} />
       <div
         role="progressbar"
-        aria-label="Presupuesto usado"
+        aria-label="Budget used"
         aria-valuemin={0}
         aria-valuemax={limitUsd}
         aria-valuenow={reservedUsd}
@@ -125,7 +125,7 @@ function BudgetLeft({ limitUsd, reservedUsd, pendingUsd }: BudgetSummary) {
         />
       </div>
       <p className="text-xs text-muted">
-        de USD {formatMoney(limitUsd, null)}. En azul claro, lo que está en revisión.
+        of USD {formatMoney(limitUsd, null)}. Light blue is what is in review.
       </p>
     </>
   );

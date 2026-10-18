@@ -30,8 +30,11 @@ from contracts.payments import (
     ReviewActionRequest,
     RuleEffect,
     RunStatus,
+    RunTraceView,
     Verdict,
 )
+from contracts.prompts import PromptId
+from core.agents import thread_config
 from core.background import ExecutionRegistry
 from core.logging_config import get_logger
 from modules.files import FileQuarantinedError, UnsafeArchiveError
@@ -53,6 +56,7 @@ from modules.payments.settlement import (
     fail_closed,
     settle,
 )
+from modules.payments.trace import serialize_messages
 
 if TYPE_CHECKING:
     from clients.files import FilesClient
@@ -61,11 +65,12 @@ logger = get_logger(__name__)
 
 INTERRUPTED_BILL_STATUSES = (BillStatus.DECIDING, BillStatus.APPROVING)
 REVIEW_WAIVED_EFFECTS = frozenset({RuleEffect.REVIEW})
-REJECTION_EXPLANATION_PREFIX = "Rechazada por una persona: "
+REJECTION_EXPLANATION_PREFIX = "Rejected by a person: "
 NO_RESERVED_USD = Decimal("0")
 QUARANTINED_INTAKE_STATUSES = frozenset(
     {EvidenceIntakeStatus.MALWARE, EvidenceIntakeStatus.SCAN_FAILED}
 )
+CHECKPOINT_MESSAGES_CHANNEL = "messages"
 
 
 class PaymentsService:
@@ -99,6 +104,7 @@ class PaymentsService:
             self._registry.spawn(
                 run_id,
                 run_execution(run_id, owner, source.source_id, self._dependencies),
+                owner_id=owner.user_id,
             )
             logger.info("payment_run_started", run_id=run_id, bill_source_id=source.source_id)
         return PaymentRunAccepted(run_id=run_id, status=RunStatus.PENDING, duplicate=not is_new_run)
@@ -282,6 +288,45 @@ class PaymentsService:
         if failed_count:
             logger.warning("unfinished_runs_swept", failed_count=failed_count)
 
+    async def run_trace(self, owner: CurrentUser, run_id: UUID) -> RunTraceView:
+        await self.get_run(run_id, owner)
+        checkpointer = self._dependencies.checkpointer
+        checkpoint_tuple = (
+            await checkpointer.aget_tuple(thread_config(run_id)) if checkpointer else None
+        )
+        if checkpoint_tuple is None:
+            return RunTraceView(run_id=run_id, is_available=False, checkpoint_id=None, messages=[])
+        messages = checkpoint_tuple.checkpoint["channel_values"].get(
+            CHECKPOINT_MESSAGES_CHANNEL, []
+        )
+        system_prompt = self._dependencies.prompts.get_text_prompt(PromptId.PAYMENTS_AGENT)
+        return RunTraceView(
+            run_id=run_id,
+            is_available=True,
+            checkpoint_id=checkpoint_tuple.config["configurable"].get("checkpoint_id"),
+            messages=serialize_messages(messages, system_prompt),
+        )
+
+    async def cancel_owner(self, owner_id: UUID) -> int:
+        cancelled_count = await self._registry.cancel_owner(owner_id)
+        if cancelled_count:
+            logger.info("payment_runs_cancelled", owner_id=owner_id, count=cancelled_count)
+        return cancelled_count
+
+    async def purge_run_threads(self, run_ids: list[UUID]) -> int:
+        checkpointer = self._dependencies.checkpointer
+        if checkpointer is None:
+            return 0
+        purged_count = 0
+        for run_id in run_ids:
+            try:
+                await checkpointer.adelete_thread(str(run_id))
+            except Exception:
+                logger.warning("run_thread_purge_failed", run_id=run_id, exc_info=True)
+                continue
+            purged_count += 1
+        return purged_count
+
     async def shutdown(self) -> None:
         await self._registry.shutdown()
 
@@ -346,6 +391,9 @@ def _to_decision_view(bill: BillRecord, decision: DecisionRecord) -> BillDecisio
         amount=bill.amount,
         currency=bill.currency,
         amount_usd=bill.amount_usd,
+        fx_usd_per_unit=bill.fx_usd_per_unit,
+        fx_rate_date=bill.fx_rate_date,
+        fx_source=bill.fx_source,
         category=bill.category,
         duplicate_of_bill_id=bill.duplicate_of_bill_id,
         actor=decision.actor,
@@ -375,6 +423,9 @@ def _to_payment_view(payment: PaymentRecord) -> PaymentView:
         amount=payment.amount,
         currency=payment.currency,
         amount_usd=payment.amount_usd,
+        fx_usd_per_unit=payment.fx_usd_per_unit,
+        fx_rate_date=payment.fx_rate_date,
+        fx_source=payment.fx_source,
         period=payment.period,
         rail_reference=payment.rail_reference,
         executed_at=payment.executed_at,

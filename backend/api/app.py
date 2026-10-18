@@ -13,6 +13,16 @@ from core.db import Checkpointers, build_pools
 from core.logging_config import configure_logging, get_logger
 from modules.auth.errors import EmailTakenError, InvalidCredentialsError
 from modules.bills.errors import BillMissingError, BillSourceMissingError, BillStateConflictError
+from modules.demo.errors import (
+    DemoAccessDeniedError,
+    DemoBusyError,
+    DemoDisabledError,
+    DemoLaunchLimitError,
+    DemoLaunchMissingError,
+    DemoResetFailedError,
+    DemoScenarioMissingError,
+    DemoScenarioUnavailableError,
+)
 from modules.files.errors import (
     FileMissingError,
     FileQuarantinedError,
@@ -25,7 +35,6 @@ from modules.inbox.errors import (
     EmailMissingError,
     MailboxConnectionMissingError,
     WhatsAppPhoneTakenError,
-    WhatsAppSimulationUnsupportedError,
 )
 from modules.mail_gateway.errors import (
     MailboxAlreadyConnectedError,
@@ -41,6 +50,7 @@ from modules.payment_policy.errors import (
     PayeeNameTakenError,
     PayeeVersionConflictError,
     PolicyMissingError,
+    TrustedForwarderMissingError,
 )
 from modules.payments.errors import BillNotReviewableError, DecisionMissingError, RunNotFoundError
 from modules.whatsapp_gateway.errors import (
@@ -81,9 +91,17 @@ DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
     WhatsAppPhoneInvalidError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid phone number"),
     WhatsAppNumberUnverifiedError: (status.HTTP_409_CONFLICT, "whatsapp number not verified"),
     WhatsAppPhoneTakenError: (status.HTTP_409_CONFLICT, "phone already registered"),
-    WhatsAppSimulationUnsupportedError: (
-        status.HTTP_422_UNPROCESSABLE_CONTENT,
-        "sample has no document for whatsapp",
+    TrustedForwarderMissingError: (status.HTTP_404_NOT_FOUND, "trusted forwarder not found"),
+    DemoDisabledError: (status.HTTP_404_NOT_FOUND, "demo mode is disabled"),
+    DemoAccessDeniedError: (status.HTTP_403_FORBIDDEN, "only the demo account can do this"),
+    DemoScenarioMissingError: (status.HTTP_404_NOT_FOUND, "demo scenario not found"),
+    DemoLaunchMissingError: (status.HTTP_404_NOT_FOUND, "demo launch not found"),
+    DemoBusyError: (status.HTTP_409_CONFLICT, "demo is resetting, try again"),
+    DemoResetFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "demo reset failed"),
+    DemoLaunchLimitError: (status.HTTP_429_TOO_MANY_REQUESTS, "too many demo scenarios running"),
+    DemoScenarioUnavailableError: (
+        status.HTTP_409_CONFLICT,
+        "enable the malware scan to run this scenario",
     ),
 }
 
@@ -100,15 +118,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await clients.payments.fail_unfinished(RESTART_INTERRUPTION_REASON)
         await clients.payments.recover_unfinished_payments()
         await clients.inbox.fail_unfinished(RESTART_INTERRUPTION_REASON)
+        if settings.demo.enabled:
+            await clients.demo.ensure_demo_account()
         app.state.settings = settings
         app.state.pools = pools
         app.state.clients = clients
         logger.info("guardrails_configured", enforce=settings.guardrails.enforce)
+        logger.info(
+            "demo_mode_configured", enabled=settings.demo.enabled, email=settings.demo.email
+        )
         logger.info("backend_started")
         yield
     finally:
         clients = getattr(app.state, "clients", None)
         if clients is not None:
+            await clients.demo.shutdown()
             await clients.inbox.shutdown()
             await clients.payments.shutdown_runs()
         await checkpointers.close()

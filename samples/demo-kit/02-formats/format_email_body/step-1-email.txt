@@ -1,0 +1,24 @@
+Subject: Factura electrónica N° F-70031
+
+Estimado cliente,
+
+Le informamos la emisión de su factura electrónica.
+
+Servicios Integrales del Sur SpA
+RUT/NIT/RFC: 76.543.210-K
+Av. Providencia 1234, of. 501, Santiago, Chile
+
+FACTURA ELECTRÓNICA N° F-70031
+Fecha de emisión: 2026-10-18
+Fecha de vencimiento: 2026-11-02
+Facturar a: Andescape Labs, Inc. · 251 Little Falls Dr, Wilmington, DE 19808, USA
+
+- Auditoría de procesos de cierre contable x1: CLP 991.597
+
+Total: CLP 1.180.000
+
+Datos de pago:
+Banco de Chile, cuenta corriente: CL-001-2233445566
+
+Saludos cordiales,
+Servicios Integrales del Sur SpA

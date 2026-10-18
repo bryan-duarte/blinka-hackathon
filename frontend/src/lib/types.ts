@@ -45,26 +45,15 @@ export type InboxEmailStatus =
   | "no_info"
   | "error";
 
-export type SimulatedEmailKind =
-  | "invoice_usd"
-  | "invoice_usd_pdf"
-  | "invoice_zip_xml"
-  | "scanned_pdf"
-  | "invoice_clp"
-  | "aws_card"
-  | "aws_impersonation"
-  | "amaz0n_blacklisted"
-  | "over_auto_pay"
-  | "over_hard_cap"
-  | "unknown_payee"
-  | "no_currency"
-  | "person_cuenta_cobro"
-  | "person_cuenta_cobro_second"
-  | "agreement_mismatch"
-  | "prompt_injection"
-  | "plain";
-
 export type Decimal = string;
+
+export type FxSource = "identity" | "open_er_api" | "cached" | "static_fallback" | "seed";
+
+export type FxFields = {
+  fx_usd_per_unit: Decimal | null;
+  fx_rate_date: string | null;
+  fx_source: FxSource | null;
+};
 
 export type PayeeKind = "service" | "person" | "company";
 export type PayeeStatus = "allowed" | "blacklisted";
@@ -155,7 +144,7 @@ export type PaymentCandidate =
       purchase_order: string | null;
     });
 
-export type BillDecisionView = {
+export type BillDecisionView = FxFields & {
   bill_id: string;
   verdict: Verdict;
   status: BillStatus;
@@ -176,7 +165,7 @@ export type BillDecisionView = {
   can_approve: boolean;
 };
 
-export type PaymentView = {
+export type PaymentView = FxFields & {
   payment_id: string;
   status: "reserved" | "executed";
   amount: Decimal;
@@ -365,4 +354,223 @@ export type AgentTodoStatus = "pending" | "in_progress" | "completed";
 export type AgentTodo = {
   content: string;
   status: AgentTodoStatus;
+};
+
+export type TrustedForwarderKind = "email" | "domain";
+
+export type TrustedForwarderCreate = {
+  kind: TrustedForwarderKind;
+  value: string;
+  note: string | null;
+};
+
+export type TrustedForwarderView = {
+  forwarder_id: string;
+  kind: TrustedForwarderKind;
+  normalized_value: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type DemoSectionId = "happy_path" | "formats" | "duplicates" | "rules" | "limits" | "security";
+
+export type DemoExpectation = {
+  outcome: InboxEmailStatus;
+  rule_ids: string[];
+  summary: string;
+};
+
+export type DemoScenarioView = {
+  scenario_id: string;
+  section: DemoSectionId;
+  title: string;
+  description: string;
+  channel: InboxChannel;
+  steps: DemoExpectation[];
+  is_self_sendable: boolean;
+  self_send_hint: string;
+};
+
+export type DemoSectionView = {
+  section: DemoSectionId;
+  title: string;
+  scenarios: DemoScenarioView[];
+};
+
+export type KitDestinations = {
+  email_address: string | null;
+  whatsapp_number: string | null;
+};
+
+export type DemoCatalogView = {
+  company_name: string;
+  sections: DemoSectionView[];
+  is_guardrail_enforced: boolean;
+  is_malware_scan_enabled: boolean;
+  destinations: KitDestinations;
+};
+
+export type DemoLaunchStatus = "running" | "completed" | "failed" | "cancelled";
+
+export type DemoLaunchStepView = {
+  index: number;
+  email_id: string | null;
+  status: InboxEmailStatus | null;
+  expected: DemoExpectation;
+  is_as_expected: boolean | null;
+};
+
+export type DemoLaunchView = {
+  launch_id: string;
+  scenario_id: string;
+  status: DemoLaunchStatus;
+  steps: DemoLaunchStepView[];
+  started_at: string;
+  error: string | null;
+};
+
+export type DemoResetResult = {
+  deleted_rows: Record<string, number>;
+  deleted_objects: number;
+  seeded_bills: number;
+  reset_at: string;
+};
+
+export type DemoStatusView = {
+  is_enabled: boolean;
+  email: string | null;
+};
+
+export type LedgerOutcome =
+  | "paid"
+  | "escalated"
+  | "held"
+  | "approved_by_human"
+  | "rejected_by_human"
+  | "duplicate"
+  | "blocked"
+  | "not_an_invoice"
+  | "missing_info"
+  | "error";
+
+export type LedgerTab = "all" | "paid" | "escalated" | "stopped";
+
+export type LedgerFilters = {
+  period: string | null;
+  tab: LedgerTab;
+  payee_id: string | null;
+  currency: string | null;
+};
+
+export type LedgerReason = {
+  rule_id: string;
+  name: string;
+  effect: RuleEffect;
+  reason: string;
+};
+
+export type LedgerEntryView = FxFields & {
+  entry_id: string;
+  occurred_at: string;
+  outcome: LedgerOutcome;
+  actor: DecisionActor;
+  payee_id: string | null;
+  payee_name: string | null;
+  payee_kind: PayeeKind | null;
+  category: PaymentCategory | null;
+  amount: Decimal | null;
+  currency: string | null;
+  amount_usd: Decimal | null;
+  reasons: LedgerReason[];
+  explanation: string;
+  note: string | null;
+  channel: BillSourceType | null;
+  subject: string | null;
+  bill_id: string | null;
+  run_id: string | null;
+  inbox_email_id: string | null;
+  is_seeded: boolean;
+};
+
+export type LedgerKpis = {
+  paid_count: number;
+  paid_usd: Decimal;
+  escalated_count: number;
+  escalated_usd: Decimal;
+  stopped_count: number;
+  stopped_usd: Decimal;
+  auto_pay_rate: Decimal;
+};
+
+export type LedgerTimelinePoint = {
+  bucket: string;
+  paid: number;
+  escalated: number;
+  stopped: number;
+};
+
+export type LimitUsage = {
+  scope: string;
+  label: string;
+  payee_currency: string | null;
+  spent_usd: Decimal;
+  limit_usd: Decimal | null;
+};
+
+export type ReasonCount = { rule_id: string; name: string; count: number };
+
+export type CurrencyTotal = {
+  currency: string;
+  amount: Decimal;
+  amount_usd: Decimal;
+  count: number;
+};
+
+export type LedgerSummaryView = {
+  period: string;
+  kpis: LedgerKpis;
+  timeline: LedgerTimelinePoint[];
+  limits: LimitUsage[];
+  top_reasons: ReasonCount[];
+  currencies: CurrencyTotal[];
+};
+
+export type RunListItemView = {
+  run_id: string;
+  status: RunStatus;
+  created_at: string;
+  duration_ms: number | null;
+  channel: BillSourceType | null;
+  sender: string | null;
+  subject: string | null;
+  verdict: Verdict | null;
+  bill_id: string | null;
+  inbox_email_id: string | null;
+  tool_count: number;
+  error: string | null;
+};
+
+export type TraceRole = "system" | "human" | "ai" | "tool";
+
+export type TraceToolCall = {
+  call_id: string;
+  name: string;
+  args: Record<string, unknown>;
+};
+
+export type TraceMessage = {
+  index: number;
+  role: TraceRole;
+  text: string;
+  tool_calls: TraceToolCall[];
+  tool_call_id: string | null;
+  tool_name: string | null;
+  output_json: Record<string, unknown> | unknown[] | null;
+};
+
+export type RunTraceView = {
+  run_id: string;
+  is_available: boolean;
+  checkpoint_id: string | null;
+  messages: TraceMessage[];
 };

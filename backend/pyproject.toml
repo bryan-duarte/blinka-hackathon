@@ -25,6 +25,7 @@ dependencies = [
     "composio-client==2.0.0rc17",
     "httpx>=0.28",
     "defusedxml>=0.7.1",
+    "fpdf2==2.8.9",
 ]
 
 [dependency-groups]

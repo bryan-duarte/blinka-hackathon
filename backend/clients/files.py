@@ -51,5 +51,8 @@ class FilesClient:
     ) -> list[EvidenceFileView]:
         return await self._service.evidence_views(owner, links)
 
+    async def purge_owner_objects(self, owner_id: UUID) -> int:
+        return await self._service.purge_owner_objects(owner_id)
+
     async def set_parse_status(self, file_id: UUID, status: FileParseStatus) -> None:
         await self._service.set_parse_status(file_id, status)

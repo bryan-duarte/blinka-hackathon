@@ -12,6 +12,8 @@ from contracts.payment_policy import (
     PayeeView,
     PaymentPolicyUpdate,
     PaymentPolicyView,
+    TrustedForwarderCreate,
+    TrustedForwarderView,
 )
 
 payment_policy_router = APIRouter(tags=["payment-policy"])
@@ -91,3 +93,30 @@ async def add_blacklist_entry(
 @payment_policy_router.delete("/blacklist/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_blacklist_entry(entry_id: UUID, user: CurrentUserDep, clients: ClientsDep) -> None:
     await clients.payment_policy.delete_blacklist_entry(user, entry_id)
+
+
+@payment_policy_router.get("/trusted-forwarders", response_model=list[TrustedForwarderView])
+async def list_trusted_forwarders(
+    user: CurrentUserDep, clients: ClientsDep
+) -> list[TrustedForwarderView]:
+    return await clients.payment_policy.list_trusted_forwarders(user)
+
+
+@payment_policy_router.post(
+    "/trusted-forwarders",
+    response_model=TrustedForwarderView,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_trusted_forwarder(
+    forwarder: TrustedForwarderCreate, user: CurrentUserDep, clients: ClientsDep
+) -> TrustedForwarderView:
+    return await clients.payment_policy.add_trusted_forwarder(user, forwarder)
+
+
+@payment_policy_router.delete(
+    "/trusted-forwarders/{forwarder_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_trusted_forwarder(
+    forwarder_id: UUID, user: CurrentUserDep, clients: ClientsDep
+) -> None:
+    await clients.payment_policy.delete_trusted_forwarder(user, forwarder_id)

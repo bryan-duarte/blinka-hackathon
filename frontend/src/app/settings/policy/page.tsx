@@ -27,8 +27,8 @@ const PERCENT = 100;
 const FULL_USAGE_PERCENT = 100;
 const NEAR_LIMIT_PERCENT = 90;
 const MAX_PROBABILITY = 1;
-const MISSING_POLICY_MESSAGE = "No hay una política configurada. Ejecuta el script de semilla o crea una.";
-const SAVE_FAILED_MESSAGE = "No se pudo guardar la política. Revisa los valores.";
+const MISSING_POLICY_MESSAGE = "No policy is configured. Run the seed script or create one.";
+const SAVE_FAILED_MESSAGE = "The policy could not be saved. Check the values.";
 const GLOBAL_SCOPE = "global";
 const CATEGORY_SCOPE_PREFIX = "category:";
 const PAYEE_SCOPE_PREFIX = "payee:";
@@ -88,19 +88,19 @@ function toUpdate(form: PolicyForm): PaymentPolicyUpdate {
 function validationError(form: PolicyForm): string | null {
   const amounts = [form.hardCap, form.autoPayMax, form.monthlyBudget, ...Object.values(form.categoryBudgets)];
   const hasNegativeOrInvalid = amounts.some((amount) => amount.trim() !== "" && !(Number(amount) >= 0));
-  if (hasNegativeOrInvalid) return "Todos los montos deben ser números mayores o iguales a 0.";
+  if (hasNegativeOrInvalid) return "Every amount must be a number greater than or equal to 0.";
   if (Number(form.autoPayMax) > Number(form.hardCap)) {
-    return "El tope de autopago no puede superar el tope por pago.";
+    return "The auto-pay limit cannot exceed the per-payment cap.";
   }
   const probabilities = [form.minFieldConfidence, form.minCategoryConfidence, form.checkerLow, form.checkerHigh];
   const hasOutOfRangeProbability = probabilities.some((probability) => !isProbability(probability));
   if (hasOutOfRangeProbability) {
-    return "Los umbrales de confianza van entre 0 y 1.";
+    return "Confidence thresholds go from 0 to 1.";
   }
   if (Number(form.checkerLow) > Number(form.checkerHigh)) {
-    return "El umbral bajo del verificador no puede superar al alto.";
+    return "The checker low threshold cannot exceed the high one.";
   }
-  if (form.currencies.length === 0) return "Agrega al menos una moneda permitida.";
+  if (form.currencies.length === 0) return "Add at least one allowed currency.";
   return null;
 }
 
@@ -180,28 +180,28 @@ export default function PolicyPage() {
       <form onSubmit={save} className="space-y-6" noValidate>
         <section className={`${CARD_CLASS} space-y-4 p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className={SECTION_HEADING_CLASS}>Límites por pago y por mes</h2>
-            <p className={HINT_CLASS}>Versión actual {policy.version}. Todos los montos en USD.</p>
+            <h2 className={SECTION_HEADING_CLASS}>Per-payment and monthly limits</h2>
+            <p className={HINT_CLASS}>Current version {policy.version}. All amounts in USD.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <NumberField
               id="hard-cap"
-              label="Tope por pago"
-              hint="Por encima, la factura se frena."
+              label="Per-payment cap"
+              hint="Above it, the invoice is held."
               value={form.hardCap}
               onChange={(hardCap) => update({ hardCap })}
             />
             <NumberField
               id="auto-pay-max"
-              label="Tope de autopago"
-              hint="Por encima, pide aprobación humana."
+              label="Auto-pay limit"
+              hint="Above it, a person must approve."
               value={form.autoPayMax}
               onChange={(autoPayMax) => update({ autoPayMax })}
             />
             <NumberField
               id="monthly-budget"
-              label="Presupuesto mensual"
-              hint="Total de pagos del mes calendario."
+              label="Monthly budget"
+              hint="Total payments in the calendar month."
               value={form.monthlyBudget}
               onChange={(monthlyBudget) => update({ monthlyBudget })}
             />
@@ -209,9 +209,9 @@ export default function PolicyPage() {
         </section>
 
         <section className={`${CARD_CLASS} p-5`}>
-          <h2 className={SECTION_HEADING_CLASS}>Categorías</h2>
+          <h2 className={SECTION_HEADING_CLASS}>Categories</h2>
           <p className={`${HINT_CLASS} mt-1`}>
-            Marca las categorías que el agente puede pagar. El presupuesto mensual por categoría es opcional.
+            Check the categories the agent can pay. The monthly budget per category is optional.
           </p>
           <ul className="mt-4 divide-y divide-line">
             {PAYMENT_CATEGORIES.map((category) => (
@@ -231,11 +231,11 @@ export default function PolicyPage() {
                   {CATEGORY_LABELS[category]}
                 </label>
                 <label className="flex items-center gap-2 text-xs text-muted">
-                  <span>Presupuesto mensual</span>
+                  <span>Monthly budget</span>
                   <input
                     id={`category-budget-${category}`}
                     inputMode="decimal"
-                    placeholder="Sin tope"
+                    placeholder="No cap"
                     value={form.categoryBudgets[category]}
                     onChange={(event) =>
                       update({
@@ -251,9 +251,9 @@ export default function PolicyPage() {
         </section>
 
         <section className={`${CARD_CLASS} space-y-3 p-5`}>
-          <h2 className={SECTION_HEADING_CLASS}>Monedas permitidas</h2>
+          <h2 className={SECTION_HEADING_CLASS}>Allowed currencies</h2>
           <p className={HINT_CLASS}>
-            Una factura en otra moneda, o sin moneda escrita, siempre pasa a revisión.
+            An invoice in another currency, or with no written currency, always goes to review.
           </p>
           <ul className="flex flex-wrap gap-2">
             {form.currencies.map((currency) => (
@@ -262,7 +262,7 @@ export default function PolicyPage() {
                   {currency}
                   <button
                     type="button"
-                    aria-label={`Quitar ${currency}`}
+                    aria-label={`Remove ${currency}`}
                     onClick={() => update({ currencies: form.currencies.filter((code) => code !== currency) })}
                     className="grid size-6 place-items-center rounded-full text-muted hover:bg-line hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                   >
@@ -274,7 +274,7 @@ export default function PolicyPage() {
           </ul>
           <div className="flex gap-2">
             <label htmlFor="currency-draft" className="sr-only">
-              Código de moneda
+              Currency code
             </label>
             <input
               id="currency-draft"
@@ -295,50 +295,50 @@ export default function PolicyPage() {
               onClick={addCurrency}
               className="h-10 rounded-md border border-line px-3 text-sm text-ink hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent"
             >
-              Agregar
+              Add
             </button>
           </div>
         </section>
 
         <section className={`${CARD_CLASS} space-y-4 p-5`}>
-          <h2 className={SECTION_HEADING_CLASS}>Duplicados y confianza</h2>
+          <h2 className={SECTION_HEADING_CLASS}>Duplicates and confidence</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <NumberField
               id="duplicate-window"
-              label="Ventana de duplicados (días)"
-              hint="Facturas parecidas dentro de este plazo pasan a revisión."
+              label="Duplicate window (days)"
+              hint="Similar invoices within this window go to review."
               value={form.duplicateWindowDays}
               onChange={(duplicateWindowDays) => update({ duplicateWindowDays })}
             />
             <NumberField
               id="min-field-confidence"
-              label="Confianza mínima de lectura"
-              hint="Entre 0 y 1. Por debajo, revisión."
+              label="Minimum reading confidence"
+              hint="Between 0 and 1. Below it, review."
               value={form.minFieldConfidence}
               onChange={(minFieldConfidence) => update({ minFieldConfidence })}
             />
             <NumberField
               id="min-category-confidence"
-              label="Confianza mínima de categoría"
-              hint="Entre 0 y 1. Protege los presupuestos por categoría."
+              label="Minimum category confidence"
+              hint="Between 0 and 1. Protects the category budgets."
               value={form.minCategoryConfidence}
               onChange={(minCategoryConfidence) => update({ minCategoryConfidence })}
             />
             <div className="grid grid-cols-2 gap-3">
               <NumberField
                 id="checker-low"
-                label="Verificador: bajo"
+                label="Checker: low"
                 value={form.checkerLow}
                 onChange={(checkerLow) => update({ checkerLow })}
               />
               <NumberField
                 id="checker-high"
-                label="Verificador: alto"
+                label="Checker: high"
                 value={form.checkerHigh}
                 onChange={(checkerHigh) => update({ checkerHigh })}
               />
               <p className={`${HINT_CLASS} col-span-2`}>
-                Respuestas del modelo entre ambos valores envían la factura a revisión.
+                Model answers between both values send the invoice to review.
               </p>
             </div>
           </div>
@@ -346,12 +346,12 @@ export default function PolicyPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={isSaving} className={PRIMARY_BUTTON_CLASS}>
-            {isSaving ? "Guardando..." : "Guardar política"}
+            {isSaving ? "Saving..." : "Save policy"}
           </button>
           <p className={HINT_CLASS} aria-live="polite">
             {savedVersion
-              ? `Guardada como versión ${savedVersion}.`
-              : `Guardar crea la versión ${policy.version + 1}; las decisiones anteriores conservan la suya.`}
+              ? `Saved as version ${savedVersion}.`
+              : `Saving creates version ${policy.version + 1}; earlier decisions keep theirs.`}
           </p>
         </div>
         {saveError && (
@@ -412,12 +412,12 @@ function BudgetPanel({ policyVersion }: { policyVersion: number }) {
   return (
     <aside className={`${CARD_CLASS} h-fit space-y-4 p-5`} aria-labelledby="budget-heading">
       <div>
-        <p className={EYEBROW_CLASS}>Este mes</p>
+        <p className={EYEBROW_CLASS}>This month</p>
         <h2 id="budget-heading" className={`${SECTION_HEADING_CLASS} mt-1`}>
-          Uso del presupuesto
+          Budget usage
         </h2>
       </div>
-      {hasError && <p className="text-sm text-danger">No se pudo cargar el uso del presupuesto.</p>}
+      {hasError && <p className="text-sm text-danger">The budget usage could not be loaded.</p>}
       {!hasError && usage === null && (
         <div aria-hidden className="space-y-3">
           {[0, 1, 2].map((row) => (
@@ -447,7 +447,7 @@ function BudgetBar({ scope, label }: { scope: BudgetUsageView; label: string }) 
         <span className="truncate text-ink">{label}</span>
         <span className="shrink-0 text-xs text-muted tabular-nums">
           {formatMoney(scope.reserved_usd, null)}
-          {scope.limit_usd !== null && ` de ${formatMoney(scope.limit_usd, null)}`}
+          {scope.limit_usd !== null && ` of ${formatMoney(scope.limit_usd, null)}`}
         </span>
       </div>
       {limit !== null && (
@@ -476,7 +476,7 @@ function scopeLabel(scope: string, payees: PayeeView[]): string {
     return CATEGORY_LABELS[category] ?? category;
   }
   const payeeId = scope.slice(PAYEE_SCOPE_PREFIX.length);
-  return payees.find((payee) => payee.payee_id === payeeId)?.display_name ?? "Beneficiario eliminado";
+  return payees.find((payee) => payee.payee_id === payeeId)?.display_name ?? "Deleted payee";
 }
 
 function PolicySkeleton() {

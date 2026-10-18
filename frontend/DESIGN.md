@@ -1,72 +1,72 @@
-# Stripe — Style Reference
-> cobalt-ink ledger on warm paper
+# Blinka — Style Reference
+> ink-on-marble editorial spread. White marble canvas, black serif headlines compressed tight, a single violet banner cutting across the top — restraint as authority.
+
+Here the references, check them to get assets: https://www.privy.io/ 
 
 **Theme:** light
 
 Source measurements are normalized; roles and recommendations are interpreted. Font summary lists are independent, not paired by position. HTML examples are reconstructions, not source components.
 
-**Palette source:** every color below is Blinka's own, read from the live stylesheet of [blinka.co](https://blinka.co/) (`/assets/main-CqMgimik.css`, October 17, 2026). The layout, type and component rules keep the Stripe reference; only the colors were replaced. Where a value is a `--launch-*` variable or appears in a named selector, the "Observed in" column says so.
-
-Stripe uses a near-monochrome financial-instrument language: a warm paper canvas (#f7f7f4) with deep ink headings, almost no decorative chrome, and one vivid cobalt (#2a4bd0) that earns the right to be a button, link, or icon stroke. Typography is exclusively sohne-var at weight 300 — even at 56px display size — which reads as confident restraint rather than corporate shouting; letter-spacing tightens aggressively as size grows. Buttons are small, squared at 4px, and use cobalt fills or hairline outlines. The system avoids shadows entirely; depth comes from background tint shifts (paper → white → #f0f2f4 → cobalt washes) rather than elevation. The whole interface behaves like a ledger or terminal: dense information, crisp rules, generous whitespace between sections, and color appearing only when something needs to be acted on.
+Blinka operates as an editorial crypto-fintech system: a near-monochrome canvas interrupted by a single vivid violet announcement band and one heavy near-black button. Typography carries the brand more than color — a custom display face (ABC Favorit) sets headlines in weight 400 at remarkably tight tracking (-0.03em) and very tight line-heights (1.03–1.15), giving even the 56px+ words a compressed, journalistic presence rather than a tech-SaaS feel. Surfaces stay flat and high-contrast: white canvas, near-black ink (#010110) for body and primary actions, with dark mode introduced selectively as full-bleed bands rather than a themable surface. Components are minimal — pill buttons (100px radius), 8px-radius cards, 1px hairline borders — letting the custom serif and the violet accent do the heavy lifting.
 
 ## Tokens — Colors
 
-| Name | Value | Token | Observed in | Role |
-|------|-------|-------|-------------|------|
-| Cobalt | `#2a4bd0` | `--color-cobalt` | `--launch-accent` | Action color for filled buttons, selected navigation states, focus outlines, and focused conversion moments. |
-| Cobalt Hover | `#2342bd` | `--color-cobalt-hover` | `.launch-primary:hover` | Hover background for every cobalt button. Hover darkens; it never lightens. |
-| Ink | `#1c253a` | `--color-ink` | `--launch-ink` | Primary heading and body text — deep navy that anchors the entire type system; also the ink button fill |
-| Ink Hover | `#334360` | `--color-ink-hover` | `.launch-button:hover` | Hover background for ink buttons |
-| Muted | `#656975` | `--color-muted` | `--launch-muted` | Gray text for labels, tags, captions, and short supporting phrases. |
-| Nav Ink | `#505563` | `--color-nav-ink` | `.launch-nav-links` | Tertiary body text, helper copy, and navigation links |
-| Quiet | `#929ba8` | `--color-quiet` | `.payment-route-currencies` | Muted text for large decorative numerals and secondary codes — never for body paragraphs |
-| Paper | `#f7f7f4` | `--color-paper` | `--launch-paper` | Page canvas; the warm default background against which everything else is measured |
-| White | `#ffffff` | `--color-white` | buttons, sheets | Elevated surfaces on paper: cards, navigation bar, inputs, footer band |
-| Sheet | `#fdfdfd` | `--color-sheet` | `.pg-card-receipt`, `.ts-transfer` | Receipts and floating product sheets |
-| Sunken | `#f0f2f4` | `--color-sunken` | `.ts-fund-choice` | Unselected choices, neutral tags, quiet section bands |
-| Sunken Hover | `#e9ecf2` | `--color-sunken-hover` | `.ts-fund-choice:hover` | Hover background on sunken choices and quiet buttons |
-| Line | `#dedfdc` | `--color-line` | `--launch-line` | Primary border and divider color; the workhorse neutral that divides content |
-| Selection | `#dce2ef` | `--color-selection` | `::selection` | Hairline outline button border (1px) — the cobalt-tinted companion to cobalt fills |
-| Soft Edge | `#e0e6f0` | `--color-soft-edge` | `.pg-activity-received` | Secondary outline button border and softer cobalt-tinted dividers |
-| Cobalt Wash | `#f3f5fd` | `--color-cobalt-wash` | `.ts-fund-choice[aria-pressed=true]` | Lightest cobalt surface — selected choices, highlighted cards, tag pills, emphasis blocks |
-| Icon Wash | `#e9edf9` | `--color-icon-wash` | `.pg-activity-received .pg-activity-icon` | Tile behind a cobalt icon in a highlighted row |
-| Route Wash | `#2a4bd00c` | `--color-route-wash` | `.payment-destination[aria-pressed=true]` | Active row in a dense list (cobalt at 4.7%) |
-| Link Underline | `#bdc0c7` | `--color-link-underline` | `.launch-legal-row a` | 1px underline of inline links before hover |
-| Night | `#111720` | `--color-night` | `.launch-footer`, dark header | Heaviest accent — emphasized borders, dark sections, and blocked states; reads almost as black-navy |
-| Night Ink | `#e9edf1` | `--color-night-ink` | `.launch-footer` | Text on night |
-| Night Muted | `#b2bbc7` | `--color-night-muted` | `.launch-footer` | Supporting text on night |
-| Night Line | `#b9c7da2b` | `--color-night-line` | dark header, footer | Dividers on night |
-| Dark Focus | `#b9c8ff` | `--color-dark-focus` | `a:focus-visible` on dark | Focus outline on any dark or cobalt surface |
-| Completed | `#007456` | `--color-completed` | `.pg-receipt-heading` | The single green on the site: the "Completed" text of a payment receipt. Text only, never a fill |
+| Name | Value | Token | Role |
+|------|-------|-------|------|
+| Canvas | `#ffffff` | `--color-canvas` | Page background, card surfaces, input fields — the dominant neutral that everything else sits on |
+| Obsidian Ink | `#010110` | `--color-obsidian-ink` | Primary text, nav borders, icon strokes, filled primary buttons, input borders — the structural near-black that reads as pure black at body sizes |
+| Carbon | `#111117` | `--color-carbon` | Dark-mode card surfaces, elevated dark panels, secondary dark backgrounds |
+| Graphite | `#22222a` | `--color-graphite` | Highest elevation in dark mode — feature card backgrounds, overlaid panels |
+| Fog | `#73737c` | `--color-fog` | Muted helper text, secondary body copy, subtle borders — the only neutral that drops to medium contrast intentionally |
+| Ash | `#d9d9d9` | `--color-ash` | Decorative dot pattern, hairline dividers, inactive surface washes |
+| Iris Pulse | `#635bff` | `--color-iris-pulse` | Announcement bar fill, link hover states, the single chromatic accent — violet against monochrome creates a strobe effect that draws the eye to time-sensitive copy |
+| Deep Teal | `#072723` | `--color-deep-teal` | Decorative illustration fills, abstract graphic washes inside hero imagery — carries no UI function, lives only in artwork |
 
 ## Tokens — Typography
 
-### sohne-var — Sole type family across the entire interface — headings, body, navigation, buttons, and labels. Weight 300 dominates even at 56px display size, which is the signature: headlines whisper instead of shout, earning authority through restraint rather than volume. Weight 400 appears only at 14–16px for navigation and button text where small-size readability needs the extra stroke. · `--font-sohne-var`
-- **Substitute:** Inter Tight (variable, weight 300/400) or a similar humanist sans with tall x-height
-- **Weights:** 300, 400
-- **Sizes:** 12, 14, 16, 18, 20, 22, 26, 32, 48, 56
-- **Line height:** 1.00, 1.03, 1.10, 1.12, 1.20, 1.40, 1.45
-- **Letter spacing:** -0.0100em at 26px and below; -0.0200em at 32–48px; -0.0250em at 56px; -0.0300em reserved for the largest display sizes — tracking tightens aggressively as type grows, creating the characteristic 'pulled-in' feel of Stripe's headlines
-- **OpenType features:** `"ss01" on, "tnum" on`
-- **Role:** Sole type family across the entire interface — headings, body, navigation, buttons, and labels. Weight 300 dominates even at 56px display size, which is the signature: headlines whisper instead of shout, earning authority through restraint rather than volume. Weight 400 appears only at 14–16px for navigation and button text where small-size readability needs the extra stroke.
+### sans-serif — sans-serif — detected in extracted data but not described by AI · `--font-sans-serif`
+- **Weights:** 400
+- **Sizes:** 12px
+- **Line height:** 1.2
+- **Role:** sans-serif — detected in extracted data but not described by AI
+
+### ABC Favorit Variable — Display and heading face — used for hero headlines (52–76px), section headings (26–28px), and the occasional large inline link. The weight-400 setting is anti-convention: most fintech sites use 600–700 for headlines, but Favorit's high-contrast serifs at regular weight deliver authority through typographic personality rather than stroke weight. Letter-spacing -0.03em at 56px gives a compressed, editorial feel — words read as dense blocks of ink. · `--font-abc-favorit-variable`
+- **Substitute:** GT Super, Tiempos Headline, or Source Serif 4 (closest free match for the high-contrast serif feel)
+- **Weights:** 400
+- **Sizes:** 16px, 26px, 28px, 52px, 56px, 76px
+- **Line height:** 1.03–1.29
+- **Letter spacing:** -0.03em at all display sizes (≈ -1.68px at 56px, -2.28px at 76px)
+- **Role:** Display and heading face — used for hero headlines (52–76px), section headings (26–28px), and the occasional large inline link. The weight-400 setting is anti-convention: most fintech sites use 600–700 for headlines, but Favorit's high-contrast serifs at regular weight deliver authority through typographic personality rather than stroke weight. Letter-spacing -0.03em at 56px gives a compressed, editorial feel — words read as dense blocks of ink.
+
+### Inter — Body, UI, and navigation face — used for paragraphs (16–18px), nav items (14–15px), buttons (14–16px), captions (12–13px), and the occasional subheading (20–21px). Weight 500 for emphasized inline text, 700 reserved for small-caps-style labels and tag-like UI. Letter-spacing -0.02em tightens the geometric sans so it doesn't feel too generic next to Favorit. · `--font-inter`
+- **Substitute:** Inter (already Google-hosted)
+- **Weights:** 400, 500, 700
+- **Sizes:** 12px, 13px, 14px, 15px, 16px, 17px, 18px, 20px, 21px, 38px
+- **Line height:** 1.20–1.90
+- **Letter spacing:** -0.02em (≈ -0.28px at 14px, -0.32px at 16px, -0.36px at 18px)
+- **Role:** Body, UI, and navigation face — used for paragraphs (16–18px), nav items (14–15px), buttons (14–16px), captions (12–13px), and the occasional subheading (20–21px). Weight 500 for emphasized inline text, 700 reserved for small-caps-style labels and tag-like UI. Letter-spacing -0.02em tightens the geometric sans so it doesn't feel too generic next to Favorit.
+
+### ABC Favorit Unlicensed Trial — ABC Favorit Unlicensed Trial — detected in extracted data but not described by AI · `--font-abc-favorit-unlicensed-trial`
+- **Weights:** 400
+- **Sizes:** 56px
+- **Line height:** 1.07
+- **Letter spacing:** -0.03
+- **Role:** ABC Favorit Unlicensed Trial — detected in extracted data but not described by AI
 
 ### Type Scale
 
 | Role | Family | Weight | Size | Line Height | Letter Spacing | Token |
 |------|--------|--------|------|-------------|----------------|-------|
-| caption | — | — | 12px | 1.45 | -0.12px | `--text-caption` |
-| body-sm | — | — | 14px | 1.4 | -0.14px | `--text-body-sm` |
-| body | — | — | 16px | 1.2 | -0.16px | `--text-body` |
-| body-lg | — | — | 20px | 1.4 | -0.2px | `--text-body-lg` |
-| subheading | — | — | 22px | 1.1 | -0.22px | `--text-subheading` |
-| heading-sm | — | — | 26px | 1.12 | -0.26px | `--text-heading-sm` |
-| heading | — | — | 32px | 1.1 | -0.64px | `--text-heading` |
-| heading-lg | — | — | 48px | 1.03 | -0.96px | `--text-heading-lg` |
-| display | — | — | 56px | 1.03 | -1.4px | `--text-display` |
+| caption | — | — | 12px | 1.4 | -0.24px | `--text-caption` |
+| body-sm | — | — | 14px | 1.5 | -0.28px | `--text-body-sm` |
+| body | — | — | 16px | 1.5 | -0.32px | `--text-body` |
+| subheading | — | — | 20px | 1.4 | -0.4px | `--text-subheading` |
+| heading-sm | — | — | 26px | 1.13 | -0.78px | `--text-heading-sm` |
+| heading | — | — | 38px | 1.15 | -1.14px | `--text-heading` |
+| heading-lg | — | — | 56px | 1.07 | -1.68px | `--text-heading-lg` |
+| display | — | — | 76px | 1.03 | -2.28px | `--text-display` |
 
 ## Tokens — Spacing & Shapes
-
-**Base unit:** 8px
 
 **Density:** comfortable
 
@@ -74,173 +74,163 @@ Stripe uses a near-monochrome financial-instrument language: a warm paper canvas
 
 | Name | Value | Token |
 |------|-------|-------|
+| 4 | 4px | `--spacing-4` |
+| 5 | 5px | `--spacing-5` |
+| 6 | 6px | `--spacing-6` |
 | 8 | 8px | `--spacing-8` |
+| 10 | 10px | `--spacing-10` |
+| 12 | 12px | `--spacing-12` |
+| 15 | 15px | `--spacing-15` |
 | 16 | 16px | `--spacing-16` |
+| 17 | 17px | `--spacing-17` |
+| 19 | 19px | `--spacing-19` |
+| 20 | 20px | `--spacing-20` |
 | 24 | 24px | `--spacing-24` |
+| 28 | 28px | `--spacing-28` |
+| 30 | 30px | `--spacing-30` |
 | 32 | 32px | `--spacing-32` |
-| 40 | 40px | `--spacing-40` |
-| 48 | 48px | `--spacing-48` |
-| 64 | 64px | `--spacing-64` |
-| 80 | 80px | `--spacing-80` |
-| 96 | 96px | `--spacing-96` |
+| 70 | 70px | `--spacing-70` |
 
 ### Border Radius
 
 | Element | Value |
 |---------|-------|
+| nav | 8px |
 | tags | 9999px |
-| cards | 4px |
-| inputs | 4px |
-| buttons | 4px |
+| cards | 8px |
+| images | 8px |
+| buttons | 100px |
 
 ### Layout
 
-- **Page max-width:** 1320px
-- **Section gap:** 96px
-- **Card padding:** 32px
-- **Element gap:** 8px
+- **Page max-width:** 1200px
+- **Section gap:** 80px
+- **Card padding:** 24px
+- **Element gap:** 12-16px
 
 ## Components
 
 ### Primary Filled Button
-**Role:** Main conversion action — 'Empieza ahora', 'Contacta con ventas'
+**Role:** Main action button — 'Get started' in the hero
 
-Background #2a4bd0, white text (#ffffff), 4px radius, padding 15.5px 24px (vertical slightly asymmetric due to optical alignment). Typography: sohne-var weight 400 at 14px. On hover, darkens to #2342bd. No shadow. The 4px radius — not pill, not square — is a deliberate middle ground that reads as professional rather than friendly.
+Fill #010110, text #ffffff at 15px Inter weight 500, letter-spacing -0.02em. Padding 12px 20px. Radius 100px (full pill). No border. No shadow — the dark fill against white canvas is the elevation. Arrow icon (→) at 14px in the same color as text, 6px gap from label.
 
 ### Ghost Outline Button
-**Role:** Secondary action paired with a filled CTA — 'Accede con tu cuenta de Google'
+**Role:** Secondary action — 'Talk to sales', 'Learn more'
 
-Transparent background, cobalt text (#2a4bd0), 1px border in #dce2ef (selection), 4px radius, padding 14.5px 24px. Same typographic spec as the filled button (sohne-var 400 at 14px). The border is intentionally lighter than the text — the text is the loud element, the border whispers. Hover fills with #f3f5fd.
+Transparent fill, 1px border in #010110. Text #010110 at 15px Inter weight 500. Padding 12px 20px. Radius 100px. On hover: fill #010110, text inverts to #ffffff.
 
-### Tertiary Outline Button
-**Role:** Low-emphasis action — 'Conoce su historia', link-style buttons
+### Pill Link Button (Header)
+**Role:** Inline link styled as pill — 'Learn more' in announcement bar
 
-Transparent background, cobalt text, 1px border in #e0e6f0 (soft edge, paler than selection), 4px radius, smaller padding. Used when a button is needed but shouldn't compete with the primary action above it.
+Transparent fill, 1px border in #ffffff. Text #ffffff at 13–14px Inter. Padding 6px 14px. Radius 100px.
 
-### Text Link Button
-**Role:** Inline action with chevron — 'Empieza ahora ›' inside body copy
+### Announcement Bar
+**Role:** Top-of-page banner with time-sensitive copy
 
-No border, no background. Text in #2a4bd0 with a trailing chevron character. Typography: sohne-var weight 400 at 16px, inheriting body line-height. Often paired with a brief description above it. The chevron is part of the visual identity — directional without being aggressive.
-
-### Underline Link
-**Role:** In-paragraph links and editorial references
-
-Text in #2a4bd0 with a 1px underline in the same color. No border, no background. Used for inline references within body copy where the chevron pattern would feel too heavy. Legal and footer links use ink text with a #bdc0c7 underline that turns to the current color on hover.
-
-### Section Heading Block
-**Role:** Major section title with supporting paragraph — appears at top of each product section
-
-Display-size heading (48–56px sohne-var weight 300, #1c253a, letter-spacing -0.96 to -1.40px) on one or two lines, followed by a muted (#656975) supporting paragraph at 22–26px weight 300. Generous vertical gap (32–48px) between heading and paragraph. This is the 'Stripe statement' pattern — confident headline, quiet explanation.
-
-### Product Feature Card
-**Role:** Card describing a Stripe product capability (Payments, Billing, Connect, etc.)
-
-Paper (#f7f7f4) or white (#ffffff) surface, no shadow, no visible border by default. Content: small muted label or tag at top, then heading-sm (32px weight 300 #1c253a), then body paragraph. Generous internal padding (~32px). Cards are distinguished only by layout and whitespace, never by chrome.
-
-### Customer Logo Rail
-**Role:** Social proof — vertical stack of customer brand logos (Amazon, Ford, Coinbase, Google, Mindbody, etc.)
-
-Logos rendered at their native brand colors on the paper background, vertically stacked with consistent spacing. Logos retain their original palette — the rail itself uses no Stripe chrome. Functions as a 'who trusts us' signal without visual competition with surrounding content.
+Full-width band, fill #635bff (Iris Pulse violet). Text #ffffff at 13px Inter weight 500, centered. Inline pill link on the right with 1px white border. Padding 10px 24px. The violet against the white canvas below creates the only chromatic break in the system.
 
 ### Navigation Bar
-**Role:** Top-level site navigation
+**Role:** Primary site navigation
 
-Paper or white background, hairline #dedfdc bottom border (1px). Wordmark on left in #1c253a. Menu items (Productos, Soluciones, Desarrolladores, Recursos, Tarifas) in sohne-var weight 400 at 14px, #505563, with 8px gap between items. Right side: ghost outline 'Inicia sesión' link and filled primary 'Contacta con ventas' button. Fixed height ~76px.
+White background (#ffffff), 1px bottom border in #010110 at 10–20% opacity. Logo left (16px Inter weight 700, #010110), nav links center (15px Inter weight 400, #010110, 10px row-gap between icon+label clusters). Right cluster: text links + outlined 'Log in' button (1px #010110 border, 100px radius, 15px Inter). Height ~64px.
 
-### Metric/Stat Block
-**Role:** Displaying large numbers — '50%', '1.4T$', etc.
+### Dark Feature Card
+**Role:** Three-up grid card in dark sections ('Secure by design', 'Whitelabel and modular', 'Scales as you grow')
 
-Number rendered at display size (48–56px sohne-var weight 300 #1c253a, tight letter-spacing) with a muted (#656975) label below it at body size. No card, no border — the number itself carries the visual weight. The combination of whisper-weight type and enormous size creates a distinctive 'quiet monument' effect.
+Background #22222a (Graphite) on a #111117 (Carbon) section background — subtle 1-tone separation. 8px radius. Padding 24–32px. 3D isometric illustration at top in #333333-to-#444444 line art. Heading in Inter weight 500 at 18–20px, #ffffff. Body in Inter weight 400 at 14–15px, #73737c (Fog). No border, no shadow.
 
-### Hero CTA Pair
-**Role:** Primary + secondary action group at the top of the page
+### Phone Mockup Card
+**Role:** Product UI shown over hero artwork
 
-Filled primary button ('Empieza ahora') directly followed by ghost outline button ('Accede con tu cuenta de Google') with 8px gap. Both at the same height (14px text, ~48px total). The ghost button features a small Google 'G' icon before its text — a rare instance of an inline icon in a button.
+White device frame with 24–32px radius. Internal UI uses #ffffff background, #010110 text, 8px radii for inner elements. Sits over a textured green/teal abstract background with subtle gradient washes.
 
-### Section Divider
-**Role:** Horizontal rule between major page sections
+### Dashboard Preview Panel
+**Role:** Desktop product screenshot overlay in hero
 
-A 1px solid line in #dedfdc spanning the full content width. No decorative elements — just a quiet horizontal rule that resets the page rhythm. This is the primary structural element of the layout; there are no shadows, no background shifts between sections.
+White surface (#ffffff) with 8px radius. Internal cards use #ffffff on #f7f7f7 backgrounds. Data tables with 1px #d9d9d9 row dividers. Mini chart elements use #635bff stroke for accent lines on a #ffffff background.
+
+### Footer
+**Role:** Site footer with link columns and decorative pattern
+
+White background with a light dotted/halftone pattern overlay in #d9d9d9 at 20% opacity covering the upper half. Four-column link grid: headings 14px Inter weight 700 #010110, links 14px Inter weight 400 #73737c, 10px row-gap. Bottom row: copyright + social icons (16px, #010110) + brand quote in 14px Inter.
+
+### Text Link
+**Role:** Inline and standalone links
+
+Color #010110, no underline by default. 1px underline appears on hover. Arrow glyph (→) in same color, used for directional/CTA links. Transitions are 150ms ease.
+
+### Logo Wordmark
+**Role:** Brand mark in nav and footer
+
+Small dot (8px circle #010110) + 'Blinka' in Inter weight 700 at 16px, #010110, letter-spacing -0.02em. Optional '/stripe company' suffix at 13px Inter weight 400 in #73737c.
 
 ## Do's and Don'ts
 
 ### Do
-- Use #2a4bd0 exclusively for primary actions, active links, and icon strokes — never for body text, backgrounds spanning large areas, or decorative elements
-- Set all headings and body text to sohne-var weight 300 — the whisper-weight is the signature; do not use weight 600 or 700 anywhere except the Stripe wordmark
-- Tighten letter-spacing as type size grows: -0.0100em up to 26px, -0.0200em at 32–48px, -0.0250em at 56px, -0.0300em above 56px
-- Apply font-feature-settings: 'ss01' on, 'tnum' on to all text — tabular numerals are essential for the metric/stat blocks and pricing displays
-- Use 4px border-radius on all buttons, inputs, and cards — never 0px (too sharp), never pill (too friendly), never 8px+ (too soft)
-- Separate sections with 1px #dedfdc horizontal rules and 96px vertical gaps — do not use background color shifts, shadows, or card containers to divide content
-- Pair each filled primary button with a ghost outline button (#dce2ef border) as its secondary action — never present a filled button alone
-- Use #b9c8ff for focus outlines on night or cobalt surfaces, and #2a4bd0 everywhere else
+- Use ABC Favorit (or GT Super / Source Serif 4 substitute) for all display headlines 26px and above — never substitute Inter at display sizes, the typographic contrast is the brand
+- Set display headlines at weight 400 with -0.03em letter-spacing and line-height 1.03–1.15 — the tight tracking and light weight are the signature, do not bold them
+- Use #010110 (Obsidian Ink) for all filled primary buttons, not #635bff — the violet is reserved for the announcement bar and links only
+- Reserve #635bff (Iris Pulse) for exactly three contexts: announcement bar fill, inline link hover, and decorative chart strokes — never use it for body text, borders, or large fills
+- Use pill radius (100px) for all buttons and tags, 8px radius for all cards and images, 2px for icons — do not mix additional radius values into the system
+- Use hairline 1px borders in #010110 at reduced opacity for dividers and card edges, not colored borders or shadows for separation
+- Place the Iris Pulse announcement bar as a full-bleed band above the nav, not inside it — the chromatic break must hit before any other UI
 
 ### Don't
-- Do not use shadows, blurs, or any form of CSS elevation on cards, buttons, or images — depth comes from background tint, never from box-shadow
-- Do not introduce additional accent colors — the system is monochromatic plus one cobalt; adding greens, oranges, or pinks breaks the ledger aesthetic. The only exception is #007456, as text, for a completed payment
-- Do not use semibold or bold weights for headings — weight 300 at display size is the entire typographic identity
-- Do not use rounded corners beyond 4px — pill buttons, large radii, or fully circular elements break the precision-tool feel
-- Do not fill large areas with #2a4bd0 — the cobalt should appear in small functional doses (buttons, links, icon strokes); large cobalt backgrounds belong only to feature cards designed for contrast
-- Do not center body copy or headings — Stripe text blocks are always left-aligned within their column; centering is reserved for logo marks and a few isolated stat displays
-- Do not use #656975 or #505563 for anything longer than a sentence — these are muted text colors for labels and captions, not for paragraphs
-- Do not use pure white (#ffffff) as the page canvas — the canvas is paper (#f7f7f4); white is a raised surface
+- Do not use #635bff as a CTA button fill — the primary action is always #010110; violet belongs only in the announcement band and link contexts
+- Do not set headlines in Inter at 40px+ — the custom serif (or its substitute) is mandatory for display sizes
+- Do not add drop shadows to cards or buttons — the system relies on flat surfaces, hairline borders, and background tone shifts for hierarchy
+- Do not introduce additional accent colors (greens, blues, oranges) — the palette is monochrome plus one violet, period
+- Do not use letter-spacing above -0.02em for body text or above -0.03em for display — the system is aggressively tight-tracked
+- Do not use the dark surface palette (#111117, #22222a) on light-mode pages — dark is a sectional choice, not a theme toggle
+- Do not mix radius values between 8px and 100px — cards and images get exactly 8px, buttons and tags get exactly 100px
 
 ## Surfaces
 
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
-| 0 | Paper | `#f7f7f4` | Primary page background for hero and most content sections |
-| 1 | White | `#ffffff` | Navigation bar, cards, inputs, and the footer band; a quiet lift off the paper |
-| 2 | Sunken | `#f0f2f4` | Unselected choices, neutral tags, hover backgrounds (#e9ecf2 on hover); creates depth without shadow |
-| 3 | Cobalt Wash | `#f3f5fd` | Tinted surface for selected choices, highlighted content blocks and emphasized cards |
-| 4 | Cobalt Surface | `#2a4bd0` | Brand accent surface for feature cards or dramatic highlight panels |
-| — | Night | `#111720` | Dark sections and footer on the marketing site, with #e9edf1 text and #b2bbc7 supporting text |
+| 0 | Canvas | `#ffffff` | Primary page background, dominant surface |
+| 1 | Card | `#ffffff` | Product preview cards, dashboard panels — same as canvas with 8px radius and internal structure |
+| 2 | Subtle Wash | `#d9d9d9` | Decorative pattern overlay, hairline dividers, inactive states |
+| 3 | Carbon | `#111117` | Dark mode section background — full-bleed band |
+| 4 | Graphite | `#22222a` | Dark mode elevated card — one tone above Carbon |
 
 ## Elevation
 
-Stripe avoids shadows entirely. Depth and hierarchy are created through background tint progression (#f7f7f4 → #ffffff → #f0f2f4 → #f3f5fd → #2a4bd0), hairline 1px dividers in #dedfdc, and generous whitespace. No card has a box-shadow. No button has a shadow on any state. This flatness is deliberate — it reads as financial instrument rather than consumer app.
+Elevation is communicated through background tone shifts and hairline borders, never shadows. Dark mode uses a two-tone stack (#111117 base → #22222a cards) for depth. Light mode relies on the contrast between #ffffff cards and #d9d9d9 decorative patterns. This flatness is deliberate — it keeps focus on the custom display typography.
 
 ## Imagery
 
-Imagery is restrained and documentary-style. Full-bleed photographs appear only in editorial case-study sections (e.g., aerial traffic photography for Hertz), shot from above or at a dramatic angle with natural color — no duotone or color treatment. Product UI screenshots are used inside feature cards, rendered with sharp corners and 1px borders, no device frames. Logo rails show partner brands in their native colors without any wrapping container. There are no illustrations, no 3D renders, no decorative abstract graphics. Icons are uniform: 1.5px stroke weight, #2a4bd0 stroke on paper or white, geometric line-art style (chevrons, arrows, checkmarks, document marks). The page is predominantly text-and-whitespace; images occupy less than 15% of total visual area.
+Imagery is minimal and editorial: a single large abstract green/teal painted wash appears in the hero behind phone mockups, giving the only organic texture on the page. The dark feature section uses 3D isometric line-art illustrations in near-black-on-near-black (#333–#444 on #22222a) — these are geometric, architectural, not playful. Product mockups (phone and dashboard) are shown at a slight angle, overlapping the abstract wash, with realistic UI inside white frames. Iconography is monochrome outlined at 16–20px, stroke weight 1.5px. No photography, no lifestyle imagery, no decorative gradients.
 
 ## Layout
 
-Max-width ~1320px centered content column on the paper canvas. Hero is a left-aligned text block at full display size (56px) with two CTAs below, no hero image — the typography IS the hero. Sections are stacked vertically with consistent 96px gaps and 1px #dedfdc dividers; no alternating dark/light bands. Each section follows a repeating pattern: small uppercase section label (muted color, 12px), then a 32–48px heading, then a 22px muted paragraph, then a grid of product cards (3-column at desktop) or a 2-column text-plus-visual block. Customer logos appear in a narrow left-aligned vertical rail. Footer is a single wide white band with multi-column link lists. The overall rhythm is slow, deliberate, and text-dominant — information density is low despite long scroll length.
+Max-width 1200px centered content with full-bleed background bands. The hero uses a two-column split: left half holds the headline (Favorit 56–76px), subtext (Inter 18px), and dual CTAs (filled + ghost, pill-shaped); right half is dominated by the abstract painted wash with overlapping phone and dashboard mockups. Below the hero, a horizontal logo strip of partner brands on white. Mid-page switches to a full-bleed dark section with centered headline and a 3-column feature card grid. Footer returns to white with a dotted halftone pattern across the upper portion and a 4-column link grid. Section gaps are ~80px. The layout rhythm alternates white → dark band → white, with the dark band as the only tonal break.
 
 ## Agent Prompt Guide
 
-## Quick Color Reference
-- Text primary: #1c253a
-- Text secondary: #656975
-- Text muted: #505563
-- Background canvas: #f7f7f4
-- Raised surface / band: #ffffff
-- Border / divider: #dedfdc
-- Accent / link / icon stroke: #2a4bd0
-- Hover accent: #2342bd
-- Ghost button border: #dce2ef
-- Selected / highlighted surface: #f3f5fd
-- primary action: #2a4bd0 (filled action)
+Quick Color Reference:
+- text: #010110 (Obsidian Ink)
+- background: #ffffff (Canvas)
+- border: #010110 at 1px (hairline)
+- accent: #635bff (Iris Pulse — announcement bar and links only)
+- muted text: #73737c (Fog)
+- primary action: #010110 (filled action)
 
-## Example Component Prompts
-
-1. Create a Primary Action Button: #2a4bd0 background, #ffffff text, 9999px radius, compact pill padding. Use this filled treatment for the main CTA.
-
-2. **Product feature card grid**: Paper (#f7f7f4) cards on the paper canvas, no shadow, no border. Each card: 32px padding, 8px gap between label and heading. Label at 12px sohne-var weight 300 in #929ba8. Heading at 32px weight 300 in #1c253a, letter-spacing -0.64px. Body at 16px weight 400 in #505563, line-height 1.40. 3-column grid with 24px column gap. Separate cards by whitespace alone — no visible borders.
-
-3. **Section heading + stat block**: 96px top padding. Section label at 12px sohne-var weight 300 in #656975, text-transform uppercase, letter-spacing 0.5px. Heading at 48px weight 300 in #1c253a, letter-spacing -0.96px. Below: a large stat — number at 56px weight 300 in #1c253a, with a muted (#656975) 18px label below it. 32px gap between heading and stat.
-
-4. **Ghost outline button**: Transparent background. Text at 14px sohne-var weight 400 in #2a4bd0. 1px solid border in #dce2ef. 4px border-radius. Padding: 14.5px top, 24px left/right, 15.5px bottom. No shadow. Optional inline icon at 16px to the left of text, rendered as 1.5px stroke #2a4bd0 line-art.
-
-5. **Section divider**: 1px solid horizontal line in #dedfdc, spanning the full content width (max 1320px), centered. 96px vertical space above and below.
+3-5 Example Component Prompts:
+1. Create a hero section: white #ffffff background, max-width 1200px centered. Headline in ABC Favorit weight 400, 56px, #010110, letter-spacing -1.68px, line-height 1.07. Subtext in Inter weight 400, 18px, #73737c. primary action: #010110 (filled action)
+2. Create a dark feature section: full-bleed #111117 background, centered headline in ABC Favorit weight 400, 38px, #ffffff, letter-spacing -1.14px. Below: a 3-column grid of dark feature cards. Each card: #22222a background, 8px radius, padding 24px. Isometric line-art icon at top in #444444 strokes. Card heading in Inter weight 500, 18px, #ffffff. Card body in Inter weight 400, 14px, #73737c.
+3. Create a top announcement bar: full-width #635bff background, padding 10px 24px, centered text in Inter weight 500, 13px, #ffffff reading an announcement. Right-aligned inline pill link: transparent fill, 1px #ffffff border, #ffffff text 13px Inter, padding 6px 14px, radius 100px, with a → arrow glyph.
+4. Create a footer: white #ffffff background with a #d9d9d9 dotted halftone pattern at 20% opacity covering the top 60%. Below: a 4-column grid of link groups. Group headings in Inter weight 700, 14px, #010110. Links in Inter weight 400, 14px, #73737c, row-gap 10px. Bottom row: copyright in Inter 12px #73737c, social icons (16px, #010110) right-aligned.
+5. Create a navigation bar: white #ffffff background, 1px bottom border in #010110 at 15% opacity, height 64px. Logo left: 8px black dot + 'Blinka' in Inter weight 700, 16px, #010110. Center nav: 4 items, each with a 14px icon above a 13px Inter label, 10px row-gap, #010110. Right cluster: 'Docs' and 'Demo' text links in Inter 14px #010110, then a 'Log in' ghost pill button: transparent fill, 1px #010110 border, 15px Inter weight 500, padding 8px 18px, radius 100px.
 
 ## Similar Brands
 
-- **Linear** — Same sohne-var weight 300 headline approach, same tight letter-spacing at large sizes, same single-accent-color-on-monochrome discipline, same avoidance of shadows
-- **Vercel** — Same whisper-weight display headlines, same minimal-chrome card design, same restraint with color — but Vercel uses black instead of cobalt as the accent
-- **Notion** — Same left-aligned text-led layout with generous section gaps and 1px hairline dividers instead of shadows or card containers
-- **Figma** — Same monochromatic base with one vivid accent for actions and icons, same hairline borders, same flat-surface philosophy
-- **Arc browser** — Same playful-but-precise typographic voice at weight 300, same trust in whitespace rather than chrome
+- **Stripe** — Same near-monochrome palette with a single accent color, same custom-feeling display type, same pill buttons and restrained flat surfaces
+- **Linear** — Both use a single chromatic accent against a monochrome canvas, both favor custom display type over system fonts, both keep components flat and minimal
+- **Vercel** — Same editorial-restraint aesthetic: black-and-white default, high-contrast typography, hairline borders, no decorative shadows
+- **Plaid** — Similar fintech infrastructure positioning expressed through editorial type and monochrome surfaces with a single blue accent
+- **Rainbow (Web3 wallet)** — Same crypto-infrastructure audience, same product-mockup-over-abstract-graphic hero treatment
 
 ## Quick Start
 
@@ -248,103 +238,99 @@ Max-width ~1320px centered content column on the paper canvas. Hero is a left-al
 
 ```css
 :root {
-  /* Colors (from blinka.co) */
-  --color-cobalt: #2a4bd0;
-  --color-cobalt-hover: #2342bd;
-  --color-ink: #1c253a;
-  --color-ink-hover: #334360;
-  --color-muted: #656975;
-  --color-nav-ink: #505563;
-  --color-quiet: #929ba8;
-  --color-paper: #f7f7f4;
-  --color-white: #ffffff;
-  --color-sheet: #fdfdfd;
-  --color-sunken: #f0f2f4;
-  --color-sunken-hover: #e9ecf2;
-  --color-line: #dedfdc;
-  --color-selection: #dce2ef;
-  --color-soft-edge: #e0e6f0;
-  --color-cobalt-wash: #f3f5fd;
-  --color-icon-wash: #e9edf9;
-  --color-route-wash: #2a4bd00c;
-  --color-link-underline: #bdc0c7;
-  --color-night: #111720;
-  --color-night-ink: #e9edf1;
-  --color-night-muted: #b2bbc7;
-  --color-night-line: #b9c7da2b;
-  --color-dark-focus: #b9c8ff;
-  --color-completed: #007456;
+  /* Colors */
+  --color-canvas: #ffffff;
+  --color-obsidian-ink: #010110;
+  --color-carbon: #111117;
+  --color-graphite: #22222a;
+  --color-fog: #73737c;
+  --color-ash: #d9d9d9;
+  --color-iris-pulse: #635bff;
+  --color-deep-teal: #072723;
 
   /* Typography — Font Families */
-  --font-sohne-var: 'sohne-var', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans-serif: 'sans-serif', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-abc-favorit-variable: 'ABC Favorit Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-abc-favorit-unlicensed-trial: 'ABC Favorit Unlicensed Trial', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Typography — Scale */
   --text-caption: 12px;
-  --leading-caption: 1.45;
-  --tracking-caption: -0.12px;
+  --leading-caption: 1.4;
+  --tracking-caption: -0.24px;
   --text-body-sm: 14px;
-  --leading-body-sm: 1.4;
-  --tracking-body-sm: -0.14px;
+  --leading-body-sm: 1.5;
+  --tracking-body-sm: -0.28px;
   --text-body: 16px;
-  --leading-body: 1.2;
-  --tracking-body: -0.16px;
-  --text-body-lg: 20px;
-  --leading-body-lg: 1.4;
-  --tracking-body-lg: -0.2px;
-  --text-subheading: 22px;
-  --leading-subheading: 1.1;
-  --tracking-subheading: -0.22px;
+  --leading-body: 1.5;
+  --tracking-body: -0.32px;
+  --text-subheading: 20px;
+  --leading-subheading: 1.4;
+  --tracking-subheading: -0.4px;
   --text-heading-sm: 26px;
-  --leading-heading-sm: 1.12;
-  --tracking-heading-sm: -0.26px;
-  --text-heading: 32px;
-  --leading-heading: 1.1;
-  --tracking-heading: -0.64px;
-  --text-heading-lg: 48px;
-  --leading-heading-lg: 1.03;
-  --tracking-heading-lg: -0.96px;
-  --text-display: 56px;
+  --leading-heading-sm: 1.13;
+  --tracking-heading-sm: -0.78px;
+  --text-heading: 38px;
+  --leading-heading: 1.15;
+  --tracking-heading: -1.14px;
+  --text-heading-lg: 56px;
+  --leading-heading-lg: 1.07;
+  --tracking-heading-lg: -1.68px;
+  --text-display: 76px;
   --leading-display: 1.03;
-  --tracking-display: -1.4px;
+  --tracking-display: -2.28px;
 
   /* Typography — Weights */
-  --font-weight-light: 300;
   --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
 
   /* Spacing */
-  --spacing-unit: 8px;
+  --spacing-4: 4px;
+  --spacing-5: 5px;
+  --spacing-6: 6px;
   --spacing-8: 8px;
+  --spacing-10: 10px;
+  --spacing-12: 12px;
+  --spacing-15: 15px;
   --spacing-16: 16px;
+  --spacing-17: 17px;
+  --spacing-19: 19px;
+  --spacing-20: 20px;
   --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-30: 30px;
   --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-48: 48px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-96: 96px;
+  --spacing-70: 70px;
 
   /* Layout */
-  --page-max-width: 1320px;
-  --section-gap: 96px;
-  --card-padding: 32px;
-  --element-gap: 8px;
+  --page-max-width: 1200px;
+  --section-gap: 80px;
+  --card-padding: 24px;
+  --element-gap: 12-16px;
 
   /* Border Radius */
-  --radius-md: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --radius-lg-2: 10.2px;
+  --radius-3xl: 41px;
+  --radius-full: 48px;
+  --radius-full-2: 100px;
+  --radius-full-3: 951px;
 
   /* Named Radii */
+  --radius-nav: 8px;
   --radius-tags: 9999px;
-  --radius-cards: 4px;
-  --radius-inputs: 4px;
-  --radius-buttons: 4px;
+  --radius-cards: 8px;
+  --radius-images: 8px;
+  --radius-buttons: 100px;
 
   /* Surfaces */
-  --surface-paper: #f7f7f4;
-  --surface-white: #ffffff;
-  --surface-sunken: #f0f2f4;
-  --surface-cobalt-wash: #f3f5fd;
-  --surface-cobalt: #2a4bd0;
-  --surface-night: #111720;
+  --surface-canvas: #ffffff;
+  --surface-card: #ffffff;
+  --surface-subtle-wash: #d9d9d9;
+  --surface-carbon: #111117;
+  --surface-graphite: #22222a;
 }
 ```
 
@@ -352,77 +338,73 @@ Max-width ~1320px centered content column on the paper canvas. Hero is a left-al
 
 ```css
 @theme {
-  /* Colors (from blinka.co) */
-  --color-cobalt: #2a4bd0;
-  --color-cobalt-hover: #2342bd;
-  --color-ink: #1c253a;
-  --color-ink-hover: #334360;
-  --color-muted: #656975;
-  --color-nav-ink: #505563;
-  --color-quiet: #929ba8;
-  --color-paper: #f7f7f4;
-  --color-white: #ffffff;
-  --color-sheet: #fdfdfd;
-  --color-sunken: #f0f2f4;
-  --color-sunken-hover: #e9ecf2;
-  --color-line: #dedfdc;
-  --color-selection: #dce2ef;
-  --color-soft-edge: #e0e6f0;
-  --color-cobalt-wash: #f3f5fd;
-  --color-icon-wash: #e9edf9;
-  --color-route-wash: #2a4bd00c;
-  --color-link-underline: #bdc0c7;
-  --color-night: #111720;
-  --color-night-ink: #e9edf1;
-  --color-night-muted: #b2bbc7;
-  --color-night-line: #b9c7da2b;
-  --color-dark-focus: #b9c8ff;
-  --color-completed: #007456;
+  /* Colors */
+  --color-canvas: #ffffff;
+  --color-obsidian-ink: #010110;
+  --color-carbon: #111117;
+  --color-graphite: #22222a;
+  --color-fog: #73737c;
+  --color-ash: #d9d9d9;
+  --color-iris-pulse: #635bff;
+  --color-deep-teal: #072723;
 
   /* Typography */
-  --font-sohne-var: 'sohne-var', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans-serif: 'sans-serif', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-abc-favorit-variable: 'ABC Favorit Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-abc-favorit-unlicensed-trial: 'ABC Favorit Unlicensed Trial', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Typography — Scale */
   --text-caption: 12px;
-  --leading-caption: 1.45;
-  --tracking-caption: -0.12px;
+  --leading-caption: 1.4;
+  --tracking-caption: -0.24px;
   --text-body-sm: 14px;
-  --leading-body-sm: 1.4;
-  --tracking-body-sm: -0.14px;
+  --leading-body-sm: 1.5;
+  --tracking-body-sm: -0.28px;
   --text-body: 16px;
-  --leading-body: 1.2;
-  --tracking-body: -0.16px;
-  --text-body-lg: 20px;
-  --leading-body-lg: 1.4;
-  --tracking-body-lg: -0.2px;
-  --text-subheading: 22px;
-  --leading-subheading: 1.1;
-  --tracking-subheading: -0.22px;
+  --leading-body: 1.5;
+  --tracking-body: -0.32px;
+  --text-subheading: 20px;
+  --leading-subheading: 1.4;
+  --tracking-subheading: -0.4px;
   --text-heading-sm: 26px;
-  --leading-heading-sm: 1.12;
-  --tracking-heading-sm: -0.26px;
-  --text-heading: 32px;
-  --leading-heading: 1.1;
-  --tracking-heading: -0.64px;
-  --text-heading-lg: 48px;
-  --leading-heading-lg: 1.03;
-  --tracking-heading-lg: -0.96px;
-  --text-display: 56px;
+  --leading-heading-sm: 1.13;
+  --tracking-heading-sm: -0.78px;
+  --text-heading: 38px;
+  --leading-heading: 1.15;
+  --tracking-heading: -1.14px;
+  --text-heading-lg: 56px;
+  --leading-heading-lg: 1.07;
+  --tracking-heading-lg: -1.68px;
+  --text-display: 76px;
   --leading-display: 1.03;
-  --tracking-display: -1.4px;
+  --tracking-display: -2.28px;
 
   /* Spacing */
+  --spacing-4: 4px;
+  --spacing-5: 5px;
+  --spacing-6: 6px;
   --spacing-8: 8px;
+  --spacing-10: 10px;
+  --spacing-12: 12px;
+  --spacing-15: 15px;
   --spacing-16: 16px;
+  --spacing-17: 17px;
+  --spacing-19: 19px;
+  --spacing-20: 20px;
   --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-30: 30px;
   --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-48: 48px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-96: 96px;
+  --spacing-70: 70px;
 
   /* Border Radius */
-  --radius-md: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --radius-lg-2: 10.2px;
+  --radius-3xl: 41px;
+  --radius-full: 48px;
+  --radius-full-2: 100px;
+  --radius-full-3: 951px;
 }
 ```

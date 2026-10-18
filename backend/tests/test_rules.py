@@ -17,9 +17,9 @@ from contracts.payment_policy import (
     PaymentPolicy,
 )
 from contracts.payments import CheckerAnswer, CheckerAssessment, RuleEffect, Verdict
+from modules.fx import STATIC_USD_PER_UNIT
 from modules.payments import rules, settlement
 from modules.payments.checker import apply_checker
-from modules.payments.fx import to_usd
 from modules.payments.rules import DecisionContext, decide
 
 OWNER_ID = uuid4()
@@ -175,12 +175,19 @@ def _context(
         match=match or _match(_payee()),
         policy=_policy(),
         blacklist_hits=[],
-        amount_usd=to_usd(resolved_candidate.amount, resolved_candidate.currency),
+        amount_usd=_static_usd(resolved_candidate.amount, resolved_candidate.currency),
         recent_bills=[],
         budget={},
         today=TODAY,
     )
     return replace(context, **changes)
+
+
+def _static_usd(amount: Decimal | None, currency: str | None) -> Decimal | None:
+    usd_per_unit = STATIC_USD_PER_UNIT.get((currency or "").upper())
+    if amount is None or usd_per_unit is None:
+        return None
+    return (amount * usd_per_unit).quantize(Decimal("0.01"))
 
 
 def _failed(context: DecisionContext) -> dict[str, RuleEffect]:
@@ -392,3 +399,17 @@ def test_tax_identity_rule_does_not_apply_without_tax_country():
     candidate = _person_candidate("900123456", issuer_tax_country=None)
 
     assert _tax_identity_effect(candidate) is RuleEffect.PASS
+
+
+def test_unknown_sender_needs_review_unless_trusted_forwarder():
+    forwarded = {"sender_email": "finance@andescape.com", "sender_domain": "andescape.com"}
+
+    unknown = _failed(_context(match=_match(_payee(), **forwarded)))
+    trusted = decide(
+        _context(match=_match(_payee(), **forwarded, is_trusted_forwarder=True))
+    ).results
+
+    assert unknown == {"R05b": RuleEffect.REVIEW}
+    sender_result = next(result for result in trusted if result.rule_id == "R05b")
+    assert sender_result.effect is RuleEffect.PASS
+    assert "trusted forwarder finance@andescape.com" in sender_result.reason

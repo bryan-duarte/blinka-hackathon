@@ -13,10 +13,10 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
   if (emails.length === 0) {
     return (
       <div className="px-6 py-12">
-        <p className="text-sm font-normal text-ink">Tu bandeja está vacía</p>
+        <p className="text-sm font-normal text-ink">Your inbox is empty</p>
         <p className="mt-1 text-sm text-muted">
-          Conecta un correo o WhatsApp, o usa &quot;Simular mensaje&quot; para ver cómo el
-          agente decide.
+          Connect an email inbox or WhatsApp, or send a demo scenario to see how the agent
+          decides.
         </p>
       </div>
     );
@@ -39,17 +39,17 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
                 <span className="flex min-w-0 items-center gap-2">
                   <SourceBadge type={email.source_type} />
                   <span className={`truncate text-sm font-normal ${isSelected ? "text-accent" : "text-ink"}`}>
-                    {email.sender || "Remitente desconocido"}
+                    {email.sender || "Unknown sender"}
                   </span>
                 </span>
                 <span className="shrink-0 text-xs text-muted">
                   {email.received_at
                     ? formatRelative(email.received_at)
-                    : "simulado"}
+                    : "simulated"}
                 </span>
               </div>
               <p className="mt-1 truncate text-sm text-ink">
-                {email.subject || "(sin asunto)"}
+                {email.subject || "(no subject)"}
               </p>
               <p className="mt-1 truncate text-xs text-muted">
                 {email.preview}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Folio="A-7006" Fecha="2026-10-18T10:00:00" Moneda="MXN" SubTotal="33250.00" Total="33250.00" TipoDeComprobante="I" CondicionesDePago="Vencimiento 2026-11-02" MetodoPago="PPD" FormaPago="03">
+  <cfdi:Emisor Rfc="ABR190312KX1" Nombre="Agencia Brava S.A. de C.V." RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XEXX010101000" Nombre="Andescape Labs, Inc." UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto Cantidad="1" Descripcion="Consultoría estratégica de negocio (servicios profesionales)" ValorUnitario="33250.00" Importe="33250.00"/>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="0.00"/>
+</cfdi:Comprobante>

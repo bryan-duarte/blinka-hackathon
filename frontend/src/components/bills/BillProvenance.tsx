@@ -20,7 +20,7 @@ export function BillProvenance({ billId }: { billId: string }) {
   }, [billId]);
 
   if (loadError) {
-    return <p className="text-xs text-muted">No se pudo cargar el origen de la factura.</p>;
+    return <p className="text-xs text-muted">The invoice source could not be loaded.</p>;
   }
   if (detail === null) {
     return <div aria-hidden className="h-3.5 w-24 animate-pulse rounded bg-sunken" />;

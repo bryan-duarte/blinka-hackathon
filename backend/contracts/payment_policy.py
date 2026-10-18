@@ -13,6 +13,8 @@ NAME_MAX_LENGTH = 200
 IDENTIFIER_MAX_LENGTH = 200
 REASON_MIN_LENGTH = 3
 REASON_MAX_LENGTH = 300
+FORWARDER_VALUE_MAX_LENGTH = 200
+FORWARDER_NOTE_MAX_LENGTH = 120
 CURRENCY_CODE_LENGTH = 3
 DEFAULT_DUPLICATE_WINDOW_DAYS = 45
 DEFAULT_MIN_FIELD_CONFIDENCE = Decimal("0.80")
@@ -56,6 +58,11 @@ class IdentifierKind(StrEnum):
     EMAIL = "email"
     DOMAIN = "domain"
     ALIAS = "alias"
+
+
+class TrustedForwarderKind(StrEnum):
+    EMAIL = "email"
+    DOMAIN = "domain"
 
 
 class PaymentPolicy(StrictModel):
@@ -123,6 +130,7 @@ class PayeeMatch(StrictModel):
     bill_bank_account: str | None
     sender_email: str | None
     sender_domain: str | None
+    is_trusted_forwarder: bool = False
 
 
 class BlacklistHit(StrictModel):
@@ -243,4 +251,27 @@ class BlacklistEntryView(ApiModel):
     kind: IdentifierKind
     normalized_value: str
     reason: str
+    created_at: datetime
+
+
+class TrustedForwarderRecord(StrictModel):
+    forwarder_id: UUID
+    owner_id: UUID
+    kind: TrustedForwarderKind
+    normalized_value: str
+    note: str | None
+    created_at: datetime
+
+
+class TrustedForwarderCreate(ApiModel):
+    kind: TrustedForwarderKind
+    value: str = Field(min_length=1, max_length=FORWARDER_VALUE_MAX_LENGTH)
+    note: str | None = Field(default=None, max_length=FORWARDER_NOTE_MAX_LENGTH)
+
+
+class TrustedForwarderView(ApiModel):
+    forwarder_id: UUID
+    kind: TrustedForwarderKind
+    normalized_value: str
+    note: str | None
     created_at: datetime

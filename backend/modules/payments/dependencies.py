@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
     from clients.bills import BillsClient
+    from clients.fx import FxClient
     from clients.invoice_ingestor import InvoiceIngestorClient
     from clients.llm import LlmGatewayClient
     from clients.payment_policy import PaymentPolicyClient
@@ -20,6 +21,7 @@ class PaymentRunDependencies:
     repository: RunsRepository
     ledger: LedgerRepository
     bills: "BillsClient"
+    fx: "FxClient"
     policy: "PaymentPolicyClient"
     invoice_ingestor: "InvoiceIngestorClient"
     llm_gateway: "LlmGatewayClient"
