@@ -17,7 +17,9 @@ const GENERIC_FAILURE_MESSAGE = "The decision could not be recorded. Try again."
 
 export function ReviewActions({ billId, approveLabel, onResolved }: ReviewActionsProps) {
   const noteId = useId();
+  const rememberHintId = useId();
   const [note, setNote] = useState("");
+  const [remember, setRemember] = useState(false);
   const [pendingAction, setPendingAction] = useState<ReviewAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const trimmedNote = note.trim();
@@ -29,11 +31,12 @@ export function ReviewActions({ billId, approveLabel, onResolved }: ReviewAction
     setActionError(null);
     try {
       if (action === "approve") {
-        await api.approveBill(billId, trimmedNote);
+        await api.approveBill(billId, trimmedNote, remember);
       } else {
-        await api.rejectBill(billId, trimmedNote);
+        await api.rejectBill(billId, trimmedNote, remember);
       }
       setNote("");
+      setRemember(false);
       onResolved();
     } catch (error) {
       const isAlreadyResolved = error instanceof ApiError && error.status === HTTP_CONFLICT;
@@ -63,6 +66,22 @@ export function ReviewActions({ billId, approveLabel, onResolved }: ReviewAction
         />
         <p className="text-right text-xs text-muted tabular-nums">
           {note.length}/{NOTE_MAX_LENGTH}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="flex min-h-10 items-center gap-2.5 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(event) => setRemember(event.target.checked)}
+            disabled={isBusy}
+            aria-describedby={rememberHintId}
+            className="size-4 accent-accent"
+          />
+          Remember this for future invoices from this payee
+        </label>
+        <p id={rememberHintId} className="text-xs leading-[1.5] text-muted">
+          The agent reads it as context next time. It never overrides your payment rules.
         </p>
       </div>
       {actionError && (

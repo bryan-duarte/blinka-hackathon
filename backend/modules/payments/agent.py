@@ -6,7 +6,11 @@ from deepagents import (
     create_deep_agent,
     register_harness_profile,
 )
-from langchain.agents.middleware import TodoListMiddleware
+from langchain.agents.middleware import (
+    ModelCallLimitMiddleware,
+    TodoListMiddleware,
+    ToolCallLimitMiddleware,
+)
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from langchain_core.runnables.schema import StreamEvent
@@ -18,11 +22,13 @@ from core.agents import message_text, thread_config
 from modules.payments.agent_state import RunState
 from modules.payments.agent_tools import STEP_TOOL_NAMES
 from modules.payments.events import RunEventRecorder, ThinkingBuffer
+from modules.payments.limits import AgentRunLimits
 
 PAYMENTS_AGENT_GRAPH_NAME = "payments"
-PAYMENTS_MODEL_PROVIDER = "anthropic"
+PAYMENTS_MODEL_PROVIDERS = ("anthropic", "amazon_bedrock")
+LIMIT_EXIT_BEHAVIOR = "error"
 WRITE_TODOS_TOOL = "write_todos"
-AGENT_RECURSION_LIMIT = 80
+GRAPH_STEPS_PER_MODEL_CALL = 8
 STREAM_EVENTS_VERSION = "v2"
 AGENT_MODEL_NODE = "model"
 MILLISECONDS_PER_SECOND = 1000
@@ -39,7 +45,8 @@ PAYMENTS_HARNESS_PROFILE = HarnessProfile(
 )
 PAYMENTS_AGENT_TOOL_NAMES = STEP_TOOL_NAMES | {WRITE_TODOS_TOOL}
 
-register_harness_profile(PAYMENTS_MODEL_PROVIDER, PAYMENTS_HARNESS_PROFILE)
+for model_provider in PAYMENTS_MODEL_PROVIDERS:
+    register_harness_profile(model_provider, PAYMENTS_HARNESS_PROFILE)
 
 
 def build_payments_agent(
@@ -47,15 +54,28 @@ def build_payments_agent(
     tools: list[BaseTool],
     system_prompt: str,
     checkpointer: BaseCheckpointSaver | None,
+    limits: AgentRunLimits,
 ) -> CompiledStateGraph:
     return create_deep_agent(
         model=model,
         tools=tools,
         system_prompt=system_prompt,
-        middleware=[TodoListMiddleware()],
+        middleware=[
+            TodoListMiddleware(),
+            ToolCallLimitMiddleware(
+                run_limit=limits.max_tool_calls, exit_behavior=LIMIT_EXIT_BEHAVIOR
+            ),
+            ModelCallLimitMiddleware(
+                run_limit=limits.max_model_calls, exit_behavior=LIMIT_EXIT_BEHAVIOR
+            ),
+        ],
         checkpointer=checkpointer,
         name=PAYMENTS_AGENT_GRAPH_NAME,
     )
+
+
+def agent_recursion_limit(limits: AgentRunLimits) -> int:
+    return limits.max_model_calls * GRAPH_STEPS_PER_MODEL_CALL
 
 
 async def stream_agent(
@@ -63,13 +83,14 @@ async def stream_agent(
     state: RunState,
     events: RunEventRecorder,
     thinking_flush_seconds: float,
+    recursion_limit: int,
 ) -> None:
     thinking = ThinkingBuffer(events, thinking_flush_seconds)
     tool_started_at: dict[str, float] = {}
     step_tool_names_by_run: dict[str, str] = {}
     model_started_at: dict[str, float] = {}
     final_text = ""
-    config = {"recursion_limit": AGENT_RECURSION_LIMIT, **thread_config(state.run_id)}
+    config = {"recursion_limit": recursion_limit, **thread_config(state.run_id)}
     agent_input = {"messages": [HumanMessage(content=_task_message(state))]}
     async for event in agent.astream_events(agent_input, config, version=STREAM_EVENTS_VERSION):
         event_kind, event_name = event["event"], event["name"]
@@ -97,7 +118,7 @@ async def stream_agent(
                 event_name,
                 call_id=event["run_id"],
                 output=_tool_output(event),
-                duration_ms=round((monotonic() - started_at) * MILLISECONDS_PER_SECOND),
+                duration_ms=_elapsed_ms(started_at),
             )
     await thinking.flush()
     if final_text:
@@ -112,7 +133,18 @@ async def _record_model_call(
 ) -> None:
     metadata = event["metadata"]
     usage = getattr(event["data"].get("output"), "usage_metadata", None) or {}
-    parent_tool = next(
+    await events.llm_call(
+        node=metadata.get("langgraph_node", UNKNOWN_MODEL_FIELD),
+        parent_tool=_innermost_step_tool(event, step_tool_names_by_run),
+        model=metadata.get("ls_model_name", UNKNOWN_MODEL_FIELD),
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        duration_ms=_elapsed_ms(started_at),
+    )
+
+
+def _innermost_step_tool(event: StreamEvent, step_tool_names_by_run: dict[str, str]) -> str | None:
+    return next(
         (
             step_tool_names_by_run[parent_id]
             for parent_id in reversed(event["parent_ids"])
@@ -120,14 +152,10 @@ async def _record_model_call(
         ),
         None,
     )
-    await events.llm_call(
-        node=metadata.get("langgraph_node", UNKNOWN_MODEL_FIELD),
-        parent_tool=parent_tool,
-        model=metadata.get("ls_model_name", UNKNOWN_MODEL_FIELD),
-        input_tokens=usage.get("input_tokens", 0),
-        output_tokens=usage.get("output_tokens", 0),
-        duration_ms=round((monotonic() - started_at) * MILLISECONDS_PER_SECOND),
-    )
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return round((monotonic() - started_at) * MILLISECONDS_PER_SECOND)
 
 
 def _task_message(state: RunState) -> str:

@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from contracts.bills import BillRecord, BillSourceRecord, BillSourceType, BillSummary
+from contracts.memory import MemoryPrecedent
 from contracts.payment_candidates import BillClassification, PaymentCandidateBase
 from contracts.payment_policy import (
     BlacklistHit,
@@ -93,6 +94,7 @@ class DecisionContext:
     today: date
     classification: BillClassification | None = None
     waived_effects: frozenset[RuleEffect] = frozenset()
+    precedents: tuple[MemoryPrecedent, ...] = ()
 
 
 @dataclass(frozen=True)

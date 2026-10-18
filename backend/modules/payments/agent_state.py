@@ -1,12 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
 from contracts.auth import CurrentUser
 from contracts.bills import BillClaim, BillDocument, BillSourceRecord
+from contracts.memory import MemoryPrecedent
 from contracts.payment_candidates import BillClassification, CandidateExtraction
 from contracts.payment_policy import PayeeMatch, PaymentPolicy
 from contracts.payments import CheckerAssessment, DecisionRecord
+from modules.payments.limits import AgentLimitHit
 from modules.payments.rules import DecisionContext, RuleEvaluation
 
 TerminalReason = Literal["not_a_bill", "extraction_failed"]
@@ -30,3 +32,5 @@ class RunState:
     decision: DecisionRecord | None = None
     terminal_reason: TerminalReason | None = None
     agent_error: str | None = None
+    limit_exceeded: AgentLimitHit | None = None
+    precedents: list[MemoryPrecedent] = field(default_factory=list)

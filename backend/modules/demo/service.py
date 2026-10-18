@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from clients.auth import AuthClient
     from clients.files import FilesClient
     from clients.inbox import InboxClient
+    from clients.memory import MemoryClient
     from clients.payment_policy import PaymentPolicyClient
     from clients.payments import PaymentsClient
     from clients.realtime import RealtimeClient
@@ -66,6 +67,7 @@ class DemoService:
         payments: "PaymentsClient",
         files: "FilesClient",
         realtime: "RealtimeClient",
+        memory: "MemoryClient",
         seeder: DemoSeeder,
         reset_repository: DemoResetRepository,
         registry: ExecutionRegistry,
@@ -80,6 +82,7 @@ class DemoService:
         self._payments = payments
         self._files = files
         self._realtime = realtime
+        self._memory = memory
         self._seeder = seeder
         self._reset_repository = reset_repository
         self._registry = registry
@@ -173,6 +176,11 @@ class DemoService:
             await self._payments.purge_run_threads(owner_refs.run_ids)
             await self._cancel_pipelines(owner.user_id)
             try:
+                deleted_memories = await self._memory.forget_owner(owner.user_id)
+            except Exception as memory_error:
+                logger.exception("demo_reset_memory_purge_failed", owner_id=owner.user_id)
+                raise DemoResetFailedError from memory_error
+            try:
                 seeded_bills = await self._seeder.seed(owner)
             except Exception as seed_error:
                 logger.exception("demo_reset_seed_failed", owner_id=owner.user_id)
@@ -183,6 +191,7 @@ class DemoService:
             owner_id=owner.user_id,
             deleted_rows=deleted_rows,
             deleted_objects=deleted_objects,
+            deleted_memories=deleted_memories,
         )
         return DemoResetResult(
             deleted_rows=deleted_rows,
@@ -209,6 +218,7 @@ class DemoService:
     async def _cancel_pipelines(self, owner_id: UUID) -> None:
         await self._inbox.cancel_owner(owner_id)
         await self._payments.cancel_owner(owner_id)
+        await self._memory.cancel_owner(owner_id)
 
     async def _purge_objects(self, owner: CurrentUser, stored_file_count: int) -> int:
         if stored_file_count == 0:

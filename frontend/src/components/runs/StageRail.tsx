@@ -61,20 +61,27 @@ export function IntakeChecks({ stages }: { stages: PipelineStageRecord[] }) {
   return (
     <ul aria-label="Intake checks" className="flex flex-col gap-1 text-[13px]">
       {stages.map((stage) => (
-        <li key={stage.stage} className="flex items-baseline justify-between gap-4">
-          <span className={stage.status === "failed" ? "text-danger" : "text-ink"}>
-            {STAGE_LABELS[stage.stage]}
-            {stageDetail(stage) && <span className="text-muted"> · {stageDetail(stage)}</span>}
-            {stage.status === "started" && <span className="text-muted"> · working</span>}
-          </span>
-          {stage.duration_ms !== null && (
-            <span className="shrink-0 font-mono text-xs tracking-normal text-muted tabular-nums">
-              {formatToolDuration(stage.duration_ms)}
-            </span>
-          )}
-        </li>
+        <IntakeCheck key={stage.stage} stage={stage} />
       ))}
     </ul>
+  );
+}
+
+function IntakeCheck({ stage }: { stage: PipelineStageRecord }) {
+  const detail = stageDetail(stage);
+  return (
+    <li className="flex items-baseline justify-between gap-4">
+      <span className={stage.status === "failed" ? "text-danger" : "text-ink"}>
+        {STAGE_LABELS[stage.stage]}
+        {detail && <span className="text-muted"> · {detail}</span>}
+        {stage.status === "started" && <span className="text-muted"> · working</span>}
+      </span>
+      {stage.duration_ms !== null && (
+        <span className="shrink-0 font-mono text-xs tracking-normal text-muted tabular-nums">
+          {formatToolDuration(stage.duration_ms)}
+        </span>
+      )}
+    </li>
   );
 }
 
@@ -101,10 +108,15 @@ function PhaseCell({ phaseView }: { phaseView: PhaseView }) {
 
 function intakePhase(stages: PipelineStageRecord[]): PhaseView {
   const durationMs = stages.reduce((total, stage) => total + (stage.duration_ms ?? 0), 0);
+  return { phase: "intake", status: intakeStatus(stages), durationMs: durationMs > 0 ? durationMs : null };
+}
+
+function intakeStatus(stages: PipelineStageRecord[]): PhaseStatus {
   const hasFailed = stages.some((stage) => stage.status === "failed");
+  if (hasFailed) return "error";
   const isHandedOff = stages.some((stage) => stage.stage === "handoff" && stage.status === "finished");
-  const status: PhaseStatus = hasFailed ? "error" : isHandedOff ? "done" : stages.length > 0 ? "active" : "pending";
-  return { phase: "intake", status, durationMs: durationMs > 0 ? durationMs : null };
+  if (isHandedOff) return "done";
+  return stages.length > 0 ? "active" : "pending";
 }
 
 function agentPhase(phase: AgentPhase, toolRuns: ToolRun[]): PhaseView {

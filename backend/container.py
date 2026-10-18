@@ -13,6 +13,7 @@ from clients.invoice_ingestor import InvoiceIngestorClient
 from clients.llm import LlmGatewayClient
 from clients.mail_gateway import MailGatewayClient
 from clients.mcp import McpGatewayClient
+from clients.memory import MemoryClient
 from clients.payment_policy import PaymentPolicyClient
 from clients.payments import PaymentsClient
 from clients.prompts import PromptsClient
@@ -41,6 +42,7 @@ from modules.invoice_ingestor import InvoiceIngestorService
 from modules.llm_gateway import LlmGatewayService
 from modules.mail_gateway import MailGatewayService
 from modules.mcp_gateway import McpGatewayService
+from modules.memory import MemoryService
 from modules.payment_policy import PaymentPolicyRepository, PaymentPolicyService
 from modules.payments import (
     LedgerRepository,
@@ -48,6 +50,7 @@ from modules.payments import (
     PaymentsService,
     RunsRepository,
 )
+from modules.payments.limits import AgentRunLimits
 from modules.prompts import PROMPTS, PromptsService
 from modules.realtime import (
     AppSyncEventsBackend,
@@ -69,6 +72,7 @@ class Clients:
     guardrails: GuardrailsClient
     llm: LlmGatewayClient
     mcp: McpGatewayClient
+    memory: MemoryClient
     prompts: PromptsClient
     realtime: RealtimeClient
     payments: PaymentsClient
@@ -95,6 +99,9 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
     mail_gateway = MailGatewayClient(MailGatewayService(settings.composio))
     whatsapp_gateway = WhatsAppGatewayClient(WhatsAppGatewayService(settings.kapso))
     mcp = McpGatewayClient(McpGatewayService())
+    memory = MemoryClient(
+        MemoryService(checkpointers.store, llm, prompts, settings.memory, ExecutionRegistry())
+    )
     realtime = RealtimeClient(
         RealtimeService(_realtime_backend(settings), settings.realtime.namespace)
     )
@@ -149,6 +156,12 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         checkpointer=checkpointers.agent,
         realtime=realtime,
         thinking_flush_seconds=settings.realtime.thinking_flush_ms / MILLISECONDS_PER_SECOND,
+        limits=AgentRunLimits(
+            run_timeout_s=settings.agent.run_timeout_s,
+            max_tool_calls=settings.agent.max_tool_calls,
+            max_model_calls=settings.agent.max_model_calls,
+        ),
+        memory=memory,
     )
     workers = settings.workers
     payments_service = PaymentsService(
@@ -192,6 +205,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
             payments=payments,
             files=files,
             realtime=realtime,
+            memory=memory,
             seeder=DemoSeeder(payment_policy, DemoSeedRepository(product_sessionmaker)),
             reset_repository=DemoResetRepository(product_sessionmaker),
             registry=ExecutionRegistry(),
@@ -217,6 +231,7 @@ async def build_clients(settings: Settings, pools: Pools, checkpointers: Checkpo
         guardrails=guardrails,
         llm=llm,
         mcp=mcp,
+        memory=memory,
         prompts=prompts,
         realtime=realtime,
         payments=payments,

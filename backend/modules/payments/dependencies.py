@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from modules.payments.ledger_repository import LedgerRepository
+from modules.payments.limits import AgentRunLimits
 from modules.payments.repository import RunsRepository
 
 if TYPE_CHECKING:
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     from clients.fx import FxClient
     from clients.invoice_ingestor import InvoiceIngestorClient
     from clients.llm import LlmGatewayClient
+    from clients.memory import MemoryClient
     from clients.payment_policy import PaymentPolicyClient
     from clients.prompts import PromptsClient
     from clients.realtime import RealtimeClient
@@ -29,3 +31,5 @@ class PaymentRunDependencies:
     checkpointer: "BaseCheckpointSaver | None"
     realtime: "RealtimeClient"
     thinking_flush_seconds: float
+    limits: AgentRunLimits
+    memory: "MemoryClient"

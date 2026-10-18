@@ -4,6 +4,7 @@ import type {
   CheckerPayload,
   ExtractionPayload,
   FxPayload,
+  LimitExceededPayload,
   LlmCallPayload,
   PaymentRunEvent,
   PipelineStage,
@@ -31,6 +32,8 @@ const EXTRACTED_STEP = "extracted";
 const FX_CONVERTED_STEP = "fx_converted";
 const CHECKER_ANSWERED_STEP = "checker_answered";
 const LLM_CALL_STEP = "llm_call";
+const LIMIT_EXCEEDED_STEP = "limit_exceeded";
+const AGENT_LIMITS: ReadonlySet<unknown> = new Set(["time", "tool_calls", "model_calls"]);
 const PIPELINE_STAGE_TYPE = "pipeline.stage";
 const STARTED_STAGE_STATUS: PipelineStageStatus = "started";
 
@@ -94,8 +97,7 @@ export function mergeEvents(persisted: PaymentRunEvent[], live: RealtimeEvent[])
     eventsBySequence.set(event.sequence, event);
   }
   for (const event of live) {
-    const isPersisted = event.sequence !== null && eventsBySequence.has(event.sequence);
-    if (event.sequence === null || isPersisted) continue;
+    if (event.sequence === null || eventsBySequence.has(event.sequence)) continue;
     eventsBySequence.set(event.sequence, {
       sequence: event.sequence,
       step: event.step,
@@ -175,15 +177,21 @@ export function latestFx(events: ActivityEvent[]): FxPayload | null {
   return payload && typeof payload.amount_usd === "string" ? (payload as FxPayload) : null;
 }
 
+export function latestLimitExceeded(events: ActivityEvent[]): LimitExceededPayload | null {
+  const payload = latestPayload(events, LIMIT_EXCEEDED_STEP);
+  const isLimitPayload = payload !== null && AGENT_LIMITS.has(payload.limit) && typeof payload.threshold === "number";
+  return isLimitPayload ? (payload as LimitExceededPayload) : null;
+}
+
 export function latestChecker(events: ActivityEvent[]): CheckerPayload | null {
   const payload = latestPayload(events, CHECKER_ANSWERED_STEP);
   return payload && Array.isArray(payload.answers) ? (payload as CheckerPayload) : null;
 }
 
 export function collectLlmCalls(events: ActivityEvent[]): LlmCallTotals {
-  const calls = events
-    .filter((event) => event.step === LLM_CALL_STEP && isLlmCallPayload(event.payload))
-    .map((event) => event.payload as LlmCallPayload);
+  const calls = events.flatMap((event) =>
+    event.step === LLM_CALL_STEP && isLlmCallPayload(event.payload) ? [event.payload] : [],
+  );
   return {
     calls,
     inputTokens: calls.reduce((total, call) => total + call.input_tokens, 0),
@@ -222,7 +230,7 @@ function isRuleEventPayload(payload: Record<string, unknown>): payload is RuleEv
   return typeof payload.code === "string" && typeof payload.outcome === "string" && typeof payload.detail === "string";
 }
 
-function isLlmCallPayload(payload: Record<string, unknown>): boolean {
+function isLlmCallPayload(payload: Record<string, unknown>): payload is LlmCallPayload {
   return (
     typeof payload.input_tokens === "number" &&
     typeof payload.output_tokens === "number" &&

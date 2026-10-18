@@ -141,10 +141,9 @@ async def _analyze(
     async with timed_stage(PipelineStage.GUARDRAIL) as guardrail_detail:
         guard_text = await _guard_text(owner, email, primary_file_id, dependencies.files)
         verdict = await dependencies.guardrails.check(GuardrailCheckRequest(context=guard_text))
+        guardrail_action = GUARDRAIL_ALLOWED_ACTION if verdict.allowed else GUARDRAIL_BLOCKED_ACTION
         guardrail_detail.update(
-            guardrail_action=GUARDRAIL_ALLOWED_ACTION
-            if verdict.allowed
-            else GUARDRAIL_BLOCKED_ACTION,
+            guardrail_action=guardrail_action,
             violations=[violation.code for violation in verdict.violations],
         )
     if not verdict.allowed:

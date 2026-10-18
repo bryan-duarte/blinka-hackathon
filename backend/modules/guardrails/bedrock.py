@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 
-import aioboto3
+from aiobotocore.session import AioSession
 from botocore.exceptions import BotoCoreError, ClientError
 
 from contracts.guardrails import GuardrailVerdict, GuardrailViolation
@@ -24,8 +24,10 @@ class BedrockGuardrailBackend:
     ) -> None:
         self._guardrail_id = guardrail_id
         self._guardrail_version = guardrail_version
-        self._session = aioboto3.Session(profile_name=aws_profile, region_name=aws_region)
-        self._client_context = self._session.client("bedrock-runtime")
+        self._session = AioSession(profile=aws_profile)
+        self._client_context = self._session.create_client(
+            "bedrock-runtime", region_name=aws_region
+        )
         self._client = None
 
     async def _runtime_client(self):

@@ -9,7 +9,7 @@ import { api, tokenStore } from "@/lib/api";
 import { formatRelative } from "@/lib/format";
 import type { MailProvider } from "@/lib/types";
 
-type NavIcon = "approvals" | "inbox" | "decisions" | "runs" | "policy" | "payees" | "blocked";
+type NavIcon = "approvals" | "inbox" | "decisions" | "runs" | "policy" | "payees" | "blocked" | "memory";
 
 type NavItem = { href: string; label: string; icon: NavIcon; countsApprovals?: boolean };
 
@@ -29,6 +29,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/settings/policy", label: "Payment policy", icon: "policy" },
       { href: "/settings/payees", label: "Payees", icon: "payees" },
       { href: "/settings/blacklist", label: "Blocked list", icon: "blocked" },
+      { href: "/settings/memories", label: "Agent memory", icon: "memory" },
     ],
   },
 ];
@@ -75,6 +76,7 @@ const NAV_ICON_PATHS: Record<NavIcon, React.ReactNode> = {
       <path d="M6.5 6.5l11 11" />
     </>
   ),
+  memory: <path d="M7 4h10v16l-5-4-5 4z" />,
 };
 
 const CHANNEL_LABELS: Record<MailProvider, string> = {

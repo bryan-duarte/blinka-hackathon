@@ -1,6 +1,7 @@
 from typing import TypeVar, get_args
 
-from langchain_anthropic import ChatAnthropic
+from botocore.config import Config
+from langchain_aws import ChatBedrockConverse
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, ValidationError
@@ -15,6 +16,7 @@ SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
 MODEL_KINDS = get_args(ModelKind)
 DETERMINISTIC_TEMPERATURE = 0
+ADAPTIVE_RETRY_MODE = "adaptive"
 JSON_MODE_ATTEMPTS = 2
 
 logger = get_logger(__name__)
@@ -23,6 +25,11 @@ logger = get_logger(__name__)
 class LlmGatewayService:
     def __init__(self, settings: LlmSettings) -> None:
         self._settings = settings
+        self._client_config = Config(
+            connect_timeout=settings.connect_timeout_s,
+            read_timeout=settings.timeout_s,
+            retries={"total_max_attempts": settings.max_retries + 1, "mode": ADAPTIVE_RETRY_MODE},
+        )
         configured_model_names = {
             model_name
             for model_name in (settings.model, settings.main_model, settings.payments_model)
@@ -93,12 +100,11 @@ class LlmGatewayService:
         return override_model_name or self._settings.model
 
     def _build_chat_model(self, model_name: str) -> BaseChatModel:
-        return ChatAnthropic(
+        return ChatBedrockConverse(
             model=model_name,
-            base_url=self._settings.base_url,
-            api_key=self._settings.api_key,
+            region_name=self._settings.aws_region,
+            credentials_profile_name=self._settings.aws_profile,
             max_tokens=self._settings.max_tokens,
-            timeout=self._settings.timeout_s,
-            max_retries=self._settings.max_retries,
             temperature=DETERMINISTIC_TEMPERATURE,
+            config=self._client_config,
         )

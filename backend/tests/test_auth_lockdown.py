@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import SecretStr
@@ -29,7 +29,7 @@ class InMemoryUsers:
     async def get_by_email(self, email: str) -> UserCredentials | None:
         return self.users.get(email)
 
-    async def get_by_id(self, user_id) -> UserCredentials | None:
+    async def get_by_id(self, user_id: UUID) -> UserCredentials | None:
         return next((user for user in self.users.values() if user.user_id == user_id), None)
 
 
@@ -38,11 +38,11 @@ def _locked_service(users: InMemoryUsers) -> AuthService:
 
 
 async def test_demo_account_can_log_in_while_locked():
-    users = InMemoryUsers(DEMO_EMAIL)
+    locked_service = _locked_service(InMemoryUsers(DEMO_EMAIL))
 
-    token = await _locked_service(users).login(LoginRequest(email=DEMO_EMAIL, password=PASSWORD))
+    token = await locked_service.login(LoginRequest(email=DEMO_EMAIL, password=PASSWORD))
 
-    current_user = await _locked_service(users).user_from_token(token.access_token)
+    current_user = await locked_service.user_from_token(token.access_token)
     assert current_user.email == DEMO_EMAIL
 
 

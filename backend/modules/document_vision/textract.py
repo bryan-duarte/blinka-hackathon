@@ -2,7 +2,7 @@ import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-import aioboto3
+from aiobotocore.session import AioSession
 from botocore.exceptions import BotoCoreError, ClientError
 
 from contracts.payment_candidates import DocumentFields, ExpenseReading, FieldEvidence
@@ -22,8 +22,8 @@ SummaryField = dict
 
 class TextractExpenseReader:
     def __init__(self, aws_profile: str | None, region: str) -> None:
-        self._session = aioboto3.Session(profile_name=aws_profile, region_name=region)
-        self._client_context = self._session.client("textract")
+        self._session = AioSession(profile=aws_profile)
+        self._client_context = self._session.create_client("textract", region_name=region)
         self._client = None
 
     async def _expense_client(self):

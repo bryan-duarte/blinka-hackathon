@@ -14,6 +14,7 @@ class PromptId(StrEnum):
     COMPANY_EXTRACTION = "company_extraction"
     PAYMENT_CHECKER = "payment_checker"
     EMAIL_TRIAGE = "email_triage"
+    MEMORY_PRECEDENT = "memory_precedent"
 
 
 class EmailMessage(StrictModel):

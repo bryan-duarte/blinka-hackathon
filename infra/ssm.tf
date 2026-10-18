@@ -34,11 +34,13 @@ locals {
     BLINKA_KAPSO__WEBHOOK_URL            = { secure = false, value = "https://${local.api_host}/webhooks/whatsapp" }
     BLINKA_KAPSO__CALLBACK_URL           = { secure = false, value = "${var.frontend_origin}/inbox/whatsapp/callback" }
     BLINKA_COMPOSIO__CALLBACK_URL        = { secure = false, value = "${var.frontend_origin}/inbox/callback" }
+    BLINKA_LLM__MODEL                    = { secure = false, value = var.bedrock_model_id }
+    BLINKA_LLM__AWS_REGION               = { secure = false, value = var.aws_region }
+    BLINKA_MEMORY__AWS_REGION            = { secure = false, value = var.aws_region }
   }
 
   # Seeded once; edit the value in the SSM console, then run `deploy.sh --restart`.
   operator_params = {
-    OPENROUTER_API_KEY                      = { secure = true, value = local.unassigned_placeholder }
     COMPOSIO_API_KEY                        = { secure = true, value = local.unassigned_placeholder }
     COMPOSIO_WEBHOOK_SECRET                 = { secure = true, value = "${local.unassigned_placeholder}-${random_password.composio_webhook_secret_placeholder.result}" }
     KAPSO_API_KEY                           = { secure = true, value = local.unassigned_placeholder }
@@ -46,9 +48,6 @@ locals {
     BLINKA_COMPOSIO__OUTLOOK_AUTH_CONFIG_ID = { secure = false, value = local.unassigned_placeholder }
     BLINKA_KAPSO__SANDBOX_PHONE_NUMBER_ID   = { secure = false, value = local.unassigned_placeholder }
     BLINKA_KAPSO__SANDBOX_DISPLAY_NUMBER    = { secure = false, value = local.unassigned_placeholder }
-    BLINKA_LLM__MODEL                       = { secure = false, value = "anthropic/claude-haiku-5.5" }
-    BLINKA_LLM__MAIN_MODEL                  = { secure = false, value = "anthropic/claude-sonnet-4.5" }
-    BLINKA_LLM__PAYMENTS_MODEL              = { secure = false, value = "anthropic/claude-haiku-4.5" }
     BLINKA_JWT__EXPIRE_MINUTES              = { secure = false, value = "60" }
     BLINKA_GUARDRAILS__ENFORCE              = { secure = false, value = "true" }
     BLINKA_REALTIME__ENABLED                = { secure = false, value = "true" }
@@ -94,4 +93,9 @@ moved {
 moved {
   from = aws_ssm_parameter.managed["BLINKA_DEMO__PASSWORD"]
   to   = aws_ssm_parameter.operator["BLINKA_DEMO__PASSWORD"]
+}
+
+moved {
+  from = aws_ssm_parameter.operator["BLINKA_LLM__MODEL"]
+  to   = aws_ssm_parameter.managed["BLINKA_LLM__MODEL"]
 }

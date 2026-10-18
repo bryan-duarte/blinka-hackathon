@@ -8,6 +8,9 @@ from alembic import context
 config = context.config
 
 LANGGRAPH_CHECKPOINT_TABLE_PREFIX = "checkpoint"
+LANGGRAPH_STORE_TABLES = frozenset(
+    {"store", "store_vectors", "store_migrations", "vector_migrations"}
+)
 SECTION_URL_ENV_VARS = {
     "product": "BLINKA_PRODUCT_DATABASE_URL",
     "agent": "BLINKA_AGENT_DATABASE_URL",
@@ -48,8 +51,10 @@ def _sync_url() -> str:
 
 
 def _include_name(name: str | None, type_: str, parent_names: dict) -> bool:
-    is_langgraph_table = type_ == "table" and (name or "").startswith(
-        LANGGRAPH_CHECKPOINT_TABLE_PREFIX
+    table_name = name or ""
+    is_langgraph_table = type_ == "table" and (
+        table_name.startswith(LANGGRAPH_CHECKPOINT_TABLE_PREFIX)
+        or table_name in LANGGRAPH_STORE_TABLES
     )
     return not is_langgraph_table
 

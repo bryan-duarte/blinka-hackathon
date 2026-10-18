@@ -76,7 +76,8 @@ class QueueWorker[WorkT: QueuedWork]:
             return []
         if claimed_work:
             logger.info("queue_claimed", queue=self._name, count=len(claimed_work))
-        if len(claimed_work) == free_slots:
+        has_backlog = len(claimed_work) == free_slots
+        if has_backlog:
             logger.info(
                 "queue_backlog_waiting", queue=self._name, in_flight=self._limits.concurrency
             )

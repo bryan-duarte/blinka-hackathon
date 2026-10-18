@@ -19,14 +19,39 @@ class LlmSettings(BaseSettings):
         env_prefix="BLINKA_LLM__", env_file=".env", extra="ignore", frozen=True
     )
 
-    base_url: str = "https://openrouter.ai/api"
-    api_key: SecretStr = Field(validation_alias="OPENROUTER_API_KEY", default=SecretStr(""))
-    model: str = "anthropic/claude-haiku-5.5"
+    model: str = "global.anthropic.claude-haiku-5-5"
     main_model: str | None = None
     payments_model: str | None = None
+    aws_profile: str | None = None
+    aws_region: str = "us-east-1"
     max_tokens: int = 8192
-    timeout_s: float = 120
-    max_retries: int = 2
+    timeout_s: float = Field(default=120, gt=0)
+    connect_timeout_s: float = Field(default=5, gt=0)
+    max_retries: int = Field(default=2, ge=0)
+
+
+class AgentSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_AGENT__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    run_timeout_s: float = Field(default=300, gt=0)
+    max_tool_calls: int = Field(default=30, ge=1)
+    max_model_calls: int = Field(default=35, ge=1)
+
+
+class MemorySettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_MEMORY__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    enabled: bool = True
+    embedding_model: str = "amazon.titan-embed-text-v2:0"
+    embedding_dims: int = Field(default=1024, ge=1)
+    recall_limit: int = Field(default=5, ge=1, le=20)
+    manager_query_limit: int = Field(default=10, ge=1)
+    aws_profile: str | None = None
+    aws_region: str = "us-east-1"
 
 
 class StorageSettings(BaseSettings):
@@ -159,6 +184,7 @@ class WorkerSettings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
     checkpointer_pool_size: int = Field(default=10, ge=1)
+    blocking_io_threads: int = Field(default=64, ge=1)
 
 
 class CorsSettings(BaseSettings):
@@ -178,6 +204,8 @@ class Settings(BaseSettings):
     agent_database_url: str
     jwt: JwtSettings = Field(default_factory=JwtSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     textract: TextractSettings = Field(default_factory=TextractSettings)
     guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)

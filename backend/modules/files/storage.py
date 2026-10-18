@@ -1,6 +1,6 @@
 from typing import Protocol
 
-import aioboto3
+from aiobotocore.session import AioSession
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -29,9 +29,11 @@ class StorageBackend(Protocol):
 class ObjectStorageBackend:
     def __init__(self, bucket: str, aws_profile: str | None, region: str) -> None:
         self._bucket = bucket
-        self._session = aioboto3.Session(profile_name=aws_profile, region_name=region)
-        self._client_context = self._session.client(
-            "s3", config=Config(s3={"addressing_style": VIRTUAL_HOST_ADDRESSING})
+        self._session = AioSession(profile=aws_profile)
+        self._client_context = self._session.create_client(
+            "s3",
+            region_name=region,
+            config=Config(s3={"addressing_style": VIRTUAL_HOST_ADDRESSING}),
         )
         self._client = None
 

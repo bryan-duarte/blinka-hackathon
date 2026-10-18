@@ -8,6 +8,7 @@ from api.routers import (
     demo,
     files,
     inbox,
+    memory,
     payment_policy,
     payments,
     webhooks,
@@ -34,3 +35,4 @@ api_router.include_router(
 )
 api_router.include_router(bills.bills_router, dependencies=[Depends(get_current_user)])
 api_router.include_router(bills.budgets_router, dependencies=[Depends(get_current_user)])
+api_router.include_router(memory.memory_router, dependencies=[Depends(get_current_user)])

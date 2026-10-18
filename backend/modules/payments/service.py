@@ -15,6 +15,7 @@ from contracts.bills import (
     BillStatus,
 )
 from contracts.files import EvidenceFileView, EvidenceIntakeStatus
+from contracts.memory import DecisionMemoryInput, HumanAction
 from contracts.payments import (
     BillDecisionView,
     BillDetail,
@@ -206,6 +207,7 @@ class PaymentsService:
     async def approve(
         self, owner: CurrentUser, bill_id: UUID, request: ReviewActionRequest
     ) -> BillDecisionView:
+        escalation = await self._dependencies.ledger.latest_decision(bill_id)
         bill = await self._claim_review(owner, bill_id, BillStatus.APPROVING)
         policy = None
         try:
@@ -228,12 +230,14 @@ class PaymentsService:
             await fail_closed(self._dependencies, None, bill, policy)
         else:
             logger.info("bill_review_approved", bill_id=bill_id, verdict=decision.verdict)
+            if request.remember:
+                self._remember(owner, bill, request.note, "approved", decision.verdict, escalation)
         return await self._require_bill_decision(owner, bill_id)
 
     async def reject(
         self, owner: CurrentUser, bill_id: UUID, request: ReviewActionRequest
     ) -> BillDecisionView:
-        await self._claim_review(owner, bill_id, BillStatus.REJECTED)
+        bill = await self._claim_review(owner, bill_id, BillStatus.REJECTED)
         latest = await self._dependencies.ledger.latest_decision(bill_id)
         await self._dependencies.ledger.append_decision(
             DecisionRecord(
@@ -251,6 +255,8 @@ class PaymentsService:
             )
         )
         logger.info("bill_review_rejected", bill_id=bill_id)
+        if request.remember:
+            self._remember(owner, bill, request.note, "rejected", Verdict.HOLD, latest)
         return await self._require_bill_decision(owner, bill_id)
 
     async def budget_usage(self, owner: CurrentUser, period: str | None) -> list[BudgetUsageView]:
@@ -378,6 +384,37 @@ class PaymentsService:
             return None
         return await self._repository.latest_run_for_source(source.source_id)
 
+    def _remember(
+        self,
+        owner: CurrentUser,
+        bill: BillRecord,
+        note: str,
+        human_action: HumanAction,
+        resulting_verdict: Verdict,
+        escalation: DecisionRecord | None,
+    ) -> None:
+        try:
+            self._dependencies.memory.remember_decision_later(
+                DecisionMemoryInput(
+                    owner_id=owner.user_id,
+                    actor_user_id=owner.user_id,
+                    bill_id=bill.bill_id,
+                    payee_id=bill.payee_id,
+                    payee_name=bill.payee_name,
+                    amount=bill.amount,
+                    currency=bill.currency,
+                    amount_usd=bill.amount_usd,
+                    category=bill.category,
+                    escalation_reasons=_escalation_reasons(escalation),
+                    human_action=human_action,
+                    resulting_verdict=resulting_verdict,
+                    note=note,
+                    decided_at=datetime.now(UTC),
+                )
+            )
+        except Exception:
+            logger.exception("memory_capture_failed", bill_id=bill.bill_id)
+
     async def _claim_review(
         self, owner: CurrentUser, bill_id: UUID, target: BillStatus
     ) -> BillRecord:
@@ -467,3 +504,18 @@ def _to_payment_view(payment: PaymentRecord) -> PaymentView:
         rail_reference=payment.rail_reference,
         executed_at=payment.executed_at,
     )
+
+
+def _escalation_reasons(escalation: DecisionRecord | None) -> list[str]:
+    if escalation is None:
+        return []
+    rule_reasons = [
+        rule_result.reason
+        for rule_result in escalation.rule_results
+        if rule_result.effect is not RuleEffect.PASS
+    ]
+    checker_answers = escalation.checker.answers if escalation.checker else []
+    checker_reasons = [
+        f"Second review {answer.question_id}: {answer.rationale}" for answer in checker_answers
+    ]
+    return [*rule_reasons, *checker_reasons]

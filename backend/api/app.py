@@ -1,4 +1,6 @@
+import asyncio
 from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from functools import partial
 
@@ -41,6 +43,7 @@ from modules.mail_gateway.errors import (
     MailProviderError,
     WebhookSignatureError,
 )
+from modules.memory import MemoryNotFoundError, build_memory_index
 from modules.payment_policy.errors import (
     BlacklistEntryMissingError,
     IdentifierMissingError,
@@ -63,6 +66,7 @@ from modules.whatsapp_gateway.errors import (
 logger = get_logger(__name__)
 
 RESTART_INTERRUPTION_REASON = "interrupted by restart"
+BLOCKING_IO_THREAD_PREFIX = "blocking-io"
 DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
     PolicyMissingError: (status.HTTP_404_NOT_FOUND, "payment policy not configured"),
     PayeeMissingError: (status.HTTP_404_NOT_FOUND, "payee not found"),
@@ -99,6 +103,7 @@ DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
     DemoBusyError: (status.HTTP_409_CONFLICT, "demo is resetting, try again"),
     DemoResetFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "demo reset failed"),
     DemoLaunchLimitError: (status.HTTP_429_TOO_MANY_REQUESTS, "too many demo scenarios running"),
+    MemoryNotFoundError: (status.HTTP_404_NOT_FOUND, "memory not found"),
     DemoScenarioUnavailableError: (
         status.HTTP_409_CONFLICT,
         "enable the malware scan to run this scenario",
@@ -111,13 +116,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
     configure_logging(settings.log_format)
     workers = settings.workers
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(
+            max_workers=workers.blocking_io_threads, thread_name_prefix=BLOCKING_IO_THREAD_PREFIX
+        )
+    )
     pools = build_pools(
         settings.product_database_url,
         settings.agent_database_url,
         workers.db_pool_size,
         workers.db_max_overflow,
     )
-    checkpointers = Checkpointers(settings.agent_database_url, workers.checkpointer_pool_size)
+    store_index = build_memory_index(settings.memory) if settings.memory.enabled else None
+    checkpointers = Checkpointers(
+        settings.agent_database_url, workers.checkpointer_pool_size, store_index
+    )
     await checkpointers.open()
     try:
         clients = await build_clients(settings, pools, checkpointers)
@@ -143,6 +156,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await clients.demo.shutdown()
             await clients.inbox.shutdown()
             await clients.payments.shutdown_runs()
+            await clients.memory.shutdown()
         await checkpointers.close()
         await pools.product.engine.dispose()
         await pools.agent.engine.dispose()

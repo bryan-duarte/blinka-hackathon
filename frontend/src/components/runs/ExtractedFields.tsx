@@ -3,8 +3,7 @@ import { EXTRACTION_METHOD_LABELS, FIELD_LABELS, FX_SOURCE_LABELS } from "@/lib/
 import type { ExtractionPayload, FxPayload } from "@/lib/types";
 
 const PERCENT = 100;
-const CATEGORY_FIELD = "category";
-const CATEGORY_LABEL = "Category";
+const EXTRACTED_FIELD_LABELS: Record<string, string> = { ...FIELD_LABELS, category: "Category" };
 
 type ExtractedFieldsProps = {
   extraction: ExtractionPayload;
@@ -22,7 +21,7 @@ export function ExtractedFields({ extraction, fx }: ExtractedFieldsProps) {
       <dl className="grid grid-cols-[auto_minmax(0,1fr)_64px] items-center gap-x-4 gap-y-1.5 text-[13px]">
         {extraction.fields.map((field) => (
           <div key={field.name} className="contents">
-            <dt className="text-muted">{field.name === CATEGORY_FIELD ? CATEGORY_LABEL : (FIELD_LABELS[field.name] ?? field.name)}</dt>
+            <dt className="text-muted">{EXTRACTED_FIELD_LABELS[field.name] ?? field.name}</dt>
             <dd className="truncate">{field.value ?? <span className="text-muted">not found</span>}</dd>
             <dd>
               {field.confidence !== null && (

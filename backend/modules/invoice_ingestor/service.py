@@ -1,4 +1,5 @@
 import base64
+import re
 from typing import TYPE_CHECKING
 
 from contracts.auth import CurrentUser
@@ -41,6 +42,11 @@ UNSCREENED_PDF_NOTE = (
     "Judge from the sender and the email body."
 )
 FALLBACK_TEXT_ENCODING = "latin-1"
+FILE_EXTENSION_SEPARATOR = "."
+CONVERSE_DOCUMENT_NAME_MAX_LENGTH = 200
+CONVERSE_DOCUMENT_NAME_DISALLOWED_CHARACTERS = re.compile(r"[^A-Za-z0-9\-()\[\] ]+")
+CONVERSE_DOCUMENT_NAME_REPLACEMENT = "-"
+DEFAULT_DOCUMENT_NAME = "invoice"
 READING_MODEL_KIND: ModelKind = "main"
 EXTRACTION_PROMPTS: dict[PayeeKind, PromptId] = {
     PayeeKind.SERVICE: PromptId.SERVICE_EXTRACTION,
@@ -242,9 +248,18 @@ def _build_pdf_content(document: BillDocument, attachment: StoredFileContent) ->
             "type": "file",
             "base64": encoded_pdf,
             "mime_type": PDF_MIME,
-            "filename": attachment.file.filename,
+            "filename": _converse_document_name(attachment.file.filename),
         },
     ]
+
+
+def _converse_document_name(filename: str | None) -> str:
+    stem = (filename or "").rsplit(FILE_EXTENSION_SEPARATOR, 1)[0]
+    allowed_stem = CONVERSE_DOCUMENT_NAME_DISALLOWED_CHARACTERS.sub(
+        CONVERSE_DOCUMENT_NAME_REPLACEMENT, stem
+    )
+    document_name = " ".join(allowed_stem.split())
+    return document_name[:CONVERSE_DOCUMENT_NAME_MAX_LENGTH] or DEFAULT_DOCUMENT_NAME
 
 
 def _build_user_content(

@@ -430,7 +430,7 @@ def test_unknown_sender_needs_review_unless_trusted_forwarder():
 
 class _RecordingLedger:
     def __init__(self, failure: Exception | None = None) -> None:
-        self.failure = failure
+        self._pending_failure = failure
         self.commits: list[dict] = []
 
     async def commit_settlement(
@@ -439,8 +439,8 @@ class _RecordingLedger:
         self.commits.append(
             {"target_status": target_status, "reservation": reservation, "decision": decision}
         )
-        if self.failure is not None:
-            failure, self.failure = self.failure, None
+        if self._pending_failure is not None:
+            failure, self._pending_failure = self._pending_failure, None
             raise failure
         return decision
 

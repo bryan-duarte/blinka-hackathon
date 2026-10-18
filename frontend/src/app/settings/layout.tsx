@@ -9,6 +9,7 @@ const SETTINGS_TABS = [
   { href: "/settings/policy", label: "Payment policy" },
   { href: "/settings/payees", label: "Payees" },
   { href: "/settings/blacklist", label: "Blocked list" },
+  { href: "/settings/memories", label: "Agent memory" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

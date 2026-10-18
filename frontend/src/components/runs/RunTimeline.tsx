@@ -7,8 +7,10 @@ import {
   collectToolRuns,
   latestChecker,
   latestFx,
+  latestLimitExceeded,
 } from "@/lib/runEvents";
 import type {
+  AgentLimit,
   BillDecisionView,
   BillSourceType,
   FxPayload,
@@ -19,6 +21,12 @@ import type {
   Verdict,
 } from "@/lib/types";
 import { type CheckerMeter, CheckerMeters } from "./CheckerMeters";
+
+const LIMIT_DETAILS: Record<AgentLimit, (threshold: number) => string> = {
+  time: (threshold) => `Ran longer than ${threshold} seconds.`,
+  tool_calls: (threshold) => `Used more than ${threshold} tool calls.`,
+  model_calls: (threshold) => `Made more than ${threshold} model calls.`,
+};
 
 const TOOL_TITLES: Record<string, string> = {
   classify_document: "Classified the document",
@@ -175,6 +183,15 @@ function buildNodes(
   for (const toolRun of collectToolRuns(activity, isRunning)) {
     if (toolRun.tool === EVALUATE_RULES_TOOL && fxNode) nodes.push(fxNode);
     nodes.push(toolNode(toolRun, rules, checkerMeters, offsetFor(toolRun.callId)));
+  }
+  const limitHit = latestLimitExceeded(activity);
+  if (limitHit) {
+    nodes.push({
+      key: "limit",
+      title: "Stopped at a safety limit",
+      detail: LIMIT_DETAILS[limitHit.limit](limitHit.threshold),
+      isError: true,
+    });
   }
   if (decision) {
     nodes.push({

@@ -369,13 +369,11 @@ class InboxService:
             *(self._refresh_mail_status(connection) for connection in due_connections),
             return_exceptions=True,
         )
-        refreshed_by_id = {
-            outcome.connection_id: outcome
-            for outcome in refresh_outcomes
-            if isinstance(outcome, MailboxConnectionRecord)
-        }
+        refreshed_by_id: dict[UUID, MailboxConnectionRecord] = {}
         for connection, outcome in zip(due_connections, refresh_outcomes, strict=True):
-            if isinstance(outcome, Exception):
+            if isinstance(outcome, MailboxConnectionRecord):
+                refreshed_by_id[connection.connection_id] = outcome
+            elif isinstance(outcome, Exception):
                 logger.error(
                     "mailbox_reconcile_crashed",
                     connection_id=connection.connection_id,

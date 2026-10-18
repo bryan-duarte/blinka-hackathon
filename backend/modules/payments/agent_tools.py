@@ -2,12 +2,14 @@ import asyncio
 import json
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from langchain_core.tools import BaseTool, StructuredTool
 
 from contracts.bills import BillClaim, BillFields, BillRecord, BillStatus
 from contracts.fx import FxQuote
+from contracts.memory import MemoryPrecedent
 from contracts.payment_candidates import CandidateExtraction, PaymentCandidateBase
 from contracts.payment_policy import PayeeMatch
 from contracts.payments import CheckerAssessment, DecisionActor, RuleEffect, Verdict
@@ -26,12 +28,15 @@ from modules.payments.events import (
     EXTRACTION_FAILED_STEP,
     FX_CONVERTED_STEP,
     NOT_A_BILL_STEP,
+    PRECEDENTS_RECALLED_STEP,
     RunEventRecorder,
 )
 from modules.payments.rules import decide
 from modules.payments.settlement import record_duplicate, settle
 
 logger = get_logger(__name__)
+
+UNKNOWN_PRECEDENT_CATEGORY = "unknown"
 
 ISO_CURRENCY_CODE = re.compile(r"[A-Z]{3}")
 
@@ -235,7 +240,12 @@ class PaymentStepTools:
                 "fx_source": claim.bill.fx_source,
             }
             if claim.duplicate_of is None:
-                return _summary(summary)
+                state.precedents = await self._recall_precedents(claim.bill)
+                precedent_payloads = [
+                    precedent.model_dump(include=checker.ADVISORY_PRECEDENT_FIELDS)
+                    for precedent in state.precedents
+                ]
+                return _summary({**summary, "precedents": precedent_payloads})
             state.decision = await record_duplicate(
                 self._dependencies, state.run_id, claim.bill, claim.duplicate_of, state.policy
             )
@@ -247,13 +257,25 @@ class PaymentStepTools:
             )
             raise
 
+    async def _recall_precedents(self, bill: BillRecord) -> list[MemoryPrecedent]:
+        try:
+            precedents = await self._dependencies.memory.recall(
+                bill.owner_id, bill.payee_id, bill.payee_name, _precedent_query(bill)
+            )
+        except Exception:
+            logger.exception("memory_recall_failed", bill_id=bill.bill_id)
+            return []
+        if precedents:
+            await self._events.step(PRECEDENTS_RECALLED_STEP, {"count": len(precedents)})
+        return precedents
+
     async def _evaluate_rules(self) -> str:
         state = self._state
         is_ready = state.claim is not None and state.decision is None and state.evaluation is None
         if not is_ready:
             return _out_of_order("First register the bill.", state)
         try:
-            state.context = await build_context(
+            built_context = await build_context(
                 self._dependencies,
                 state.claim.bill,
                 state.source,
@@ -262,6 +284,7 @@ class PaymentStepTools:
                 state.policy,
                 state.classification,
             )
+            state.context = replace(built_context, precedents=tuple(state.precedents))
             state.evaluation = decide(state.context)
         except Exception:
             logger.exception("bill_decision_failed", run_id=state.run_id)
@@ -468,3 +491,10 @@ def _checker_payload(assessment: CheckerAssessment | None, verdict: Verdict) -> 
         ],
         "verdict_after_checker": verdict,
     }
+
+
+def _precedent_query(bill: BillRecord) -> str:
+    return (
+        f"{bill.payee_name or ''} invoice {bill.amount} {bill.currency} "
+        f"category {bill.category or UNKNOWN_PRECEDENT_CATEGORY}"
+    )

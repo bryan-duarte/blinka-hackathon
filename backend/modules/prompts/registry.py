@@ -6,6 +6,7 @@ from modules.prompts.candidate_extraction import (
     ServiceExtractionPrompt,
 )
 from modules.prompts.email_triage import EmailTriagePrompt
+from modules.prompts.memory_precedent import MemoryPrecedentPrompt
 from modules.prompts.payment_checker import PaymentCheckerPrompt
 from modules.prompts.payments_agent import PaymentsAgentPrompt
 
@@ -17,4 +18,5 @@ PROMPTS: tuple[Prompt, ...] = (
     CompanyExtractionPrompt(),
     PaymentCheckerPrompt(),
     EmailTriagePrompt(),
+    MemoryPrecedentPrompt(),
 )

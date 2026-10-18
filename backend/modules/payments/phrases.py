@@ -101,12 +101,20 @@ STEP_PHRASES: dict[str, tuple[str, ...]] = {
         "The document does not have enough details to pay.",
     ),
     "claimed": ("Bill registered.",),
+    "precedents_recalled": (
+        "Recalled what the finance team asked to remember about this payee.",
+        "Found past human decisions about this payee.",
+    ),
     "fx_converted": ("Amount converted to USD.", "USD equivalent calculated."),
     "checker_answered": ("The second review answered.", "The checker gave its answers."),
     "decided": ("Decision made.",),
     "decision_failed": (
         "Something failed while deciding; the bill stays in review.",
         "I could not finish the checks; a person must review it.",
+    ),
+    "limit_exceeded": (
+        "The agent hit its safety limit; a person will review.",
+        "Stopped the agent at its safety limit.",
     ),
     "completed": ("The agent finished.", "Review finished."),
     "cancelled": ("The review was interrupted.",),

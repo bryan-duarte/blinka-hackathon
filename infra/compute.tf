@@ -115,6 +115,51 @@ resource "aws_iam_role_policy" "backend_task_guardrail" {
   policy = data.aws_iam_policy_document.backend_guardrail.json
 }
 
+locals {
+  bedrock_claude_profile_arns = "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*${var.bedrock_claude_model_family}*"
+}
+
+data "aws_iam_policy_document" "backend_bedrock_invoke" {
+  statement {
+    sid       = "InvokeClaudeProfiles"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = [local.bedrock_claude_profile_arns]
+  }
+
+  statement {
+    sid       = "InvokeClaudeViaProfile"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = ["arn:aws:bedrock:*::foundation-model/${var.bedrock_claude_model_family}*"]
+
+    condition {
+      test     = "StringLike"
+      variable = "bedrock:InferenceProfileArn"
+      values   = [local.bedrock_claude_profile_arns]
+    }
+  }
+
+  statement {
+    sid       = "EmbedMemories"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/${var.bedrock_embedding_model_id}"]
+  }
+}
+
+resource "aws_iam_role_policy" "backend_task_bedrock_invoke" {
+  name   = "bedrock-invoke"
+  role   = aws_iam_role.backend_task.id
+  policy = data.aws_iam_policy_document.backend_bedrock_invoke.json
+}
+
+resource "aws_iam_user_policy" "backend_bedrock_invoke" {
+  name   = "${local.name}-bedrock-invoke"
+  user   = var.backend_iam_user
+  policy = data.aws_iam_policy_document.backend_bedrock_invoke.json
+}
+
 data "aws_iam_policy_document" "ecs_exec" {
   statement {
     sid    = "EcsExecSessions"

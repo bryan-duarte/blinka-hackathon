@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
 
   postgres-agent:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: blinka
       POSTGRES_PASSWORD: blinka

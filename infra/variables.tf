@@ -22,6 +22,24 @@ variable "evidence_bucket_prefix" {
   default     = "blinka-evidence"
 }
 
+variable "bedrock_model_id" {
+  description = "Bedrock inference profile the backend uses for every LLM call."
+  type        = string
+  default     = "global.anthropic.claude-haiku-5-5"
+}
+
+variable "bedrock_claude_model_family" {
+  description = "Claude model id fragment the backend may invoke, matched in profile and model ARNs."
+  type        = string
+  default     = "anthropic.claude-haiku-5-5"
+}
+
+variable "bedrock_embedding_model_id" {
+  description = "Bedrock embedding model for agent memory search."
+  type        = string
+  default     = "amazon.titan-embed-text-v2:0"
+}
+
 variable "backend_iam_user" {
   description = "IAM user behind the backend's AWS profile."
   type        = string

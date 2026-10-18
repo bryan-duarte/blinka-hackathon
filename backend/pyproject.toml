@@ -14,8 +14,6 @@ dependencies = [
     "deepagents>=0.7",
     "langgraph>=1.0",
     "langgraph-checkpoint-postgres>=2",
-    "langchain-anthropic>=1.7",
-    "aioboto3>=13",
     "pyjwt>=2.10",
     "bcrypt>=4",
     "structlog>=25",
@@ -26,6 +24,9 @@ dependencies = [
     "httpx>=0.28",
     "defusedxml>=0.7.1",
     "fpdf2==2.8.9",
+    "aiobotocore>=3.9.2",
+    "langchain-aws>=1.9.0",
+    "langmem>=0.0.30",
 ]
 
 [dependency-groups]

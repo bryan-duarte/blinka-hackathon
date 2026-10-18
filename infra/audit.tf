@@ -3,11 +3,12 @@ locals {
     main  = "${local.name}-${local.env}"
     agent = "${local.name}-${local.env}-agent"
   }
-  db_audit_bucket_name     = "${local.name}-db-audit-${data.aws_caller_identity.current.account_id}"
-  db_audit_log_filter      = "AUDIT"
-  db_audit_retention_days  = 30
-  db_audit_glacier_days    = 30
-  db_audit_expiration_days = 365
+  db_audit_bucket_name             = "${local.name}-db-audit-${data.aws_caller_identity.current.account_id}"
+  db_audit_log_filter              = "AUDIT"
+  db_audit_log_retention_days      = 30
+  db_audit_glacier_days            = 30
+  db_audit_expiration_days         = 365
+  db_audit_noncurrent_version_days = 30
 }
 
 resource "aws_db_parameter_group" "audit" {
@@ -47,7 +48,7 @@ resource "aws_cloudwatch_log_group" "rds" {
   for_each = local.audited_db_instances
 
   name              = "/aws/rds/instance/${each.value}/postgresql"
-  retention_in_days = local.db_audit_retention_days
+  retention_in_days = local.db_audit_log_retention_days
 }
 
 resource "aws_s3_bucket" "db_audit" {
@@ -107,7 +108,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "db_audit" {
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = local.db_audit_retention_days
+      noncurrent_days = local.db_audit_noncurrent_version_days
     }
   }
 }

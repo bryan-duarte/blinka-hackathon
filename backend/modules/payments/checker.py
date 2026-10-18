@@ -24,6 +24,9 @@ logger = get_logger(__name__)
 IMPERSONATION_QUESTION: CheckerQuestionId = "CHK2"
 HISTORY_QUESTION: CheckerQuestionId = "CHK3"
 CHECKER_HISTORY_SIZE = 6
+ADVISORY_PRECEDENT_FIELDS = frozenset(
+    {"human_action", "situation", "lesson", "applies_when", "decided_at"}
+)
 CHECKER_QUESTIONS: dict[CheckerQuestionId, str] = {
     "CHK1": "Does the invoice description match the payee's registered service or category? "
     "(yes = it matches)",
@@ -140,11 +143,25 @@ def _checker_content(context: DecisionContext) -> str:
     questions = {
         question_id: CHECKER_QUESTIONS[question_id] for question_id in asked_questions(context)
     }
-    return (
+    checker_content = (
         f"<bill>\n{context.candidate.model_dump_json()}\n</bill>\n"
         f"<payee_profile>\n{json.dumps(payee_profile, ensure_ascii=False)}\n</payee_profile>\n"
         f"<bill_amount_usd>\n{bill_amount_usd}\n</bill_amount_usd>\n"
         f"<recent_paid_invoices_usd>\n{recent_paid_invoices}\n"
         "</recent_paid_invoices_usd>\n"
         f"<questions>\n{json.dumps(questions, ensure_ascii=False)}\n</questions>"
+    )
+    if not context.precedents:
+        return checker_content
+    return f"{checker_content}\n{_human_precedents_block(context)}"
+
+
+def _human_precedents_block(context: DecisionContext) -> str:
+    precedents = [
+        precedent.model_dump(mode="json", include=ADVISORY_PRECEDENT_FIELDS)
+        for precedent in context.precedents
+    ]
+    return (
+        f"<today>{context.today.isoformat()}</today>\n"
+        f"<human_precedents>\n{json.dumps(precedents, ensure_ascii=False)}\n</human_precedents>"
     )

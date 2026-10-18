@@ -61,9 +61,9 @@
 - [ ] Reboot both instances once, then verify `SHOW shared_preload_libraries` and that objects arrive in S3 _(operator step after deploy; not run by the implementer)_
 
 ### Post-Implementation Quality Gate
-- [ ] Run a two-subagent quality pass over the recently-applied change:
-  - [ ] **Bug sweep:** launch a subagent to search the modified code for bugs, issues and inconsistencies (logic errors, edge cases, broken contracts, dead code, regressions). Report concrete findings as `file:line` references.
-  - [ ] **Polish:** launch a subagent that invokes the `codebase-change` skill and applies the polish DIRECTLY to the changed files. It deletes unnecessary comments, makes the code self-explanatory, gives every variable an obvious purpose, maximizes readability and maintainability, and removes unnecessary complexity. It also resolves any real issues the bug sweep surfaced.
+- [x] Run a two-subagent quality pass over the recently-applied change:
+  - [x] **Bug sweep:** launch a subagent to search the modified code for bugs, issues and inconsistencies (logic errors, edge cases, broken contracts, dead code, regressions). Report concrete findings as `file:line` references.
+  - [x] **Polish:** launch a subagent that invokes the `codebase-change` skill and applies the polish DIRECTLY to the changed files. It deletes unnecessary comments, makes the code self-explanatory, gives every variable an obvious purpose, maximizes readability and maintainability, and removes unnecessary complexity. It also resolves any real issues the bug sweep surfaced.
 
 ## Task Order
 
@@ -77,3 +77,18 @@
 ```
 
 Deploy once at the end. `deploy.sh` runs the migrations; after `terraform apply`, reboot both RDS instances for `shared_preload_libraries`. Then run the operator checklist in module 2.
+
+
+## Implementation Deviations (2026-10-18)
+
+- pgaudit: `CREATE EXTENSION` runs in `core/db/bootstrap.py` on every boot (guarded), not in Alembic. A migration would run once before the RDS reboot, skip, and never retry.
+- Queue poll fallback defaults to 15s (not 2s): every poll is an UPDATE audited by pgaudit `write`; producers wake workers via `notify()`.
+- Workers are owned by `PaymentsService` / `InboxService` (avoids circular wiring); `cancel_owner` first retires the owner's queued rows so demo reset can't race the workers.
+- `fail_unfinished` keeps ANALYZING emails (their status resolves through the still-queued run).
+- Malware scan + attachment ingestion are one `malware_scan` stage (single call in the files module).
+- `RuleOutcome` is pass/review/hold (the engine has no "flag" effect).
+- `STEP_TIMEOUT_SECONDS` = 900 (measured: 300s is exceeded by queue wait at cap 20).
+- AppSync adapter reuses one keep-alive HTTP client with a single transient retry (the richer stream caused connect/write timeouts).
+- Dockerfile now copies `scripts/` so `check_demo_integrations` runs via ECS exec.
+- Inbox `source_payload` is deferred on reads and cleared once processing ends.
+- Not fixed (residual): shutdown cancels in-flight work instead of requeueing (re-running partial side effects would mis-flag duplicates).

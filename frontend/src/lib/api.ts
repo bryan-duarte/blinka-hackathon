@@ -18,6 +18,7 @@ import type {
   LedgerSummaryView,
   MailboxConnectionView,
   MailboxConnectStarted,
+  MemoryView,
   PayeeCreate,
   PayeeIdentifierCreate,
   PayeeUpdate,
@@ -214,10 +215,13 @@ export const api = {
   bills: (status?: BillStatus) =>
     request<BillDecisionView[]>(status ? `/bills?status=${status}` : "/bills"),
   bill: (billId: string) => request<BillDetail>(`/bills/${billId}`),
-  approveBill: (billId: string, note: string) =>
-    post<BillDecisionView>(`/bills/${billId}/approve`, { note }),
-  rejectBill: (billId: string, note: string) =>
-    post<BillDecisionView>(`/bills/${billId}/reject`, { note }),
+  approveBill: (billId: string, note: string, remember: boolean) =>
+    post<BillDecisionView>(`/bills/${billId}/approve`, { note, remember }),
+  rejectBill: (billId: string, note: string, remember: boolean) =>
+    post<BillDecisionView>(`/bills/${billId}/reject`, { note, remember }),
+  memories: () => request<MemoryView[]>("/memories"),
+  deleteMemory: (payeeKey: string, memoryId: string) =>
+    remove(`/memories/${encodeURIComponent(payeeKey)}/${encodeURIComponent(memoryId)}`),
   budgets: (period?: string) =>
     request<BudgetUsageView[]>(period ? `/budgets?period=${period}` : "/budgets"),
   runStatus: (runId: string) => request<PaymentRunStatus>(`/payments/runs/${runId}`),

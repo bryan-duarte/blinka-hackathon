@@ -396,6 +396,29 @@ export type CheckerPayload = {
   verdict_after_checker: Verdict;
 };
 
+export type AgentLimit = "time" | "tool_calls" | "model_calls";
+
+export type LimitExceededPayload = {
+  limit: AgentLimit;
+  threshold: number;
+};
+
+export type HumanAction = "approved" | "rejected";
+
+export type MemoryView = {
+  memory_id: string;
+  payee_key: string;
+  payee: string;
+  situation: string;
+  human_action: HumanAction;
+  lesson: string;
+  applies_when: string | null;
+  source_bill_id: string | null;
+  note_excerpt: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type LlmCallPayload = {
   node: string;
   parent_tool: string | null;

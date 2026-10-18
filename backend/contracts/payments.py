@@ -196,6 +196,7 @@ class BudgetUsageView(ApiModel):
 
 class ReviewActionRequest(ApiModel):
     note: str = Field(min_length=REVIEW_NOTE_MIN_LENGTH, max_length=REVIEW_NOTE_MAX_LENGTH)
+    remember: bool = False
 
 
 class PaymentRunStatus(ApiModel):
