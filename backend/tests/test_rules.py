@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from contracts.bills import BillRecord, BillSourceRecord, BillSourceType, BillStatus, BillSummary
+from contracts.memory import MemoryPrecedent
 from contracts.payment_candidates import FieldEvidence, PersonCandidate, ServiceCandidate
 from contracts.payment_policy import (
     BlacklistHit,
@@ -31,7 +32,7 @@ from contracts.payments import (
 from modules.bills import BillStateConflictError
 from modules.fx import STATIC_USD_PER_UNIT
 from modules.payments import rules, settlement
-from modules.payments.checker import apply_checker
+from modules.payments.checker import _checker_content, apply_checker
 from modules.payments.errors import BudgetExhaustedError
 from modules.payments.rules import DecisionContext, decide
 
@@ -489,3 +490,29 @@ async def test_settle_propagates_bill_state_conflicts_without_retrying():
         await _settle(_context(), ledger)
 
     assert len(ledger.commits) == 1
+
+
+def _precedent() -> MemoryPrecedent:
+    return MemoryPrecedent(
+        memory_id="memory-1",
+        situation="Amount 40% above the agreement after a plan change.",
+        human_action="approved",
+        lesson="Approve the new monthly rate.",
+        applies_when="From October 2026",
+        decided_at=NOW,
+        score=0.9,
+    )
+
+
+def test_precedents_never_change_the_rules_verdict() -> None:
+    context = _context()
+    with_precedents = replace(context, precedents=(_precedent(),))
+    assert decide(with_precedents) == decide(context)
+
+
+def test_checker_sees_precedents_with_today_only_when_recalled() -> None:
+    assert "<human_precedents>" not in _checker_content(_context())
+    checker_content = _checker_content(_context(precedents=(_precedent(),)))
+    assert f"<today>{TODAY.isoformat()}</today>" in checker_content
+    assert "Approve the new monthly rate." in checker_content
+    assert "memory-1" not in checker_content

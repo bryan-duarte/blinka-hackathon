@@ -4,9 +4,9 @@ from uuid import UUID, uuid4
 
 from langchain_core.messages import HumanMessage
 from langgraph.store.base import BaseStore, Item, SearchItem
-from langmem import create_memory_store_manager
-from langmem.errors import ConfigurationError
-from pydantic import ValidationError
+from langmem import create_memory_manager
+from langmem.knowledge.extraction import ExtractedMemory
+from pydantic import BaseModel, ValidationError
 
 from contracts.llm import ModelKind
 from contracts.memory import DecisionMemoryInput, MemoryPrecedent, MemoryView
@@ -25,8 +25,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 MEMORY_NAMESPACE_ROOT = "payments_memories"
-OWNER_TEMPLATE = "{owner_id}"
-PAYEE_KEY_TEMPLATE = "{payee_key}"
 PRECEDENT_KIND = PaymentPrecedent.__name__
 NAME_KEY_PREFIX = "name:"
 NOTE_EXCERPT_CHARS = 200
@@ -69,15 +67,13 @@ class MemoryService:
         self._settings = settings
         self._registry = registry
         self._manager = (
-            create_memory_store_manager(
+            create_memory_manager(
                 llm.model(MEMORY_MODEL_KIND),
                 schemas=[PaymentPrecedent],
                 instructions=prompts.get_text_prompt(PromptId.MEMORY_PRECEDENT),
                 enable_inserts=True,
+                enable_updates=True,
                 enable_deletes=False,
-                query_limit=settings.manager_query_limit,
-                namespace=(MEMORY_NAMESPACE_ROOT, OWNER_TEMPLATE, PAYEE_KEY_TEMPLATE),
-                store=store,
             )
             if store is not None
             else None
@@ -97,19 +93,47 @@ class MemoryService:
         if payee_key is None:
             logger.info("memory_skipped_no_payee", bill_id=memory_input.bill_id)
             return 0
-        manager_config = {
-            "configurable": {"owner_id": str(memory_input.owner_id), "payee_key": payee_key}
-        }
-        transcript = HumanMessage(content=_decision_transcript(memory_input))
-        memory_puts = await self._manager.ainvoke({"messages": [transcript]}, config=manager_config)
+        namespace = payee_namespace(memory_input.owner_id, payee_key)
+        transcript = _decision_transcript(memory_input)
+        existing_contents = await self._related_precedent_contents(namespace, transcript)
+        extracted_memories = await self._manager.ainvoke(
+            {
+                "messages": [HumanMessage(content=transcript)],
+                "existing": [
+                    (memory_id, PRECEDENT_KIND, content)
+                    for memory_id, content in existing_contents.items()
+                ],
+            }
+        )
         source = _precedent_source(memory_input).model_dump(mode="json")
-        for memory_put in memory_puts:
+        changed_memories = [
+            (extracted_memory.id, _extracted_content(extracted_memory))
+            for extracted_memory in extracted_memories
+            if _extracted_content(extracted_memory) != existing_contents.get(extracted_memory.id)
+        ]
+        for memory_id, content in changed_memories:
             await self._store.aput(
-                tuple(memory_put["namespace"]),
-                memory_put["key"],
-                {**memory_put["value"], STORED_SOURCE_FIELD: source},
+                namespace,
+                memory_id,
+                {
+                    STORED_KIND_FIELD: PRECEDENT_KIND,
+                    STORED_CONTENT_FIELD: content,
+                    STORED_SOURCE_FIELD: source,
+                },
             )
-        return len(memory_puts)
+        return len(changed_memories)
+
+    async def _related_precedent_contents(
+        self, namespace: tuple[str, ...], transcript: str
+    ) -> dict[str, dict]:
+        related_memories = await self._store.asearch(
+            namespace, query=transcript, limit=self._settings.manager_query_limit
+        )
+        return {
+            related_memory.key: related_memory.value[STORED_CONTENT_FIELD]
+            for related_memory in related_memories
+            if _stored_precedent(related_memory) is not None
+        }
 
     async def recall(
         self, owner_id: UUID, payee_id: UUID | None, payee_name: str | None, query: str
@@ -169,7 +193,7 @@ class MemoryService:
     async def _remember_safely(self, memory_input: DecisionMemoryInput) -> None:
         try:
             memory_count = await self.remember_decision(memory_input)
-        except (Exception, ConfigurationError):
+        except Exception:
             logger.exception("memory_extraction_failed", bill_id=memory_input.bill_id)
             return
         logger.info("memory_extracted", bill_id=memory_input.bill_id, count=memory_count)
@@ -199,6 +223,11 @@ def _decision_transcript(memory_input: DecisionMemoryInput) -> str:
 
 def _attribute_text(attribute_value: object | None) -> str:
     return escape(UNKNOWN_FIELD if attribute_value is None else str(attribute_value))
+
+
+def _extracted_content(extracted_memory: ExtractedMemory) -> dict:
+    content = extracted_memory.content
+    return content.model_dump(mode="json") if isinstance(content, BaseModel) else content
 
 
 def _precedent_source(memory_input: DecisionMemoryInput) -> PrecedentSource:

@@ -23,12 +23,13 @@ SummaryField = dict
 class TextractExpenseReader:
     def __init__(self, aws_profile: str | None, region: str) -> None:
         self._session = AioSession(profile=aws_profile)
-        self._client_context = self._session.create_client("textract", region_name=region)
+        self._region = region
         self._client = None
 
     async def _expense_client(self):
         if self._client is None:
-            self._client = await self._client_context.__aenter__()
+            client_context = self._session.create_client("textract", region_name=self._region)
+            self._client = await client_context.__aenter__()
         return self._client
 
     async def read_expense(self, document: bytes) -> ExpenseReading:

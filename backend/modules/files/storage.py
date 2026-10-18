@@ -30,16 +30,17 @@ class ObjectStorageBackend:
     def __init__(self, bucket: str, aws_profile: str | None, region: str) -> None:
         self._bucket = bucket
         self._session = AioSession(profile=aws_profile)
-        self._client_context = self._session.create_client(
-            "s3",
-            region_name=region,
-            config=Config(s3={"addressing_style": VIRTUAL_HOST_ADDRESSING}),
-        )
+        self._region = region
         self._client = None
 
     async def _object_client(self):
         if self._client is None:
-            self._client = await self._client_context.__aenter__()
+            client_context = self._session.create_client(
+                "s3",
+                region_name=self._region,
+                config=Config(s3={"addressing_style": VIRTUAL_HOST_ADDRESSING}),
+            )
+            self._client = await client_context.__aenter__()
         return self._client
 
     async def put(self, key: str, content: bytes, content_type: str) -> None:

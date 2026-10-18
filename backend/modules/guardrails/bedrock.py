@@ -25,14 +25,15 @@ class BedrockGuardrailBackend:
         self._guardrail_id = guardrail_id
         self._guardrail_version = guardrail_version
         self._session = AioSession(profile=aws_profile)
-        self._client_context = self._session.create_client(
-            "bedrock-runtime", region_name=aws_region
-        )
+        self._region = aws_region
         self._client = None
 
     async def _runtime_client(self):
         if self._client is None:
-            self._client = await self._client_context.__aenter__()
+            client_context = self._session.create_client(
+                "bedrock-runtime", region_name=self._region
+            )
+            self._client = await client_context.__aenter__()
         return self._client
 
     async def apply(self, text: str) -> GuardrailVerdict:

@@ -32,7 +32,7 @@ const THINKING_BUFFER_CHARS = 400;
 const RESET_ITEM_STATUS = "reset";
 const SOURCE_FILTERS: InboxChannel[] = ["email", "whatsapp"];
 
-type InboxFilter = "all" | "review";
+type InboxFilter = "all" | "review" | "not_invoice";
 
 type InboxSnapshot = {
   emails: InboxEmailView[];
@@ -76,13 +76,16 @@ export default function InboxPage() {
   const [stageEventsByItem, setStageEventsByItem] = useState<Record<string, RealtimeEvent[]>>({});
   const wasChannelLive = useRef(false);
   const reviewEmails = (emails ?? []).filter((email) => email.status === "review");
+  const notInvoiceEmails = (emails ?? []).filter((email) => email.status === "no_invoice");
+  const invoiceEmails = (emails ?? []).filter((email) => email.status !== "no_invoice");
   const isReviewFilter = inboxFilter === "review";
-  const visibleEmails = emails && isReviewFilter ? reviewEmails : emails;
+  const filteredEmails = { all: invoiceEmails, review: reviewEmails, not_invoice: notInvoiceEmails };
+  const visibleEmails = emails && filteredEmails[inboxFilter];
   const reviewCount = reviewEmails.length;
   const hasPendingEmails = (emails ?? []).some((email) => PENDING_STATUSES.has(email.status));
   const isReviewQueueEmpty = isReviewFilter && visibleEmails?.length === 0;
   const caption = emails
-    ? `${emails.length} messages · ${reviewCount} in review`
+    ? `${invoiceEmails.length} messages · ${reviewCount} in review`
     : "Loading messages…";
   const requestRefresh = useCallback(() => setRefreshCount((count) => count + 1), []);
 
@@ -265,6 +268,12 @@ export default function InboxPage() {
                 count={reviewCount}
                 isActive={isReviewFilter}
                 onSelect={() => setInboxFilter("review")}
+              />
+              <FilterTab
+                label="Not invoices"
+                count={notInvoiceEmails.length}
+                isActive={inboxFilter === "not_invoice"}
+                onSelect={() => setInboxFilter("not_invoice")}
               />
             </div>
             <div role="group" aria-label="Filter by channel" className="flex flex-wrap gap-1">
