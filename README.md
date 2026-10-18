@@ -7,6 +7,12 @@
 It reads every invoice, decides to **pay**, **hold** or **escalate** to a person, and records why.
 Built for US companies paying teams and vendors across Latin America.
 
+| 🔑 Demo account for evaluators | |
+|---|---|
+| **URL** | Not public. It's in the project submission, the pitch and the submission description. |
+| **Email** | `demo@blinka.dev` |
+| **Password** | `blinka2026bryan` |
+
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangChain-Deep%20Agents-1C3C3C?logo=langchain&logoColor=white)
@@ -404,13 +410,7 @@ pnpm dev
 
 ![Sign-in screen: the agent kept working overnight, paid four bills and is holding two for a person](docs/images/sign-in.png)
 
-1. Sign in to the console with the demo account:
-
-   | | |
-   |---|---|
-   | **URL** | Not public. It's in the project submission, the pitch and the submission description. |
-   | **Email** | `demo@blinka.dev` |
-   | **Password** | `blinka2026bryan` |
+1. Sign in to the console with the [demo account](#blinka-pay-agent) at the top of this README.
 
 2. Launch any of the **30 demo scenarios** from the Demo panel in one click, or
 3. Send a real invoice from [`samples/demo-kit`](samples/demo-kit/README.md) to the connected inbox and watch the agent decide, live.
