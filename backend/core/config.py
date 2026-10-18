@@ -19,7 +19,7 @@ class LlmSettings(BaseSettings):
         env_prefix="BLINKA_LLM__", env_file=".env", extra="ignore", frozen=True
     )
 
-    model: str = "global.anthropic.claude-haiku-5-5"
+    model: str = "global.amazon.nova-2-lite-v1:0"
     main_model: str | None = None
     payments_model: str | None = None
     aws_profile: str | None = None

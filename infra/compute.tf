@@ -116,27 +116,27 @@ resource "aws_iam_role_policy" "backend_task_guardrail" {
 }
 
 locals {
-  bedrock_claude_profile_arns = "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*${var.bedrock_claude_model_family}*"
+  bedrock_profile_arns = "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*${var.bedrock_model_family}*"
 }
 
 data "aws_iam_policy_document" "backend_bedrock_invoke" {
   statement {
-    sid       = "InvokeClaudeProfiles"
+    sid       = "InvokeModelProfiles"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = [local.bedrock_claude_profile_arns]
+    resources = [local.bedrock_profile_arns]
   }
 
   statement {
-    sid       = "InvokeClaudeViaProfile"
+    sid       = "InvokeModelViaProfile"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = ["arn:aws:bedrock:*::foundation-model/${var.bedrock_claude_model_family}*"]
+    resources = ["arn:aws:bedrock:*::foundation-model/${var.bedrock_model_family}*"]
 
     condition {
       test     = "StringLike"
       variable = "bedrock:InferenceProfileArn"
-      values   = [local.bedrock_claude_profile_arns]
+      values   = [local.bedrock_profile_arns]
     }
   }
 

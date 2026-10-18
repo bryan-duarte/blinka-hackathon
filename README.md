@@ -48,7 +48,7 @@ Everything below is running code: three live intake channels, an agent on LangCh
 | 🧾 **Two audit trails** | Application ledger + pgaudit → CloudWatch → Firehose → S3 |
 | ⚡ **Live reasoning** | Every stage, tool call and thought streamed over AWS AppSync Events |
 | 🔁 **Crash-safe** | Durable Postgres queues, LangGraph checkpoints, exactly-once recovery |
-| 🔒 **Private LLM path** | Claude Haiku 5.5 on Amazon Bedrock over PrivateLink |
+| 🔒 **Private LLM path** | Amazon Nova 2 Lite on Amazon Bedrock over PrivateLink |
 | 🌎 **22 countries of e-invoices** | CFDI, DIAN UBL, NF-e, DTE, SUNAT CPE, FatturaPA and more, parsed natively |
 
 ---
@@ -239,7 +239,7 @@ flowchart LR
 
     ALB --> ECS --> PG1
     ECS --> PG2
-    ECS --> VPCE --> BR[Amazon Bedrock<br/>Claude Haiku 5.5]
+    ECS --> VPCE --> BR[Amazon Bedrock<br/>Nova 2 Lite]
 ```
 
 - Security groups chained **ALB → app → database**; the ALB is the only public entry.
@@ -293,7 +293,7 @@ What streams to the finance team: pipeline stages with timings · the agent's to
 | Layer | Technology |
 |---|---|
 | **Agent** | LangChain Deep Agents, LangGraph (Postgres checkpointer), LangMem |
-| **LLM** | Claude Haiku 5.5 on Amazon Bedrock, Titan Text Embeddings v2 |
+| **LLM** | Amazon Nova 2 Lite on Amazon Bedrock, Titan Text Embeddings v2 |
 | **Backend** | Python 3.13, FastAPI, SQLAlchemy (async), Alembic, Pydantic, structlog, uv |
 | **Frontend** | Next.js 16, React 19, Tailwind CSS 4, Recharts, AWS Amplify (realtime) |
 | **Data** | Postgres 17 × 2 (product + agent), pgvector, pgaudit |

@@ -25,13 +25,13 @@ variable "evidence_bucket_prefix" {
 variable "bedrock_model_id" {
   description = "Bedrock inference profile the backend uses for every LLM call."
   type        = string
-  default     = "global.anthropic.claude-haiku-5-5"
+  default     = "global.amazon.nova-2-lite-v1:0"
 }
 
-variable "bedrock_claude_model_family" {
-  description = "Claude model id fragment the backend may invoke, matched in profile and model ARNs."
+variable "bedrock_model_family" {
+  description = "Model id fragment the backend may invoke, matched in profile and model ARNs."
   type        = string
-  default     = "anthropic.claude-haiku-5-5"
+  default     = "amazon.nova-2-lite-v1"
 }
 
 variable "bedrock_embedding_model_id" {
