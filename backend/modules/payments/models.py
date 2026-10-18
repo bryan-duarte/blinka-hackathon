@@ -37,7 +37,6 @@ class AgentRun(ProductBase):
     status: Mapped[str] = mapped_column(default=RunStatus.PENDING, index=True)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     file_id: Mapped[UUID | None] = mapped_column(ForeignKey("files.id"), nullable=True)
-    session_id: Mapped[UUID | None] = mapped_column(ForeignKey("sessions.id"), nullable=True)
     bill_source_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("bill_sources.id"), nullable=True, index=True
     )

@@ -21,13 +21,17 @@ from modules.files.errors import (
     UnsupportedFileError,
 )
 from modules.guardrails.errors import GuardrailRejectionError, GuardrailUnavailableError
-from modules.inbox.errors import EmailMissingError, MailboxConnectionMissingError
+from modules.inbox.errors import (
+    EmailMissingError,
+    MailboxConnectionMissingError,
+    WhatsAppPhoneTakenError,
+    WhatsAppSimulationUnsupportedError,
+)
 from modules.mail_gateway.errors import (
     MailboxAlreadyConnectedError,
     MailProviderError,
     WebhookSignatureError,
 )
-from modules.orchestrator.errors import AgentProviderError
 from modules.payment_policy.errors import (
     BlacklistEntryMissingError,
     IdentifierMissingError,
@@ -39,7 +43,12 @@ from modules.payment_policy.errors import (
     PolicyMissingError,
 )
 from modules.payments.errors import BillNotReviewableError, DecisionMissingError, RunNotFoundError
-from modules.sessions.errors import SessionMissingError
+from modules.whatsapp_gateway.errors import (
+    WhatsAppNumberUnverifiedError,
+    WhatsAppPhoneInvalidError,
+    WhatsAppProviderError,
+    WhatsAppSignatureError,
+)
 
 logger = get_logger(__name__)
 
@@ -67,6 +76,15 @@ DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
         status.HTTP_422_UNPROCESSABLE_CONTENT,
         "archive could not be safely expanded",
     ),
+    WhatsAppSignatureError: (status.HTTP_401_UNAUTHORIZED, "invalid webhook signature"),
+    WhatsAppProviderError: (status.HTTP_502_BAD_GATEWAY, "whatsapp provider unavailable"),
+    WhatsAppPhoneInvalidError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid phone number"),
+    WhatsAppNumberUnverifiedError: (status.HTTP_409_CONFLICT, "whatsapp number not verified"),
+    WhatsAppPhoneTakenError: (status.HTTP_409_CONFLICT, "phone already registered"),
+    WhatsAppSimulationUnsupportedError: (
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "sample has no document for whatsapp",
+    ),
 }
 
 
@@ -74,12 +92,8 @@ DOMAIN_ERROR_RESPONSES: dict[type[Exception], tuple[int, str]] = {
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
     configure_logging(settings.log_format)
-    pools = build_pools(
-        settings.product_database_url,
-        settings.agent_database_url,
-        settings.payments_database_url,
-    )
-    checkpointers = Checkpointers(settings.agent_database_url, settings.payments_database_url)
+    pools = build_pools(settings.product_database_url, settings.payments_database_url)
+    checkpointers = Checkpointers(settings.payments_database_url)
     await checkpointers.open()
     try:
         clients = await build_clients(settings, pools, checkpointers)
@@ -99,7 +113,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await clients.payments.shutdown_runs()
         await checkpointers.close()
         await pools.product.engine.dispose()
-        await pools.agent.engine.dispose()
         await pools.payments.engine.dispose()
         logger.info("backend_stopped")
 
@@ -116,11 +129,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(GuardrailRejectionError, _reject_unsafe_input)
     app.add_exception_handler(InvalidCredentialsError, _reject_invalid_credentials)
     app.add_exception_handler(EmailTakenError, _reject_taken_email)
-    app.add_exception_handler(SessionMissingError, _reject_missing_session)
     app.add_exception_handler(FileMissingError, _reject_missing_file)
     app.add_exception_handler(RunNotFoundError, _reject_missing_run)
     app.add_exception_handler(StorageError, _reject_storage_down)
-    app.add_exception_handler(AgentProviderError, _reject_agent_provider_down)
     app.add_exception_handler(GuardrailUnavailableError, _reject_guardrails_down)
     app.add_exception_handler(WebhookSignatureError, _reject_invalid_webhook)
     app.add_exception_handler(MailboxConnectionMissingError, _reject_missing_mailbox_connection)
@@ -157,12 +168,6 @@ def _reject_taken_email(request: Request, error: EmailTakenError) -> JSONRespons
     )
 
 
-def _reject_missing_session(request: Request, error: SessionMissingError) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND, content={"detail": "session not found"}
-    )
-
-
 def _reject_missing_file(request: Request, error: FileMissingError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "file not found"})
 
@@ -175,13 +180,6 @@ def _reject_storage_down(request: Request, error: StorageError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={"detail": "storage unavailable"},
-    )
-
-
-def _reject_agent_provider_down(request: Request, error: AgentProviderError) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"detail": "agent provider unavailable"},
     )
 
 

@@ -6,11 +6,17 @@ from api.deps import ClientsDep, CurrentUserDep
 from contracts.inbox import (
     ConfirmMailboxRequest,
     ConnectMailboxRequest,
+    InboxChannel,
     InboxEmailDetail,
     InboxEmailView,
     MailboxConnectionView,
     MailboxConnectStarted,
     SimulateEmailRequest,
+)
+from contracts.whatsapp_gateway import (
+    ConfirmWhatsAppRequest,
+    RegisterSandboxRequest,
+    WhatsAppSandboxView,
 )
 
 inbox_router = APIRouter(prefix="/inbox", tags=["inbox"])
@@ -39,9 +45,36 @@ async def list_connections(
     return await clients.inbox.list_connections(user)
 
 
+@inbox_router.post("/whatsapp/sandbox", response_model=WhatsAppSandboxView)
+async def register_whatsapp_sandbox(
+    request: RegisterSandboxRequest, user: CurrentUserDep, clients: ClientsDep
+) -> WhatsAppSandboxView:
+    return await clients.inbox.register_whatsapp_sandbox(user, request.phone_number)
+
+
+@inbox_router.post(
+    "/whatsapp/own-number",
+    response_model=MailboxConnectStarted,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_whatsapp_connection(
+    user: CurrentUserDep, clients: ClientsDep
+) -> MailboxConnectStarted:
+    return await clients.inbox.start_whatsapp_connection(user)
+
+
+@inbox_router.post("/whatsapp/confirm", response_model=MailboxConnectionView)
+async def confirm_whatsapp_connection(
+    request: ConfirmWhatsAppRequest, user: CurrentUserDep, clients: ClientsDep
+) -> MailboxConnectionView:
+    return await clients.inbox.confirm_whatsapp_connection(user, request)
+
+
 @inbox_router.get("/emails", response_model=list[InboxEmailView])
-async def list_emails(user: CurrentUserDep, clients: ClientsDep) -> list[InboxEmailView]:
-    return await clients.inbox.list_emails(user)
+async def list_emails(
+    user: CurrentUserDep, clients: ClientsDep, source: InboxChannel | None = None
+) -> list[InboxEmailView]:
+    return await clients.inbox.list_emails(user, source)
 
 
 @inbox_router.get("/emails/{email_id}", response_model=InboxEmailDetail)
@@ -53,4 +86,4 @@ async def get_email(email_id: UUID, user: CurrentUserDep, clients: ClientsDep) -
 async def simulate_email(
     request: SimulateEmailRequest, user: CurrentUserDep, clients: ClientsDep
 ) -> InboxEmailView:
-    return await clients.inbox.simulate(user, request.kind)
+    return await clients.inbox.simulate(user, request.kind, request.channel)

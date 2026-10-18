@@ -10,3 +10,9 @@ webhooks_router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 async def mail_webhook(request: Request, clients: ClientsDep) -> WebhookAccepted:
     await clients.inbox.ingest_webhook(await request.body(), request.headers)
     return WebhookAccepted()
+
+
+@webhooks_router.post("/whatsapp", response_model=WebhookAccepted, status_code=status.HTTP_200_OK)
+async def whatsapp_webhook(request: Request, clients: ClientsDep) -> WebhookAccepted:
+    await clients.inbox.ingest_whatsapp_webhook(await request.body(), request.headers)
+    return WebhookAccepted()

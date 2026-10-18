@@ -11,6 +11,7 @@ class MailProvider(StrEnum):
     GMAIL = "gmail"
     OUTLOOK = "outlook"
     SIMULATED = "simulated"
+    WHATSAPP = "whatsapp"
 
 
 class MailAccountStatus(StrEnum):

@@ -26,3 +26,7 @@ class BillNotReviewableError(PaymentsError):
 
 class DecisionMissingError(PaymentsError):
     pass
+
+
+class AgentIncompleteError(PaymentsError):
+    pass

@@ -25,3 +25,6 @@ override.tf.json
 # CLI configuration files
 .terraformrc
 terraform.rc
+
+# Lambda build artifacts
+.build/

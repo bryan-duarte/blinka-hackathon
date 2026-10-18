@@ -3,8 +3,10 @@ export type TokenResponse = {
   token_type: string;
 };
 
-export type MailProvider = "gmail" | "outlook" | "simulated";
-export type ConnectableProvider = Exclude<MailProvider, "simulated">;
+export type MailProvider = "gmail" | "outlook" | "simulated" | "whatsapp";
+export type ConnectableProvider = "gmail" | "outlook";
+export type WhatsAppConnectionMode = "sandbox" | "own_number";
+export type InboxChannel = "email" | "whatsapp";
 
 export type MailAccountStatus = "initiated" | "active" | "failed" | "expired";
 
@@ -18,6 +20,16 @@ export type MailboxConnectionView = {
   provider: MailProvider;
   status: MailAccountStatus;
   created_at: string;
+  mode: WhatsAppConnectionMode | null;
+  phone_number: string | null;
+  sandbox_number: string | null;
+};
+
+export type WhatsAppSandboxView = {
+  connection_id: string;
+  phone_number: string;
+  sandbox_number: string;
+  status: MailAccountStatus;
 };
 
 export type InboxEmailStatus =
@@ -194,6 +206,7 @@ export type EvidenceFileView = {
 export type RunStatus = "pending" | "running" | "completed" | "failed";
 
 export type PaymentRunEvent = {
+  id: number;
   step: string;
   payload: Record<string, unknown>;
   created_at: string;
@@ -328,3 +341,28 @@ export const PENDING_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
   "processing",
   "analyzing",
 ]);
+
+export type RealtimeEventType =
+  | "inbox.item"
+  | "run.step"
+  | "agent.tool"
+  | "agent.todos"
+  | "agent.thinking";
+
+export type RealtimeEvent = {
+  type: RealtimeEventType;
+  item_id: string | null;
+  run_id: string | null;
+  step: string;
+  payload: Record<string, unknown>;
+  message: string | null;
+  sequence: number | null;
+  created_at: string;
+};
+
+export type AgentTodoStatus = "pending" | "in_progress" | "completed";
+
+export type AgentTodo = {
+  content: string;
+  status: AgentTodoStatus;
+};

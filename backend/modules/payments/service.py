@@ -43,15 +43,11 @@ from modules.payments.errors import (
     DecisionMissingError,
     RunNotFoundError,
 )
+from modules.payments.events import EXTRACTION_FAILED_STEP, NOT_A_BILL_STEP
 from modules.payments.fx import current_period
 from modules.payments.repository import RunsRepository
 from modules.payments.rules import decide
-from modules.payments.runner import (
-    EXTRACTION_FAILED_STEP,
-    NOT_A_BILL_STEP,
-    PAYMENTS_AGENT_NAME,
-    run_execution,
-)
+from modules.payments.runner import PAYMENTS_AGENT_NAME, run_execution
 from modules.payments.settlement import (
     RESTART_INTERRUPTION_EXPLANATION,
     fail_closed,
@@ -97,15 +93,12 @@ class PaymentsService:
             agent=PAYMENTS_AGENT_NAME,
             owner_id=owner.user_id,
             file_id=source.file_id,
-            session_id=trigger.session_id,
             bill_source_id=source.source_id,
         )
         if is_new_run:
             self._registry.spawn(
                 run_id,
-                run_execution(
-                    run_id, owner, source.source_id, trigger.session_id, self._dependencies
-                ),
+                run_execution(run_id, owner, source.source_id, self._dependencies),
             )
             logger.info("payment_run_started", run_id=run_id, bill_source_id=source.source_id)
         return PaymentRunAccepted(run_id=run_id, status=RunStatus.PENDING, duplicate=not is_new_run)
@@ -117,7 +110,6 @@ class PaymentsService:
         source_type: BillSourceType,
         source_ref: str,
         body_text: str = "",
-        session_id: UUID | None = None,
     ) -> PaymentRunAccepted:
         intake = await self._files.ingest_stored_file(owner, file_id)
         if intake.status in QUARANTINED_INTAKE_STATUSES:
@@ -138,7 +130,6 @@ class PaymentsService:
         accepted = await self.start_run(
             PaymentRunTrigger(
                 bill_source_id=registration.source.source_id,
-                session_id=session_id,
                 evidence=intake.evidence if registration.is_new else [],
             ),
             owner,

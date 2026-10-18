@@ -1,10 +1,11 @@
+import type { ReactNode } from "react";
 import { DecisionCard } from "@/components/bills/DecisionCard";
 import { EvidenceSection } from "@/components/files/EvidenceSection";
 import { EYEBROW_CLASS, PAGE_HEADING_CLASS } from "@/components/settings/styles";
 import { formatDateTime } from "@/lib/format";
-import type { InboxEmailDetail, InboxEmailStatus } from "@/lib/types";
+import type { InboxEmailDetail, InboxEmailStatus, RealtimeEvent } from "@/lib/types";
 import { PENDING_STATUSES } from "@/lib/types";
-import { RunTimeline } from "./RunTimeline";
+import { AgentActivity } from "./AgentActivity";
 import { SourceBadge } from "./SourceBadge";
 import { StatusBadge } from "./StatusBadge";
 
@@ -13,6 +14,9 @@ type EmailDetailProps = {
   onBack: () => void;
   onDecisionChanged: () => void;
   onSelectEmail: (emailId: string) => void;
+  runEvents: RealtimeEvent[];
+  thinking: string;
+  refreshKey: number;
 };
 
 const DECIDED_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
@@ -25,7 +29,25 @@ const DECIDED_STATUSES: ReadonlySet<InboxEmailStatus> = new Set([
 const NOTICE_CLASS = "flex flex-col gap-2 border-t border-line pt-4";
 const NOTICE_TITLE_CLASS = "text-base font-normal";
 
-export function EmailDetail({ email, onBack, onDecisionChanged, onSelectEmail }: EmailDetailProps) {
+export function EmailDetail({
+  email,
+  onBack,
+  onDecisionChanged,
+  onSelectEmail,
+  runEvents,
+  thinking,
+  refreshKey,
+}: EmailDetailProps) {
+  const isPending = PENDING_STATUSES.has(email.status);
+  const agentActivity = email.run_id ? (
+    <AgentActivity
+      runId={email.run_id}
+      liveEvents={runEvents}
+      thinking={thinking}
+      isRunning={isPending}
+      refreshKey={refreshKey}
+    />
+  ) : null;
   return (
     <article className="flex flex-col gap-6">
       <button
@@ -48,8 +70,10 @@ export function EmailDetail({ email, onBack, onDecisionChanged, onSelectEmail }:
           <StatusBadge status={email.status} />
         </div>
       </header>
+      {!isPending && agentActivity}
       <ResultCard
         email={email}
+        agentActivity={agentActivity}
         onDecisionChanged={onDecisionChanged}
         onSelectEmail={onSelectEmail}
       />
@@ -63,10 +87,12 @@ export function EmailDetail({ email, onBack, onDecisionChanged, onSelectEmail }:
 
 function ResultCard({
   email,
+  agentActivity,
   onDecisionChanged,
   onSelectEmail,
 }: {
   email: InboxEmailDetail;
+  agentActivity: ReactNode;
   onDecisionChanged: () => void;
   onSelectEmail: (emailId: string) => void;
 }) {
@@ -75,9 +101,9 @@ function ResultCard({
       <section aria-live="polite" className="flex flex-col gap-2 border-t border-line pt-4 text-sm text-muted">
         <div aria-hidden className="h-1 w-full animate-pulse rounded bg-accent-wash" />
         {email.status === "analyzing"
-          ? "El agente está evaluando la factura contra las reglas..."
-          : "Revisando el correo y escaneando adjuntos con AWS..."}
-        {email.run_id && <RunTimeline runId={email.run_id} />}
+          ? "El agente está evaluando la factura contra las reglas…"
+          : "Revisando el mensaje y escaneando documentos con AWS…"}
+        {agentActivity}
       </section>
     );
   }
@@ -113,9 +139,9 @@ function ResultCard({
   if (email.status === "duplicate") {
     return (
       <section className={NOTICE_CLASS}>
-        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Correo repetido</h3>
+        <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Mensaje repetido</h3>
         <p className="text-sm text-muted">
-          Este mismo correo ya se había recibido. No se volvió a evaluar ni a pagar.
+          Este mismo mensaje ya se había recibido. No se volvió a evaluar ni a pagar.
         </p>
       </section>
     );
@@ -138,7 +164,7 @@ function ResultCard({
       <section className={NOTICE_CLASS}>
         <h3 className={`${NOTICE_TITLE_CLASS} text-ink`}>Sin factura</h3>
         <p className="text-sm text-muted">
-          {email.error || "El agente no encontró una cuenta por pagar en este correo."}
+          {email.error || "El agente no encontró una cuenta por pagar en este mensaje."}
         </p>
       </section>
     );

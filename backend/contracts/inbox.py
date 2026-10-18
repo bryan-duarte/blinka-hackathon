@@ -9,6 +9,7 @@ from contracts.files import EvidenceFileView
 from contracts.guardrails import GuardrailViolation
 from contracts.mail_gateway import MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView
+from contracts.whatsapp_gateway import WhatsAppConnectionMode
 
 
 class InboxEmailStatus(StrEnum):
@@ -45,6 +46,20 @@ class SimulatedEmailKind(StrEnum):
     PLAIN = "plain"
 
 
+InboxChannel = Literal["email", "whatsapp"]
+
+SOURCE_TYPE_BY_PROVIDER: dict[MailProvider, BillSourceType] = {
+    MailProvider.GMAIL: BillSourceType.EMAIL,
+    MailProvider.OUTLOOK: BillSourceType.EMAIL,
+    MailProvider.SIMULATED: BillSourceType.EMAIL,
+    MailProvider.WHATSAPP: BillSourceType.WHATSAPP,
+}
+PROVIDERS_BY_CHANNEL: dict[InboxChannel, frozenset[MailProvider]] = {
+    "email": frozenset({MailProvider.GMAIL, MailProvider.OUTLOOK, MailProvider.SIMULATED}),
+    "whatsapp": frozenset({MailProvider.WHATSAPP}),
+}
+
+
 class MailboxConnectionRecord(StrictModel):
     connection_id: UUID
     owner_id: UUID
@@ -53,6 +68,9 @@ class MailboxConnectionRecord(StrictModel):
     trigger_id: str | None
     status: MailAccountStatus
     created_at: datetime
+    mode: WhatsAppConnectionMode | None = None
+    phone_number: str | None = None
+    external_ref: str | None = None
 
 
 class InboxEmailRecord(StrictModel):
@@ -79,6 +97,7 @@ class ConfirmMailboxRequest(ApiModel):
 
 class SimulateEmailRequest(ApiModel):
     kind: SimulatedEmailKind
+    channel: InboxChannel = "email"
 
 
 class MailboxConnectStarted(ApiModel):
@@ -91,6 +110,9 @@ class MailboxConnectionView(ApiModel):
     provider: MailProvider
     status: MailAccountStatus
     created_at: datetime
+    mode: WhatsAppConnectionMode | None = None
+    phone_number: str | None = None
+    sandbox_number: str | None = None
 
 
 class InboxEmailView(ApiModel):

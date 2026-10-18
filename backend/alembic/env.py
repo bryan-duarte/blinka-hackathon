@@ -7,6 +7,7 @@ from alembic import context
 
 config = context.config
 
+LANGGRAPH_CHECKPOINT_TABLE_PREFIX = "checkpoint"
 SECTION_URL_ENV_VARS = {
     "product": "BLINKA_PRODUCT_DATABASE_URL",
     "payments": "BLINKA_PAYMENTS_DATABASE_URL",
@@ -16,7 +17,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 if config.config_ini_section == "payments":
-    import modules.sessions.models  # noqa: F401
     from core.db.base import PaymentsBase as target_base
 else:
     import modules.auth.models  # noqa: F401
@@ -25,7 +25,6 @@ else:
     import modules.inbox.models  # noqa: F401
     import modules.payment_policy.models  # noqa: F401
     import modules.payments.models  # noqa: F401
-    import modules.sessions.models  # noqa: F401
     from core.db.base import ProductBase as target_base
 
 target_metadata = target_base.metadata
@@ -47,6 +46,13 @@ def _sync_url() -> str:
     )
 
 
+def _include_name(name: str | None, type_: str, parent_names: dict) -> bool:
+    is_langgraph_table = type_ == "table" and (name or "").startswith(
+        LANGGRAPH_CHECKPOINT_TABLE_PREFIX
+    )
+    return not is_langgraph_table
+
+
 def _version_table() -> str:
     return config.get_main_option("version_table") or "alembic_version"
 
@@ -58,6 +64,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         version_table=_version_table(),
+        include_name=_include_name,
     )
 
     with context.begin_transaction():
@@ -78,6 +85,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             version_table=_version_table(),
+            include_name=_include_name,
         )
 
         with context.begin_transaction():

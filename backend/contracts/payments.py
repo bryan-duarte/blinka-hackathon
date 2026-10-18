@@ -57,7 +57,6 @@ class PaymentRunRecord(StrictModel):
 
 class PaymentRunTrigger(ApiModel):
     bill_source_id: UUID
-    session_id: UUID | None = None
     evidence: list[EvidenceLink] = []
 
 
@@ -72,6 +71,7 @@ class PaymentRunAccepted(ApiModel):
 
 
 class PaymentRunEvent(StrictModel):
+    id: int
     step: str
     payload: dict = {}
     created_at: datetime

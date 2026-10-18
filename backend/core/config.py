@@ -89,6 +89,35 @@ class ComposioSettings(BaseSettings):
     callback_url: str = "http://localhost:3000/inbox/callback"
 
 
+class KapsoSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_KAPSO__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    api_key: SecretStr = Field(validation_alias="KAPSO_API_KEY", default=SecretStr(""))
+    webhook_secret: SecretStr = Field(
+        validation_alias="KAPSO_WEBHOOK_SECRET", default=SecretStr("")
+    )
+    base_url: str = "https://api.kapso.ai"
+    webhook_url: str = ""
+    callback_url: str = "http://localhost:3000/inbox/whatsapp/callback"
+    sandbox_phone_number_id: str = ""
+    sandbox_display_number: str = ""
+
+
+class RealtimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="BLINKA_REALTIME__", env_file=".env", extra="ignore", frozen=True
+    )
+
+    enabled: bool = False
+    http_domain: str = ""
+    region: str = "us-east-1"
+    aws_profile: str | None = "panoptico"
+    namespace: str = "inbox"
+    thinking_flush_ms: int = 400
+
+
 class CorsSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="BLINKA_CORS__", env_file=".env", extra="ignore", frozen=True
@@ -103,7 +132,6 @@ class Settings(BaseSettings):
     )
 
     product_database_url: str
-    agent_database_url: str
     payments_database_url: str
     jwt: JwtSettings = Field(default_factory=JwtSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
@@ -111,4 +139,6 @@ class Settings(BaseSettings):
     textract: TextractSettings = Field(default_factory=TextractSettings)
     guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)
     composio: ComposioSettings = Field(default_factory=ComposioSettings)
+    kapso: KapsoSettings = Field(default_factory=KapsoSettings)
+    realtime: RealtimeSettings = Field(default_factory=RealtimeSettings)
     log_format: Literal["console", "json"] = "console"

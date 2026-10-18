@@ -5,6 +5,9 @@ from uuid import UUID, uuid4
 from contracts.auth import CurrentUser
 from contracts.bills import BillStatus
 from contracts.inbox import (
+    PROVIDERS_BY_CHANNEL,
+    SOURCE_TYPE_BY_PROVIDER,
+    InboxChannel,
     InboxEmailDetail,
     InboxEmailRecord,
     InboxEmailStatus,
@@ -16,12 +19,29 @@ from contracts.inbox import (
 )
 from contracts.mail_gateway import MailAccountStatus, MailProvider
 from contracts.payments import BillDecisionView, PaymentRunStatus, RunStatus, Verdict
+from contracts.whatsapp_gateway import (
+    ConfirmWhatsAppRequest,
+    WhatsAppConnectionMode,
+    WhatsAppDocumentEvent,
+    WhatsAppSandboxView,
+)
 from core.background import ExecutionRegistry
+from core.config import KapsoSettings
 from core.logging_config import get_logger
-from modules.inbox.errors import EmailMissingError, MailboxConnectionMissingError
-from modules.inbox.pipeline import InboxDependencies, process_email
+from modules.inbox.errors import (
+    EmailMissingError,
+    MailboxConnectionMissingError,
+    WhatsAppPhoneTakenError,
+    WhatsAppSimulationUnsupportedError,
+)
+from modules.inbox.pipeline import InboxDependencies, InboxSource, process_email
 from modules.inbox.repository import InboxRepository
-from modules.inbox.samples import SIMULATED_EMAILS
+from modules.inbox.samples import (
+    SIMULATED_EMAILS,
+    WHATSAPP_SIMULATABLE_KINDS,
+    as_whatsapp_message,
+)
+from modules.whatsapp_gateway import normalize_user_phone
 
 if TYPE_CHECKING:
     from clients.auth import AuthClient
@@ -30,6 +50,8 @@ logger = get_logger(__name__)
 
 PREVIEW_CHARS = 140
 SIMULATED_MESSAGE_PREFIX = "sim-"
+SANDBOX_ACCOUNT_PREFIX = "sandbox:"
+SETUP_LINK_ACCOUNT_PREFIX = "setup:"
 VERDICT_INBOX_STATUS = {
     Verdict.PAY: InboxEmailStatus.PAID,
     Verdict.HOLD: InboxEmailStatus.HELD,
@@ -45,12 +67,14 @@ class InboxService:
         dependencies: InboxDependencies,
         auth: "AuthClient",
         callback_url: str,
+        kapso: KapsoSettings,
     ) -> None:
         self._repository = repository
         self._registry = registry
         self._dependencies = dependencies
         self._auth = auth
         self._callback_url = callback_url
+        self._kapso = kapso
 
     async def start_connection(
         self, owner: CurrentUser, provider: MailProvider
@@ -87,16 +111,89 @@ class InboxService:
             await self._repository.update_connection(
                 connection.connection_id, account_status, trigger_id
             )
-        return MailboxConnectionView(
+        return _to_connection_view(connection.model_copy(update={"status": account_status}))
+
+    async def register_whatsapp_sandbox(
+        self, owner: CurrentUser, raw_phone: str
+    ) -> WhatsAppSandboxView:
+        phone_number = normalize_user_phone(raw_phone)
+        connection = await self._repository.get_active_sandbox_connection(phone_number)
+        if connection is not None and connection.owner_id != owner.user_id:
+            raise WhatsAppPhoneTakenError
+        if connection is None:
+            await self._repository.expire_sandbox_connections(owner.user_id)
+            connection = await self._repository.insert_connection(
+                owner.user_id,
+                MailProvider.WHATSAPP,
+                f"{SANDBOX_ACCOUNT_PREFIX}{uuid4()}",
+                mode=WhatsAppConnectionMode.SANDBOX,
+                phone_number=phone_number,
+                status=MailAccountStatus.ACTIVE,
+            )
+            logger.info("whatsapp_sandbox_registered", connection_id=connection.connection_id)
+        return WhatsAppSandboxView(
             connection_id=connection.connection_id,
-            provider=connection.provider,
-            status=account_status,
-            created_at=connection.created_at,
+            phone_number=phone_number,
+            sandbox_number=self._kapso.sandbox_display_number,
+            status=connection.status,
+        )
+
+    async def start_whatsapp_connection(self, owner: CurrentUser) -> MailboxConnectStarted:
+        whatsapp_gateway = self._dependencies.whatsapp_gateway
+        customer_id = await self._repository.get_owner_whatsapp_customer_id(owner.user_id)
+        if customer_id is None:
+            customer_id = await whatsapp_gateway.ensure_customer(owner.user_id, owner.email)
+        setup_link = await whatsapp_gateway.create_setup_link(customer_id)
+        connection = await self._repository.insert_connection(
+            owner.user_id,
+            MailProvider.WHATSAPP,
+            f"{SETUP_LINK_ACCOUNT_PREFIX}{setup_link.setup_link_id}",
+            mode=WhatsAppConnectionMode.OWN_NUMBER,
+            external_ref=customer_id,
+        )
+        logger.info("whatsapp_connection_started", connection_id=connection.connection_id)
+        return MailboxConnectStarted(
+            connection_id=connection.connection_id, redirect_url=setup_link.url
+        )
+
+    async def confirm_whatsapp_connection(
+        self, owner: CurrentUser, request: ConfirmWhatsAppRequest
+    ) -> MailboxConnectionView:
+        connection = await self._repository.get_owned_connection(
+            owner.user_id, f"{SETUP_LINK_ACCOUNT_PREFIX}{request.setup_link_id}"
+        )
+        if connection is None or connection.external_ref is None:
+            return await self._confirmed_whatsapp_connection(owner, request.phone_number_id)
+        whatsapp_gateway = self._dependencies.whatsapp_gateway
+        phone_number = await whatsapp_gateway.get_phone_number(
+            connection.external_ref, request.phone_number_id
+        )
+        webhook_id = connection.trigger_id or await whatsapp_gateway.register_message_webhook(
+            phone_number.phone_number_id
+        )
+        await self._repository.activate_whatsapp_number(
+            connection.connection_id,
+            phone_number.phone_number_id,
+            webhook_id,
+            phone_number.display_phone_number,
+        )
+        await self._repository.expire_sandbox_connections(owner.user_id)
+        logger.info("whatsapp_connection_confirmed", connection_id=connection.connection_id)
+        return _to_connection_view(
+            connection.model_copy(
+                update={
+                    "status": MailAccountStatus.ACTIVE,
+                    "phone_number": phone_number.display_phone_number,
+                }
+            )
         )
 
     async def list_connections(self, owner: CurrentUser) -> list[MailboxConnectionView]:
         connections = await self._repository.list_connections(owner.user_id)
-        return [_to_connection_view(connection) for connection in connections]
+        return [
+            _to_connection_view(connection, self._kapso.sandbox_display_number)
+            for connection in connections
+        ]
 
     async def ingest_webhook(self, body: bytes, headers: Mapping[str, str]) -> None:
         event = self._dependencies.mail_gateway.parse_webhook(body, headers)
@@ -108,38 +205,56 @@ class InboxService:
                 "inbox_webhook_unknown_account", connected_account_id=event.connected_account_id
             )
             return
-        owner = await self._auth.get_user(connection.owner_id)
-        email_id = await self._repository.insert_email(
-            connection.owner_id, event.provider, event.message_id, connection.connection_id
-        )
-        if email_id is None:
-            logger.info("inbox_webhook_duplicate", message_id=event.message_id)
-            return
-        self._registry.spawn(email_id, process_email(email_id, owner, event, self._dependencies))
-        logger.info("inbox_email_received", email_id=email_id, provider=event.provider)
+        email_id = await self._receive(connection, event.provider, event.message_id, event)
+        if email_id is not None:
+            logger.info("inbox_email_received", email_id=email_id, provider=event.provider)
 
-    async def simulate(self, owner: CurrentUser, kind: SimulatedEmailKind) -> InboxEmailView:
+    async def ingest_whatsapp_webhook(self, body: bytes, headers: Mapping[str, str]) -> None:
+        for event in self._dependencies.whatsapp_gateway.parse_webhook(body, headers):
+            connection = await self._whatsapp_connection_for(event)
+            if connection is None:
+                logger.warning(
+                    "whatsapp_webhook_unknown_sender", phone_number_id=event.phone_number_id
+                )
+                continue
+            email_id = await self._receive(
+                connection, MailProvider.WHATSAPP, event.message_id, event
+            )
+            if email_id is not None:
+                logger.info("inbox_whatsapp_received", email_id=email_id)
+
+    async def simulate(
+        self, owner: CurrentUser, kind: SimulatedEmailKind, channel: InboxChannel
+    ) -> InboxEmailView:
+        is_whatsapp = channel == "whatsapp"
+        if is_whatsapp and kind not in WHATSAPP_SIMULATABLE_KINDS:
+            raise WhatsAppSimulationUnsupportedError
+        provider = MailProvider.WHATSAPP if is_whatsapp else MailProvider.SIMULATED
+        simulated_message = (
+            as_whatsapp_message(SIMULATED_EMAILS[kind]) if is_whatsapp else SIMULATED_EMAILS[kind]
+        )
         email_id = await self._repository.insert_email(
-            owner.user_id, MailProvider.SIMULATED, f"{SIMULATED_MESSAGE_PREFIX}{uuid4()}"
+            owner.user_id, provider, f"{SIMULATED_MESSAGE_PREFIX}{uuid4()}"
         )
         assert email_id is not None
-        simulated_email = SIMULATED_EMAILS[kind]
-        self._registry.spawn(
-            email_id, process_email(email_id, owner, simulated_email, self._dependencies)
-        )
-        logger.info("inbox_email_simulated", email_id=email_id, kind=kind)
+        await self._accept(email_id, owner, simulated_message)
+        logger.info("inbox_email_simulated", email_id=email_id, kind=kind, channel=channel)
         return InboxEmailView(
             email_id=email_id,
-            provider=MailProvider.SIMULATED,
-            sender=simulated_email.sender,
-            subject=simulated_email.subject,
-            preview=_preview(simulated_email.body),
+            provider=provider,
+            sender=simulated_message.sender,
+            subject=simulated_message.subject,
+            preview=_preview(simulated_message.body),
             received_at=None,
             status=InboxEmailStatus.RECEIVED,
+            source_type=SOURCE_TYPE_BY_PROVIDER[provider],
         )
 
-    async def list_emails(self, owner: CurrentUser) -> list[InboxEmailView]:
-        records = await self._repository.list_emails(owner.user_id)
+    async def list_emails(
+        self, owner: CurrentUser, source: InboxChannel | None
+    ) -> list[InboxEmailView]:
+        providers = PROVIDERS_BY_CHANNEL[source] if source is not None else None
+        records = await self._repository.list_emails(owner.user_id, providers)
         return [await self._to_view(owner, record) for record in records]
 
     async def get_email(self, owner: CurrentUser, email_id: UUID) -> InboxEmailDetail:
@@ -165,6 +280,49 @@ class InboxService:
 
     async def shutdown(self) -> None:
         await self._registry.shutdown()
+
+    async def _receive(
+        self,
+        connection: MailboxConnectionRecord,
+        provider: MailProvider,
+        message_id: str,
+        source: InboxSource,
+    ) -> UUID | None:
+        owner = await self._auth.get_user(connection.owner_id)
+        email_id = await self._repository.insert_email(
+            connection.owner_id, provider, message_id, connection.connection_id
+        )
+        if email_id is None:
+            logger.info("inbox_webhook_duplicate", message_id=message_id)
+            return None
+        await self._accept(email_id, owner, source)
+        return email_id
+
+    async def _accept(self, email_id: UUID, owner: CurrentUser, source: InboxSource) -> None:
+        await self._dependencies.notifier.item_changed(
+            owner.user_id, email_id, InboxEmailStatus.RECEIVED
+        )
+        self._registry.spawn(email_id, process_email(email_id, owner, source, self._dependencies))
+
+    async def _whatsapp_connection_for(
+        self, event: WhatsAppDocumentEvent
+    ) -> MailboxConnectionRecord | None:
+        is_sandbox_message = event.phone_number_id == self._kapso.sandbox_phone_number_id
+        if is_sandbox_message:
+            return await self._repository.get_active_sandbox_connection(event.sender_phone)
+        connection = await self._repository.get_connection_by_account(event.phone_number_id)
+        is_active_connection = (
+            connection is not None and connection.status == MailAccountStatus.ACTIVE
+        )
+        return connection if is_active_connection else None
+
+    async def _confirmed_whatsapp_connection(
+        self, owner: CurrentUser, phone_number_id: str
+    ) -> MailboxConnectionView:
+        connection = await self._repository.get_owned_connection(owner.user_id, phone_number_id)
+        if connection is None:
+            raise MailboxConnectionMissingError
+        return _to_connection_view(connection)
 
     async def _to_view(self, owner: CurrentUser, record: InboxEmailRecord) -> InboxEmailView:
         run = await self._linked_run(owner, record) if _is_waiting_on_run(record) else None
@@ -217,6 +375,7 @@ def _to_email_view(
         received_at=record.received_at,
         status=status,
         decision=decision,
+        source_type=SOURCE_TYPE_BY_PROVIDER[record.provider],
     )
 
 
@@ -224,10 +383,16 @@ def _preview(body: str) -> str:
     return " ".join(body.split())[:PREVIEW_CHARS]
 
 
-def _to_connection_view(connection: MailboxConnectionRecord) -> MailboxConnectionView:
+def _to_connection_view(
+    connection: MailboxConnectionRecord, sandbox_number: str | None = None
+) -> MailboxConnectionView:
+    is_sandbox_connection = connection.mode == WhatsAppConnectionMode.SANDBOX
     return MailboxConnectionView(
         connection_id=connection.connection_id,
         provider=connection.provider,
         status=connection.status,
         created_at=connection.created_at,
+        mode=connection.mode,
+        phone_number=connection.phone_number,
+        sandbox_number=sandbox_number if is_sandbox_connection else None,
     )

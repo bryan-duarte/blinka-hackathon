@@ -6,17 +6,15 @@ from modules.prompts.candidate_extraction import (
     ServiceExtractionPrompt,
 )
 from modules.prompts.email_triage import EmailTriagePrompt
-from modules.prompts.hello_world import HelloWorldPrompt
-from modules.prompts.main_agent import MainAgentPrompt
 from modules.prompts.payment_checker import PaymentCheckerPrompt
+from modules.prompts.payments_agent import PaymentsAgentPrompt
 
 PROMPTS: tuple[Prompt, ...] = (
-    MainAgentPrompt(),
+    PaymentsAgentPrompt(),
     BillClassificationPrompt(),
     ServiceExtractionPrompt(),
     PersonExtractionPrompt(),
     CompanyExtractionPrompt(),
     PaymentCheckerPrompt(),
     EmailTriagePrompt(),
-    HelloWorldPrompt(),
 )

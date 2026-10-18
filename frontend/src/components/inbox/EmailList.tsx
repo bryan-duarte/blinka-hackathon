@@ -15,7 +15,7 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
       <div className="px-6 py-12">
         <p className="text-sm font-normal text-ink">Tu bandeja está vacía</p>
         <p className="mt-1 text-sm text-muted">
-          Conecta un correo o usa &quot;Simular correo&quot; para ver cómo el
+          Conecta un correo o WhatsApp, o usa &quot;Simular mensaje&quot; para ver cómo el
           agente decide.
         </p>
       </div>

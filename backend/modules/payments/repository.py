@@ -9,7 +9,7 @@ from contracts.payments import PaymentRunEvent, PaymentRunRecord, RunStatus
 from modules.payments.errors import RunTriggerError
 from modules.payments.models import ACTIVE_RUN_STATUSES, AgentRun, AgentRunEvent, AgentRunFileRow
 
-RUN_EVENT_LIST_LIMIT = 100
+RUN_EVENT_LIST_LIMIT = 300
 EVIDENCE_ROLE_DISPLAY_ORDER = case(
     {EvidenceRole.PRIMARY.value: 0, EvidenceRole.SECONDARY.value: 1},
     value=AgentRunFileRow.role,
@@ -26,7 +26,6 @@ class RunsRepository:
         agent: str,
         owner_id: UUID,
         file_id: UUID | None,
-        session_id: UUID | None,
         bill_source_id: UUID,
     ) -> tuple[UUID, bool]:
         statement = (
@@ -35,7 +34,6 @@ class RunsRepository:
                 agent=agent,
                 owner_id=owner_id,
                 file_id=file_id,
-                session_id=session_id,
                 bill_source_id=bill_source_id,
                 status=RunStatus.PENDING,
             )
@@ -95,11 +93,16 @@ class RunsRepository:
             await session.execute(statement)
             await session.commit()
 
-    async def insert_event(self, run_id: UUID, step: str, payload: dict) -> None:
-        event = AgentRunEvent(run_id=run_id, step=step, payload=payload)
+    async def insert_event(self, run_id: UUID, step: str, payload: dict) -> PaymentRunEvent:
+        statement = (
+            insert(AgentRunEvent)
+            .values(run_id=run_id, step=step, payload=payload)
+            .returning(AgentRunEvent)
+        )
         async with self._sessionmaker() as session:
-            session.add(event)
+            event = (await session.execute(statement)).scalar_one()
             await session.commit()
+        return _to_event(event)
 
     async def list_events(
         self, run_id: UUID, limit: int = RUN_EVENT_LIST_LIMIT
@@ -112,10 +115,7 @@ class RunsRepository:
         )
         async with self._sessionmaker() as session:
             events = (await session.execute(statement)).scalars().all()
-        return [
-            PaymentRunEvent(step=event.step, payload=event.payload, created_at=event.created_at)
-            for event in events
-        ]
+        return [_to_event(event) for event in events]
 
     async def link_source_files(self, bill_source_id: UUID, evidence: list[EvidenceLink]) -> None:
         if not evidence:
@@ -183,3 +183,9 @@ class RunsRepository:
             bill_source_id=run.bill_source_id,
             bill_id=run.bill_id,
         )
+
+
+def _to_event(event: AgentRunEvent) -> PaymentRunEvent:
+    return PaymentRunEvent(
+        id=event.id, step=event.step, payload=event.payload, created_at=event.created_at
+    )

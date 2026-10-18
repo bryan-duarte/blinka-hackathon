@@ -7,6 +7,7 @@ import type {
   BudgetUsageView,
   ConnectableProvider,
   EvidenceFileView,
+  InboxChannel,
   InboxEmailDetail,
   InboxEmailView,
   MailboxConnectionView,
@@ -20,6 +21,7 @@ import type {
   PaymentRunStatus,
   SimulatedEmailKind,
   TokenResponse,
+  WhatsAppSandboxView,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -38,6 +40,20 @@ export const tokenStore = {
   set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
+
+export function currentUserId(): string | null {
+  const token = tokenStore.get();
+  const encodedClaims = token?.split(".")[1];
+  if (!encodedClaims) return null;
+  try {
+    const claimsJson = atob(encodedClaims.replace(/-/g, "+").replace(/_/g, "/"));
+    const claims: unknown = JSON.parse(claimsJson);
+    const subject = claims && typeof claims === "object" && "sub" in claims ? claims.sub : null;
+    return typeof subject === "string" ? subject : null;
+  } catch {
+    return null;
+  }
+}
 
 export class UnauthorizedError extends Error {}
 
@@ -143,11 +159,18 @@ export const api = {
       connected_account_id,
     }),
   connections: () => request<MailboxConnectionView[]>("/inbox/connections"),
-  emails: () => request<InboxEmailView[]>("/inbox/emails"),
+  registerWhatsAppSandbox: (phone_number: string) =>
+    post<WhatsAppSandboxView>("/inbox/whatsapp/sandbox", { phone_number }),
+  connectWhatsAppNumber: () =>
+    post<MailboxConnectStarted>("/inbox/whatsapp/own-number", {}),
+  confirmWhatsApp: (setup_link_id: string, phone_number_id: string) =>
+    post<MailboxConnectionView>("/inbox/whatsapp/confirm", { setup_link_id, phone_number_id }),
+  emails: (source?: InboxChannel) =>
+    request<InboxEmailView[]>(source ? `/inbox/emails?source=${source}` : "/inbox/emails"),
   email: (emailId: string) =>
     request<InboxEmailDetail>(`/inbox/emails/${emailId}`),
-  simulate: (kind: SimulatedEmailKind) =>
-    post<InboxEmailView>("/inbox/simulate", { kind }),
+  simulate: (kind: SimulatedEmailKind, channel: InboxChannel = "email") =>
+    post<InboxEmailView>("/inbox/simulate", { kind, channel }),
   policy: () => request<PaymentPolicyView>("/payment-policy"),
   updatePolicy: (body: PaymentPolicyUpdate) =>
     send<PaymentPolicyView>("PUT", "/payment-policy", body),

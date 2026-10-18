@@ -435,3 +435,18 @@ SIMULATED_EMAILS: dict[SimulatedEmailKind, FetchedEmail] = {
         body=PLAIN_BODY,
     ),
 }
+
+WHATSAPP_DEMO_SENDER = "Proveedor demo <+56900000000>"
+WHATSAPP_SIMULATABLE_KINDS: frozenset[SimulatedEmailKind] = frozenset(
+    kind for kind, sample in SIMULATED_EMAILS.items() if sample.attachments
+)
+
+
+def as_whatsapp_message(sample: FetchedEmail) -> FetchedEmail:
+    return sample.model_copy(
+        update={
+            "sender": WHATSAPP_DEMO_SENDER,
+            "subject": sample.attachments[0].filename,
+            "body": "",
+        }
+    )

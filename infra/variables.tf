@@ -27,3 +27,15 @@ variable "backend_iam_user" {
   type        = string
   default     = "Bryan-User"
 }
+
+variable "events_api_name" {
+  description = "Name of the AppSync Events API that pushes inbox activity."
+  type        = string
+  default     = "blinka-events"
+}
+
+variable "jwt_secret" {
+  description = "Backend JWT signing secret (BLINKA_JWT__SECRET); the realtime authorizer verifies login tokens with it."
+  type        = string
+  sensitive   = true
+}

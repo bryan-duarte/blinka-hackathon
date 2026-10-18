@@ -32,13 +32,11 @@ class DatabasePool:
 @dataclass(frozen=True)
 class Pools:
     product: DatabasePool
-    agent: DatabasePool
     payments: DatabasePool
 
 
-def build_pools(product_dsn: str, agent_dsn: str, payments_dsn: str) -> Pools:
+def build_pools(product_dsn: str, payments_dsn: str) -> Pools:
     return Pools(
         product=DatabasePool(*create_engine_and_sessionmaker(product_dsn)),
-        agent=DatabasePool(*create_engine_and_sessionmaker(agent_dsn)),
         payments=DatabasePool(*create_engine_and_sessionmaker(payments_dsn)),
     )

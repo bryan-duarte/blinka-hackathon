@@ -1,4 +1,5 @@
 import type {
+  AgentTodoStatus,
   BillSourceType,
   DecisionActor,
   EvidenceRole,
@@ -112,18 +113,10 @@ export const SCAN_LABELS: Record<FileScanStatus, string> = {
   failed: "Escaneo fallido",
 };
 
-export const RUN_STEP_LABELS: Record<string, string> = {
-  started: "Recibido",
-  classified: "Clasificado",
-  not_a_bill: "No es factura",
-  extracted: "Datos extraídos",
-  extraction_failed: "Sin datos legibles",
-  claimed: "Registrada",
-  decided: "Decidido",
-  decision_failed: "Falló la decisión",
-  completed: "Listo",
-  cancelled: "Cancelado",
-  failed: "Error",
+export const TODO_STATUS_LABELS: Record<AgentTodoStatus, string> = {
+  pending: "Pendiente",
+  in_progress: "En curso",
+  completed: "Hecho",
 };
 
 export const EXTRACTION_METHOD_LABELS: Record<string, string> = {
@@ -132,5 +125,5 @@ export const EXTRACTION_METHOD_LABELS: Record<string, string> = {
   textract: "lectura de AWS Textract",
   pdf_text: "texto del PDF leído por el modelo",
   pdf: "PDF leído por el modelo",
-  email: "cuerpo del correo",
+  email: "texto del mensaje",
 };

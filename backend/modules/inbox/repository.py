@@ -2,15 +2,22 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from contracts.guardrails import GuardrailViolation
 from contracts.inbox import InboxEmailRecord, InboxEmailStatus, MailboxConnectionRecord
 from contracts.mail_gateway import FetchedEmail, MailAccountStatus, MailProvider
+from contracts.whatsapp_gateway import WhatsAppConnectionMode
+from modules.inbox.errors import WhatsAppPhoneTakenError
 from modules.inbox.models import InboxEmail, MailboxConnection
 
 UNFINISHED_STATUSES = (InboxEmailStatus.RECEIVED, InboxEmailStatus.PROCESSING)
 INBOX_EMAIL_LIST_LIMIT = 50
+ACTIVE_SANDBOX_FILTERS = (
+    MailboxConnection.mode == WhatsAppConnectionMode.SANDBOX,
+    MailboxConnection.status == MailAccountStatus.ACTIVE,
+)
 
 
 class InboxRepository:
@@ -18,13 +25,24 @@ class InboxRepository:
         self._sessionmaker = sessionmaker
 
     async def insert_connection(
-        self, owner_id: UUID, provider: MailProvider, connected_account_id: str
+        self,
+        owner_id: UUID,
+        provider: MailProvider,
+        connected_account_id: str,
+        *,
+        mode: WhatsAppConnectionMode | None = None,
+        phone_number: str | None = None,
+        external_ref: str | None = None,
+        status: MailAccountStatus = MailAccountStatus.INITIATED,
     ) -> MailboxConnectionRecord:
         connection = MailboxConnection(
             owner_id=owner_id,
             provider=provider,
             connected_account_id=connected_account_id,
-            status=MailAccountStatus.INITIATED,
+            status=status,
+            mode=mode,
+            phone_number=phone_number,
+            external_ref=external_ref,
         )
         async with self._sessionmaker() as session:
             session.add(connection)
@@ -48,6 +66,59 @@ class InboxRepository:
             MailboxConnection.owner_id == owner_id,
         )
         return await self._one_connection(statement)
+
+    async def get_active_sandbox_connection(
+        self, phone_number: str
+    ) -> MailboxConnectionRecord | None:
+        statement = select(MailboxConnection).where(
+            MailboxConnection.phone_number == phone_number, *ACTIVE_SANDBOX_FILTERS
+        )
+        return await self._one_connection(statement)
+
+    async def get_owner_whatsapp_customer_id(self, owner_id: UUID) -> str | None:
+        statement = (
+            select(MailboxConnection.external_ref)
+            .where(
+                MailboxConnection.owner_id == owner_id,
+                MailboxConnection.provider == MailProvider.WHATSAPP,
+                MailboxConnection.external_ref.is_not(None),
+            )
+            .order_by(MailboxConnection.created_at.asc())
+            .limit(1)
+        )
+        async with self._sessionmaker() as session:
+            return (await session.execute(statement)).scalar_one_or_none()
+
+    async def activate_whatsapp_number(
+        self,
+        connection_id: UUID,
+        phone_number_id: str,
+        webhook_id: str,
+        phone_number: str | None,
+    ) -> None:
+        statement = (
+            update(MailboxConnection)
+            .where(MailboxConnection.id == connection_id)
+            .values(
+                connected_account_id=phone_number_id,
+                status=MailAccountStatus.ACTIVE,
+                trigger_id=webhook_id,
+                phone_number=phone_number,
+                updated_at=func.now(),
+            )
+        )
+        try:
+            await self._execute(statement)
+        except IntegrityError as error:
+            raise WhatsAppPhoneTakenError from error
+
+    async def expire_sandbox_connections(self, owner_id: UUID) -> None:
+        statement = (
+            update(MailboxConnection)
+            .where(MailboxConnection.owner_id == owner_id, *ACTIVE_SANDBOX_FILTERS)
+            .values(status=MailAccountStatus.EXPIRED, updated_at=func.now())
+        )
+        await self._execute(statement)
 
     async def list_connections(self, owner_id: UUID) -> list[MailboxConnectionRecord]:
         statement = (
@@ -147,14 +218,15 @@ class InboxRepository:
         return _to_email_record(email)
 
     async def list_emails(
-        self, owner_id: UUID, limit: int = INBOX_EMAIL_LIST_LIMIT
+        self,
+        owner_id: UUID,
+        providers: frozenset[MailProvider] | None = None,
+        limit: int = INBOX_EMAIL_LIST_LIMIT,
     ) -> list[InboxEmailRecord]:
-        statement = (
-            select(InboxEmail)
-            .where(InboxEmail.owner_id == owner_id)
-            .order_by(InboxEmail.created_at.desc())
-            .limit(limit)
-        )
+        statement = select(InboxEmail).where(InboxEmail.owner_id == owner_id)
+        if providers is not None:
+            statement = statement.where(InboxEmail.provider.in_(providers))
+        statement = statement.order_by(InboxEmail.created_at.desc()).limit(limit)
         async with self._sessionmaker() as session:
             result = await session.execute(statement)
             emails = result.scalars().all()
@@ -203,6 +275,9 @@ def _to_connection_record(connection: MailboxConnection) -> MailboxConnectionRec
         trigger_id=connection.trigger_id,
         status=MailAccountStatus(connection.status),
         created_at=connection.created_at,
+        mode=WhatsAppConnectionMode(connection.mode) if connection.mode else None,
+        phone_number=connection.phone_number,
+        external_ref=connection.external_ref,
     )
 
 

@@ -13,20 +13,6 @@ services:
       retries: 10
     restart: unless-stopped
 
-  postgres-agent:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: blinka
-      POSTGRES_PASSWORD: blinka
-      POSTGRES_DB: blinka_agent
-    ports: ["5433:5432"]
-    volumes: [agent-data:/var/lib/postgresql/data]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U blinka -d blinka_agent"]
-      interval: 5s
-      retries: 10
-    restart: unless-stopped
-
   postgres-payments:
     image: postgres:17-alpine
     environment:
@@ -46,16 +32,13 @@ services:
     env_file: ./backend/.env
     environment:
       BLINKA_PRODUCT_DATABASE_URL: postgresql://blinka:blinka@postgres-product:5432/blinka_product
-      BLINKA_AGENT_DATABASE_URL: postgresql://blinka:blinka@postgres-agent:5432/blinka_agent
       BLINKA_PAYMENTS_DATABASE_URL: postgresql://blinka:blinka@postgres-payments:5432/blinka_payments
     ports: ["8000:8000"]
     depends_on:
       postgres-product: {condition: service_healthy}
-      postgres-agent: {condition: service_healthy}
       postgres-payments: {condition: service_healthy}
     restart: unless-stopped
 
 volumes:
   product-data: {}
-  agent-data: {}
   payments-data: {}

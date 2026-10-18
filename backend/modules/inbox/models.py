@@ -1,17 +1,30 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Index, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from contracts.inbox import InboxEmailStatus
 from contracts.mail_gateway import MailAccountStatus
+from contracts.whatsapp_gateway import WhatsAppConnectionMode
 from core.db.base import ProductBase
+
+ACTIVE_SANDBOX_CONNECTION = text(
+    f"mode = '{WhatsAppConnectionMode.SANDBOX}' AND status = '{MailAccountStatus.ACTIVE}'"
+)
 
 
 class MailboxConnection(ProductBase):
     __tablename__ = "mailbox_connections"
+    __table_args__ = (
+        Index(
+            "uq_mailbox_connections_sandbox_phone",
+            "phone_number",
+            unique=True,
+            postgresql_where=ACTIVE_SANDBOX_CONNECTION,
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
@@ -19,6 +32,9 @@ class MailboxConnection(ProductBase):
     connected_account_id: Mapped[str] = mapped_column(unique=True)
     trigger_id: Mapped[str | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(default=MailAccountStatus.INITIATED)
+    mode: Mapped[str | None] = mapped_column(nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(nullable=True)
+    external_ref: Mapped[str | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

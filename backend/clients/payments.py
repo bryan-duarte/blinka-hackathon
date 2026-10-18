@@ -31,10 +31,9 @@ class PaymentsClient:
         source_type: BillSourceType,
         source_ref: str,
         body_text: str = "",
-        session_id: UUID | None = None,
     ) -> PaymentRunAccepted:
         return await self._service.start_file_run(
-            owner, file_id, source_type, source_ref, body_text, session_id
+            owner, file_id, source_type, source_ref, body_text
         )
 
     async def get_run(self, run_id: UUID, owner: CurrentUser) -> PaymentRunStatus:

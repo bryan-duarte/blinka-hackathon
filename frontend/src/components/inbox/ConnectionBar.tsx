@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { SECONDARY_BUTTON_CLASS } from "@/components/settings/styles";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, HTTP_CONFLICT, api } from "@/lib/api";
+import { WhatsAppCard } from "./WhatsAppCard";
 import type {
   ConnectableProvider,
   MailAccountStatus,
   MailboxConnectionView,
 } from "@/lib/types";
-
-const HTTP_CONFLICT = 409;
 
 const PROVIDER_LABELS: Record<ConnectableProvider, string> = {
   gmail: "Gmail",
@@ -28,19 +27,24 @@ const CONNECTABLE_PROVIDERS: ConnectableProvider[] = ["gmail", "outlook"];
 type ConnectionBarProps = {
   connections: MailboxConnectionView[];
   onUnauthorized: (error: unknown) => boolean;
+  onChanged: () => void;
 };
 
-export function ConnectionBar({ connections, onUnauthorized }: ConnectionBarProps) {
+export function ConnectionBar({ connections, onUnauthorized, onChanged }: ConnectionBarProps) {
   const [connectingProvider, setConnectingProvider] =
     useState<ConnectableProvider | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const mailConnections = connections.filter((connection) => connection.provider !== "whatsapp");
   const activeProviders = new Set(
-    connections
+    mailConnections
       .filter((connection) => connection.status === "active")
       .map((connection) => connection.provider),
   );
-  const visibleConnections = connections.filter(
+  const visibleConnections = mailConnections.filter(
     (connection) => connection.status !== "initiated",
+  );
+  const hasActiveWhatsApp = connections.some(
+    (connection) => connection.provider === "whatsapp" && connection.status === "active",
   );
 
   async function connect(provider: ConnectableProvider) {
@@ -94,6 +98,25 @@ export function ConnectionBar({ connections, onUnauthorized }: ConnectionBarProp
             : `Conectar ${PROVIDER_LABELS[provider]}`}
         </button>
       ))}
+      <details className="relative">
+        <summary
+          className={`${SECONDARY_BUTTON_CLASS} h-9 cursor-pointer list-none px-4 select-none [&::-webkit-details-marker]:hidden`}
+        >
+          {hasActiveWhatsApp && (
+            <span aria-hidden className="mr-1">
+              ✓
+            </span>
+          )}
+          WhatsApp
+        </summary>
+        <div className="absolute right-0 z-10 mt-1 w-80 rounded border border-line bg-panel p-6">
+          <WhatsAppCard
+            connections={connections}
+            onUnauthorized={onUnauthorized}
+            onChanged={onChanged}
+          />
+        </div>
+      </details>
       {connectError && (
         <p role="alert" className="text-sm text-danger">
           <span aria-hidden>✕ </span>

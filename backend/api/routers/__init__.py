@@ -4,8 +4,6 @@ from api.deps import get_current_user
 from api.routers import (
     auth,
     bills,
-    chat,
-    diagnostics,
     files,
     inbox,
     payment_policy,
@@ -22,9 +20,7 @@ async def health() -> dict:
 
 
 api_router.include_router(auth.auth_router)
-api_router.include_router(diagnostics.diagnostics_router)
 api_router.include_router(webhooks.webhooks_router)
-api_router.include_router(chat.chat_router, dependencies=[Depends(get_current_user)])
 api_router.include_router(files.files_router, dependencies=[Depends(get_current_user)])
 api_router.include_router(payments.payments_router, dependencies=[Depends(get_current_user)])
 api_router.include_router(inbox.inbox_router, dependencies=[Depends(get_current_user)])

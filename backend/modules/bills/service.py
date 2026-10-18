@@ -29,7 +29,9 @@ ALLOWED_TRANSITIONS: dict[BillStatus, frozenset[BillStatus]] = {
     BillStatus.REVIEW: frozenset({BillStatus.APPROVING, BillStatus.REJECTED}),
     BillStatus.APPROVING: frozenset({BillStatus.PAID, BillStatus.HELD, BillStatus.REVIEW}),
 }
-WHOLE_CONTENT_HASHED_SOURCES = frozenset({BillSourceType.UPLOAD, BillSourceType.CHAT})
+WHOLE_CONTENT_HASHED_SOURCES = frozenset(
+    {BillSourceType.UPLOAD, BillSourceType.CHAT, BillSourceType.WHATSAPP}
+)
 CLAIM_ATTEMPTS = 2
 
 
