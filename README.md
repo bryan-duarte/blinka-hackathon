@@ -7,8 +7,6 @@
 It reads every invoice, decides to **pay**, **hold** or **escalate** to a person, and records why.
 Built for US companies paying teams and vendors across Latin America.
 
-[**Live demo →** blinkachallengue.bryanjavier.com](https://blinkachallengue.bryanjavier.com)
-
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangChain-Deep%20Agents-1C3C3C?logo=langchain&logoColor=white)
@@ -19,6 +17,8 @@ Built for US companies paying teams and vendors across Latin America.
 *30x Hackathon · Blinka Challenge · ContextOverflow Team*
 
 </div>
+
+![Blinka Pay Agent: a payment policy written in four plain sentences, which the agent reads every bill against](docs/images/policy.png)
 
 ---
 
@@ -148,6 +148,8 @@ Each step first checks that the previous one finished; if not, it refuses and na
 
 When finance approves or rejects a bill in Review, they write why. That decision, the reason and the payee become a long-term memory. When the same payee or case comes back, past human decisions are in the context.
 
+![Approvals screen: the rules that need a person, what the agent found, and a required note before approving or rejecting](docs/images/approvals.png)
+
 > *"Approved by finance: higher than usual because of the annual license renewal."*
 
 **Memory informs. Rules decide.** A remembered approval never skips a rule or lifts a Hold, and every recalled memory shows up in the run trace. Built with LangMem, embedded with Amazon Titan Text Embeddings v2 and searched per payee with pgvector.
@@ -177,6 +179,8 @@ Settlement is **one Postgres transaction — all of it, or none of it**:
 - **Three budget scopes** — global, per category and per payee, every month, charged in a fixed order so concurrent runs never deadlock.
 - **FX with provenance** — rate, date and source stored on each bill. No usable rate → Review.
 - **Race-proof** — two bills racing for the last dollars: one pays, one holds.
+
+![Payment policy editor: per-payment cap, auto-pay limit, monthly budget, per-category budgets and live budget usage](docs/images/limits.png)
 
 ### Loop guardrails: no runaway agents
 
@@ -263,6 +267,8 @@ The ECS tasks call Bedrock through an interface VPC endpoint (AWS PrivateLink) �
 Built on **AWS AppSync Events** with one channel per user (`/inbox/<user id>`). The backend publishes with its IAM role — nobody else can. Browsers subscribe with their login token, verified by a Lambda authorizer **and** checked again by a namespace handler.
 
 What streams to the finance team: pipeline stages with timings · the agent's to-do list · tool started/finished · thinking · extracted fields and confidence · FX conversion · rule results · checker answers · model calls with tokens and latency · the final decision.
+
+![Inbox: Gmail, Outlook and WhatsApp in one place, with a held invoice showing the agent's decision, its reason and every step](docs/images/inbox.png)
 
 ---
 
@@ -396,11 +402,13 @@ pnpm dev
 
 ## Try it
 
-1. Open the [live console](https://blinkachallengue.bryanjavier.com) and sign in with the demo account:
+![Sign-in screen: the agent kept working overnight, paid four bills and is holding two for a person](docs/images/sign-in.png)
+
+1. Sign in to the console with the demo account:
 
    | | |
    |---|---|
-   | **URL** | [blinkachallengue.bryanjavier.com](https://blinkachallengue.bryanjavier.com) |
+   | **URL** | Not public. It's in the project submission, the pitch and the submission description. |
    | **Email** | `demo@blinka.dev` |
    | **Password** | `blinka2026bryan` |
 
