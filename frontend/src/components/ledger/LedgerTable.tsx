@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { EvidenceSection } from "@/components/files/EvidenceSection";
 import { SourceBadge } from "@/components/inbox/SourceBadge";
 import { MoneyWithUsd } from "@/components/money/MoneyWithUsd";
+import { api } from "@/lib/api";
 import { formatDateTime, formatRate, formatShortDate } from "@/lib/format";
 import { FX_SOURCE_LABELS, PAYEE_KIND_LABELS, ruleLabel } from "@/lib/labels";
-import type { LedgerEntryView } from "@/lib/types";
+import type { EvidenceFileView, LedgerEntryView } from "@/lib/types";
 import { OutcomeBadge } from "./OutcomeBadge";
 
 const VISIBLE_REASONS = 2;
@@ -22,21 +24,34 @@ export function LedgerTable({ entries }: { entries: LedgerEntryView[] | null }) 
     );
   }
   return (
-    <ul className="divide-y divide-line">
-      {entries.map((entry) => {
-        const isExpanded = expandedEntryId === entry.entry_id;
-        return (
-          <li key={entry.entry_id}>
-            <LedgerRow
-              entry={entry}
-              isExpanded={isExpanded}
-              onToggle={() => setExpandedEntryId(isExpanded ? null : entry.entry_id)}
-            />
-            {isExpanded && <LedgerRowDetail entry={entry} />}
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <div
+        aria-hidden
+        className="hidden gap-4 border-b border-line px-6 py-2.5 text-sm font-bold text-muted [font-variant-caps:all-small-caps] md:grid md:grid-cols-[7rem_10rem_minmax(0,1fr)_12rem_minmax(0,1.4fr)_auto]"
+      >
+        <span>Date</span>
+        <span>Outcome</span>
+        <span>Payee</span>
+        <span>Amount</span>
+        <span>Why</span>
+        <span className="text-right">Run</span>
+      </div>
+      <ul className="divide-y divide-line">
+        {entries.map((entry) => {
+          const isExpanded = expandedEntryId === entry.entry_id;
+          return (
+            <li key={entry.entry_id}>
+              <LedgerRow
+                entry={entry}
+                isExpanded={isExpanded}
+                onToggle={() => setExpandedEntryId(isExpanded ? null : entry.entry_id)}
+              />
+              {isExpanded && <LedgerRowDetail entry={entry} />}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -84,7 +99,7 @@ function LedgerRow({
           aria-expanded={isExpanded}
           className="rounded px-1 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
         >
-          {isExpanded ? "Hide" : "Details"}
+          {isExpanded ? "Hide details" : "Details and files"}
         </button>
       </div>
     </div>
@@ -141,8 +156,29 @@ function LedgerRowDetail({ entry }: { entry: LedgerEntryView }) {
         </p>
       )}
       {entry.subject && <p className="text-xs text-muted">Subject: {entry.subject}</p>}
+      {entry.bill_id && <LedgerEvidence billId={entry.bill_id} />}
     </div>
   );
+}
+
+function LedgerEvidence({ billId }: { billId: string }) {
+  const [evidence, setEvidence] = useState<EvidenceFileView[] | null>(null);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+    api
+      .bill(billId)
+      .then((detail) => isActive && setEvidence(detail.evidence))
+      .catch(() => isActive && setHasFailed(true));
+    return () => {
+      isActive = false;
+    };
+  }, [billId]);
+
+  if (hasFailed) return <p className="text-xs text-muted">The invoice files could not be loaded.</p>;
+  if (evidence === null) return <div aria-hidden className="h-16 animate-pulse rounded-lg bg-sunken" />;
+  return <EvidenceSection evidence={evidence} />;
 }
 
 function LedgerTableSkeleton() {

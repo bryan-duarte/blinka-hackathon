@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConsoleShell, ConsoleTopBar } from "@/components/console/ConsoleShell";
 import { RunsTable } from "@/components/runs/RunsTable";
+import { filterTabClass } from "@/components/settings/styles";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import type { RunListItemView, RunStatus } from "@/lib/types";
 
@@ -73,7 +74,7 @@ export default function RunsPage() {
                   setRuns(null);
                   setStatusFilter(filter.status);
                 }}
-                className={`min-h-10 rounded px-3 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "text-ink hover:bg-sunken"}`}
+                className={filterTabClass(isActive)}
               >
                 {filter.label}
               </button>

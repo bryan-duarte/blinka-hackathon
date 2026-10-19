@@ -38,15 +38,16 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
               className={`flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${isSelected ? "bg-ink text-white" : "text-ink hover:bg-sunken"}`}
             >
               <span className="flex items-baseline justify-between gap-3">
-                <span className={`flex min-w-0 items-center gap-1.5 ${isSelected ? "[&_svg]:stroke-white" : ""}`}>
-                  <SourceBadge type={email.source_type} />
-                  <span className="truncate text-sm font-medium">
-                    {maskEmailsIn(email.sender) || "Unknown sender"}
-                  </span>
-                </span>
+                <span className="truncate text-sm font-medium">{rowTitle(email)}</span>
                 <span className={`shrink-0 text-xs ${isSelected ? "text-white/70" : "text-muted"}`}>
-                  {email.received_at ? formatRelative(email.received_at) : "simulated"}
+                  {email.received_at ? formatRelative(email.received_at) : "Demo"}
                 </span>
+              </span>
+              <span
+                className={`flex min-w-0 items-center gap-1.5 text-xs ${isSelected ? "text-white/70 [&_svg]:stroke-white" : "text-muted"}`}
+              >
+                <SourceBadge type={email.source_type} />
+                <span className="truncate">{maskEmailsIn(email.sender) || "Unknown sender"}</span>
               </span>
               <span className="flex items-center justify-between gap-3">
                 <StatusBadge status={email.status} />
@@ -67,6 +68,10 @@ export function EmailList({ emails, selectedEmailId, onSelect }: EmailListProps)
       })}
     </ul>
   );
+}
+
+function rowTitle(email: InboxEmailView): string {
+  return email.decision?.payee_name || email.subject || maskEmailsIn(email.sender) || "Unknown sender";
 }
 
 export function EmailListSkeleton() {

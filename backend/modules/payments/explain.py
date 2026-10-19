@@ -27,17 +27,22 @@ def explain(verdict: Verdict, results: list[RuleResult], context: DecisionContex
         return f"{_paid_headline(results, failing)} {_payment_summary(context)}"
     blocking = [result for result in failing if result.effect is RuleEffect.HOLD]
     if verdict is Verdict.HOLD:
-        headline = f"Held: {len(blocking)} rule(s) block the payment."
+        headline = f"Held: {_count(len(blocking), 'rule blocks', 'rules block')} the payment."
         reasons = blocking
     else:
-        headline = f"In review: {len(failing)} point(s) need a person."
+        headline = f"In review: {_count(len(failing), 'point needs', 'points need')} a person."
         reasons = failing
     return " ".join([headline, *(result.reason for result in reasons)])
 
 
+def _count(count: int, singular: str, plural: str) -> str:
+    return f"{count} {singular if count == 1 else plural}"
+
+
 def _paid_headline(results: list[RuleResult], failing: list[RuleResult]) -> str:
     if failing:
-        return f"Paid with human approval: {len(failing)} review point(s) were accepted."
+        accepted = _count(len(failing), "review point was", "review points were")
+        return f"Paid with human approval: {accepted} accepted."
     return f"Paid automatically: passes all {len(results)} rules."
 
 

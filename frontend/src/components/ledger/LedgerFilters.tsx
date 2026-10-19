@@ -1,3 +1,4 @@
+import { filterTabClass } from "@/components/settings/styles";
 import { formatPeriod } from "@/lib/format";
 import type { LedgerFilters as LedgerFiltersValue, LedgerTab, PayeeView } from "@/lib/types";
 
@@ -32,10 +33,10 @@ export function LedgerFilters({ filters, tabCounts, payees, currencies, onChange
               type="button"
               aria-pressed={isActive}
               onClick={() => onChange({ tab })}
-              className={`min-h-10 rounded px-3 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "text-ink hover:bg-sunken"}`}
+              className={filterTabClass(isActive)}
             >
               {label}
-              {tabCounts && <span className="ml-2 text-muted tabular-nums">{tabCounts[tab]}</span>}
+              {tabCounts && <span className="tabular-nums opacity-70">{tabCounts[tab]}</span>}
             </button>
           );
         })}

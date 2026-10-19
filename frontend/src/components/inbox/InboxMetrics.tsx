@@ -125,7 +125,7 @@ function BudgetLeft({ limitUsd, reservedUsd, pendingUsd }: BudgetSummary) {
         />
       </div>
       <p className="text-xs text-muted">
-        of USD {formatMoney(limitUsd, null)}. Light blue is what is in review.
+        of USD {formatMoney(limitUsd, null)}. The grey part is waiting for your approval.
       </p>
     </>
   );

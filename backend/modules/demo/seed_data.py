@@ -509,7 +509,7 @@ def _kessler_approved_by_cfo(today: date) -> HistoricalBill:
         rule_results=_rule_results(
             payee, "EUR", overrides={"R13": (RuleEffect.REVIEW, over_limit_reason)}
         ),
-        explanation=f"In review: 1 point(s) need a person. {over_limit_reason}",
+        explanation=f"In review: 1 point needs a person. {over_limit_reason}",
         decided_at=_decision_time(issued_on),
     )
     approval = HistoricalDecision(
@@ -517,7 +517,7 @@ def _kessler_approved_by_cfo(today: date) -> HistoricalBill:
         verdict=Verdict.PAY,
         rule_results=review.rule_results,
         explanation=(
-            "Paid with human approval: 1 review point(s) were accepted. "
+            "Paid with human approval: 1 review point was accepted. "
             f"{KESSLER}: {_amount_text(amount, 'EUR', quote)}, category professional_services."
         ),
         decided_at=review.decided_at + HUMAN_REVIEW_DELAY,
@@ -549,7 +549,7 @@ def _impostor_held(today: date) -> HistoricalBill:
         actor=DecisionActor.AGENT,
         verdict=Verdict.HOLD,
         rule_results=rule_results,
-        explanation=f"Held: 1 rule(s) block the payment. {blacklist_reason}",
+        explanation=f"Held: 1 rule blocks the payment. {blacklist_reason}",
         decided_at=_decision_time(issued_on),
     )
     return HistoricalBill(
@@ -599,7 +599,7 @@ def _acme_rejected(today: date) -> HistoricalBill:
         rule_results=_rule_results(
             payee, USD, overrides={"R17": (RuleEffect.REVIEW, mismatch_reason)}
         ),
-        explanation=f"In review: 1 point(s) need a person. {mismatch_reason}",
+        explanation=f"In review: 1 point needs a person. {mismatch_reason}",
         decided_at=_decision_time(issued_on),
     )
     rejection = HistoricalDecision(

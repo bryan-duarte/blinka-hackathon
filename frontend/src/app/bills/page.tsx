@@ -163,11 +163,11 @@ function ApprovalDetail({ bill, onResolved }: { bill: BillDecisionView; onResolv
           )}
         </header>
         <RuleComparison rules={policyRules} />
-        {bill.candidate && <EvidenceTable candidate={bill.candidate} />}
-        {checkerRules.length > 0 && <CheckerOpinion rules={checkerRules} />}
         {detailError && <p className="text-sm text-muted">The invoice files could not be loaded.</p>}
         {detail === null && !detailError && <div aria-hidden className="h-24 animate-pulse rounded-lg bg-sunken" />}
         {detail && <EvidenceSection evidence={detail.evidence} />}
+        {bill.candidate && <EvidenceTable candidate={bill.candidate} />}
+        {checkerRules.length > 0 && <CheckerOpinion rules={checkerRules} />}
         <DecisionHistory billId={bill.bill_id} />
       </div>
       <aside

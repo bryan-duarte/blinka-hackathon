@@ -24,7 +24,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <ConsoleShell>
-      <ConsoleTopBar title={currentTab?.label ?? "Payment rules"} caption="Payment rules" />
+      <ConsoleTopBar title={currentTab?.label ?? "Payment rules"} />
       <main className="w-full max-w-5xl flex-1 px-4 py-6 md:px-8">{children}</main>
     </ConsoleShell>
   );

@@ -8,7 +8,7 @@ import { EmailDetail } from "@/components/inbox/EmailDetail";
 import { EmailList, EmailListSkeleton } from "@/components/inbox/EmailList";
 import { InboxMetrics } from "@/components/inbox/InboxMetrics";
 import { DemoScenariosPanel } from "@/components/demo/DemoScenariosPanel";
-import { PRIMARY_BUTTON_CLASS } from "@/components/settings/styles";
+import { PRIMARY_BUTTON_CLASS, filterTabClass } from "@/components/settings/styles";
 import { UnauthorizedError, api, tokenStore } from "@/lib/api";
 import { SOURCE_LABELS } from "@/lib/labels";
 import { TERMINAL_RUN_STEPS, withEvent } from "@/lib/runEvents";
@@ -84,7 +84,7 @@ export default function InboxPage() {
   const hasPendingEmails = invoiceEmails.some((email) => PENDING_STATUSES.has(email.status));
   const isReviewQueueEmpty = isReviewFilter && visibleEmails?.length === 0;
   const caption = emails
-    ? `${invoiceEmails.length} messages · ${reviewCount} in review`
+    ? `${invoiceEmails.length} invoices · ${reviewCount} need you`
     : "Loading messages…";
   const requestRefresh = useCallback(() => setRefreshCount((count) => count + 1), []);
 
@@ -260,18 +260,18 @@ export default function InboxPage() {
           className={`flex min-w-0 flex-col border-line md:border-r ${selectedEmailId ? "hidden md:flex" : ""}`}
         >
           <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
-            <div role="group" aria-label="Filter messages" className="flex gap-1">
+            <div role="group" aria-label="Filter messages" className="flex gap-1.5">
               <FilterTab label="All" isActive={inboxFilter === "all"} onSelect={() => setInboxFilter("all")} />
               <FilterTab
-                label="In review"
+                label="Needs you"
                 count={reviewCount}
                 isActive={isReviewFilter}
                 onSelect={() => setInboxFilter("review")}
               />
             </div>
-            <div role="group" aria-label="Filter by channel" className="flex flex-wrap gap-1">
+            <div role="group" aria-label="Filter by channel" className="flex flex-wrap items-center gap-0.5">
               <SourceChip
-                label="All"
+                label="Any channel"
                 isActive={sourceFilter === null}
                 onSelect={() => selectSourceFilter(null)}
               />
@@ -288,7 +288,7 @@ export default function InboxPage() {
           {visibleEmails === null ? (
             <EmailListSkeleton />
           ) : isReviewQueueEmpty ? (
-            <p className="px-4 py-10 text-sm text-muted">No invoices are waiting for a decision.</p>
+            <p className="px-4 py-10 text-sm text-muted">No invoices are waiting for you.</p>
           ) : (
             <EmailList emails={visibleEmails} selectedEmailId={selectedEmailId} onSelect={setSelectedEmailId} />
           )}
@@ -305,9 +305,19 @@ export default function InboxPage() {
               refreshKey={snapshotVersion}
             />
           ) : (
-            <p className="p-6 text-sm text-muted">
-              {selectedEmailId ? "Loading message…" : "Select a message to watch the agent work and see its decision."}
-            </p>
+            <div className="flex flex-col gap-2 px-6 py-12 md:px-8">
+              {selectedEmailId ? (
+                <p className="text-sm text-muted">Loading message…</p>
+              ) : (
+                <>
+                  <p className="font-serif text-[26px] leading-[1.13]">Pick an invoice</p>
+                  <p className="max-w-[52ch] text-sm text-muted">
+                    Choose one from the list to see what the agent read, which rules it checked and why it paid,
+                    held or escalated it.
+                  </p>
+                </>
+              )}
+            </div>
           )}
         </section>
       </main>
@@ -331,10 +341,10 @@ function FilterTab({
       type="button"
       aria-pressed={isActive}
       onClick={onSelect}
-      className={`min-h-10 rounded px-3 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "text-ink hover:bg-sunken"}`}
+      className={filterTabClass(isActive)}
     >
       {label}
-      {count ? <span className="ml-2 text-accent">{count}</span> : null}
+      {count ? <span className="tabular-nums opacity-70">{count}</span> : null}
     </button>
   );
 }
@@ -353,7 +363,7 @@ function SourceChip({
       type="button"
       aria-pressed={isActive}
       onClick={onSelect}
-      className={`min-h-8 rounded-full px-3 text-xs font-normal transition-colors focus-visible:outline-2 focus-visible:outline-accent ${isActive ? "bg-accent-wash text-accent" : "bg-sunken text-nav-ink hover:bg-sunken-hover"}`}
+      className={`min-h-8 rounded-full px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${isActive ? "bg-sunken font-medium text-ink underline underline-offset-4" : "text-muted hover:text-ink"}`}
     >
       {label}
     </button>

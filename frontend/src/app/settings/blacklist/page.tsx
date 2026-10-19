@@ -5,11 +5,9 @@ import { useReportError } from "@/components/settings/errors";
 import {
   CARD_CLASS,
   DANGER_TEXT_BUTTON_CLASS,
-  HINT_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
   PRIMARY_BUTTON_CLASS,
-  SECTION_HEADING_CLASS,
 } from "@/components/settings/styles";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
@@ -40,7 +38,7 @@ export default function BlacklistPage() {
     api
       .blacklist()
       .then(setEntries)
-      .catch((error: unknown) => reportError(error, "The blacklist could not be loaded."));
+      .catch((error: unknown) => reportError(error, "The blocked list could not be loaded."));
   }, [reportError]);
 
   async function addEntry(event: FormEvent<HTMLFormElement>) {
@@ -56,7 +54,7 @@ export default function BlacklistPage() {
       setValue("");
       setReason("");
     } catch (error) {
-      reportError(error, "The entry could not be added to the blacklist.");
+      reportError(error, "The entry could not be added to the blocked list.");
     } finally {
       setIsSaving(false);
     }
@@ -68,18 +66,15 @@ export default function BlacklistPage() {
       await api.deleteBlacklist(entryId);
       setEntries((current) => current?.filter((entry) => entry.entry_id !== entryId) ?? null);
     } catch (error) {
-      reportError(error, "The entry could not be removed from the blacklist.");
+      reportError(error, "The entry could not be removed from the blocked list.");
     }
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className={SECTION_HEADING_CLASS}>Blacklist</h2>
-        <p className={`${HINT_CLASS} mt-1 max-w-xl`}>
-          Any invoice that uses one of these details is held, even if the payee is registered and allowed.
-        </p>
-      </div>
+      <p className="max-w-[68ch] text-sm text-muted">
+        Any invoice that uses one of these details is held, even if the payee is registered and allowed.
+      </p>
 
       <form onSubmit={addEntry} className={`${CARD_CLASS} grid gap-4 p-5 md:grid-cols-[12rem_1fr_1fr_auto] md:items-end`}>
         <div className="space-y-1.5">
@@ -142,7 +137,7 @@ export default function BlacklistPage() {
         </div>
       )}
       {entries?.length === 0 && (
-        <p className={`${CARD_CLASS} p-5 text-sm text-muted`}>The blacklist is empty.</p>
+        <p className={`${CARD_CLASS} p-5 text-sm text-muted`}>Nothing is blocked yet. Add a bank account, tax ID or domain above and the agent holds any invoice that uses it.</p>
       )}
       {entries && entries.length > 0 && (
         <ul className={`${CARD_CLASS} divide-y divide-line`}>

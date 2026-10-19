@@ -24,3 +24,25 @@ export const EYEBROW_CLASS = "text-sm font-bold text-muted [font-variant-caps:al
 export const SECTION_HEADING_CLASS = "text-xl leading-[1.4] font-medium tracking-[-0.02em] text-ink";
 
 export const PAGE_HEADING_CLASS = "font-serif text-[26px] leading-[1.13] text-ink";
+
+const FILTER_TAB_BASE =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-normal whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+
+export function filterTabClass(isActive: boolean): string {
+  return `${FILTER_TAB_BASE} ${isActive ? "border-ink bg-ink text-white" : "border-line bg-panel text-ink hover:border-ink"}`;
+}
+
+/*
+  Monochrome status tones, told apart by fill rather than hue:
+  settled is solid ink, needs-action is an ink outline, stopped is an ash
+  wash, neutral is a hairline in muted text.
+*/
+export const STATUS_TONE = {
+  settled: "border-ink bg-ink text-white",
+  action: "border-ink bg-panel text-ink font-medium",
+  stopped: "border-transparent bg-ash text-ink",
+  neutral: "border-line bg-panel text-muted",
+} as const;
+
+export const STATUS_BADGE_CLASS =
+  "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs whitespace-nowrap";

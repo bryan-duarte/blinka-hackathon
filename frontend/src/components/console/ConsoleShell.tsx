@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { PAGE_HEADING_CLASS } from "@/components/settings/styles";
 import { api, tokenStore } from "@/lib/api";
@@ -102,6 +102,10 @@ type AgentStatus = {
 
 const UNKNOWN_STATUS: AgentStatus = { channels: null, lastRunAt: null, policyVersion: null, approvalCount: null };
 
+// Every page mounts its own shell, so the last status is kept across navigations
+// to avoid flashing the skeleton and shifting the nav while it refreshes.
+let lastKnownStatus: AgentStatus = UNKNOWN_STATUS;
+
 function isCurrentSection(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -115,7 +119,7 @@ function settledValue<T>(result: PromiseSettledResult<T>): T | null {
 }
 
 function useAgentStatus(): AgentStatus {
-  const [status, setStatus] = useState<AgentStatus>(UNKNOWN_STATUS);
+  const [status, setStatus] = useState<AgentStatus>(lastKnownStatus);
   useEffect(() => {
     if (!tokenStore.get()) return;
     let isCancelled = false;
@@ -125,12 +129,13 @@ function useAgentStatus(): AgentStatus {
         const activeProviders = settledValue(connections)
           ?.filter((connection) => connection.status === "active")
           .map((connection) => CHANNEL_LABELS[connection.provider]);
-        setStatus({
+        lastKnownStatus = {
           channels: activeProviders ? [...new Set(activeProviders)] : null,
           lastRunAt: settledValue(runs)?.[0]?.created_at ?? null,
           policyVersion: settledValue(policy)?.version ?? null,
           approvalCount: settledValue(approvals)?.length ?? null,
-        });
+        };
+        setStatus(lastKnownStatus);
       },
     );
     return () => {
@@ -188,8 +193,16 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const status = useAgentStatus();
+  const mobileNavRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    mobileNavRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
 
   function logout() {
+    lastKnownStatus = UNKNOWN_STATUS;
     tokenStore.clear();
     router.replace("/login");
   }
@@ -230,7 +243,11 @@ export function ConsoleShell({ children }: { children: React.ReactNode }) {
             Sign out
           </button>
         </div>
-        <nav aria-label="Console" className="flex gap-1 overflow-x-auto px-4 py-2">
+        <nav
+          ref={mobileNavRef}
+          aria-label="Console"
+          className="flex gap-1 overflow-x-auto py-2 pr-12 pl-4 [mask-image:linear-gradient(to_right,black_85%,transparent)]"
+        >
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} approvalCount={status.approvalCount} />
           ))}

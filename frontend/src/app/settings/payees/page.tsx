@@ -13,6 +13,8 @@ import {
   QUIET_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
   SECTION_HEADING_CLASS,
+  STATUS_BADGE_CLASS,
+  STATUS_TONE,
 } from "@/components/settings/styles";
 import { api } from "@/lib/api";
 import { CURRENCY_CODE_LENGTH, USD_CURRENCY, formatMoney } from "@/lib/format";
@@ -133,13 +135,10 @@ export default function PayeesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className={SECTION_HEADING_CLASS}>Registered payees</h2>
-          <p className={`${HINT_CLASS} mt-1 max-w-xl`}>
-            The agent recognizes who it pays by their identifiers (account, tax ID, domain), not by name. An
-            invoice with a known name and a different account is held.
-          </p>
-        </div>
+        <p className="max-w-[68ch] text-sm text-muted">
+          The agent recognizes who it pays by their identifiers (account, tax ID, domain), not by name. An invoice
+          with a known name and a different account is held.
+        </p>
         <button type="button" onClick={() => setEditingPayee("new")} className={PRIMARY_BUTTON_CLASS}>
           New payee
         </button>
@@ -227,7 +226,7 @@ function PayeeCard({
   }
 
   return (
-    <li className={`${CARD_CLASS} flex flex-col gap-4 p-4`}>
+    <li className={`${CARD_CLASS} flex flex-col gap-4 p-5`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[15px] font-medium text-ink">{payee.display_name}</p>
@@ -236,9 +235,8 @@ function PayeeCard({
             {payee.default_category && ` · ${CATEGORY_LABELS[payee.default_category]}`}
           </p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${isBlocked ? "bg-danger-soft text-danger" : "bg-success-soft text-success"}`}
-        >
+        <span className={`${STATUS_BADGE_CLASS} ${isBlocked ? STATUS_TONE.stopped : STATUS_TONE.neutral}`}>
+          <span aria-hidden>{isBlocked ? "✕" : "✓"}</span>
           {PAYEE_STATUS_LABELS[payee.status]}
         </span>
       </div>
@@ -261,9 +259,9 @@ function PayeeCard({
           {cardError}
         </p>
       )}
-      <div className="flex gap-3 border-t border-line pt-3">
-        <button type="button" onClick={onEdit} className={QUIET_BUTTON_CLASS}>
-          Edit
+      <div className="mt-auto flex items-center gap-3 border-t border-line pt-3">
+        <button type="button" onClick={onEdit} className={`${SECONDARY_BUTTON_CLASS} h-9 px-4 text-sm`}>
+          Edit payee
         </button>
         <button type="button" onClick={deletePayee} disabled={isDeleting} className={DANGER_TEXT_BUTTON_CLASS}>
           {isDeleting ? "Deleting..." : "Delete"}
@@ -294,6 +292,7 @@ function IdentifierManager({
   onChanged: (payee: PayeeView) => void;
   reportError: ReportError;
 }) {
+  const [isAdding, setIsAdding] = useState(false);
   const [kind, setKind] = useState<IdentifierKind>("bank_account");
   const [value, setValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -308,6 +307,7 @@ function IdentifierManager({
     try {
       onChanged(await api.addIdentifier(payee.payee_id, { kind, value: value.trim() }));
       setValue("");
+      setIsAdding(false);
     } catch (error) {
       setIdentifierError(reportError(error, IDENTIFIER_TAKEN_MESSAGE, "The identifier could not be added."));
     } finally {
@@ -353,36 +353,47 @@ function IdentifierManager({
           ))}
         </ul>
       )}
-      <form onSubmit={addIdentifier} className="flex flex-col gap-2 sm:flex-row">
-        <label htmlFor={`${fieldId}-kind`} className="sr-only">
-          Identifier type
-        </label>
-        <select
-          id={`${fieldId}-kind`}
-          value={kind}
-          onChange={(event) => setKind(event.target.value as IdentifierKind)}
-          className={`${INPUT_CLASS} sm:w-44`}
-        >
-          {IDENTIFIER_KINDS.map((identifierKind) => (
-            <option key={identifierKind} value={identifierKind}>
-              {IDENTIFIER_KIND_LABELS[identifierKind]}
-            </option>
-          ))}
-        </select>
-        <label htmlFor={`${fieldId}-value`} className="sr-only">
-          Identifier value
-        </label>
-        <input
-          id={`${fieldId}-value`}
-          value={value}
-          placeholder="Value"
-          onChange={(event) => setValue(event.target.value)}
-          className={INPUT_CLASS}
-        />
-        <button type="submit" disabled={isSaving || !value.trim()} className={SECONDARY_BUTTON_CLASS}>
-          {isSaving ? "Adding..." : "Add"}
+      {!isAdding && (
+        <button type="button" onClick={() => setIsAdding(true)} className={`${QUIET_BUTTON_CLASS} self-start`}>
+          + Add identifier
         </button>
-      </form>
+      )}
+      {isAdding && (
+        <form onSubmit={addIdentifier} className="flex flex-col gap-2 sm:flex-row">
+          <label htmlFor={`${fieldId}-kind`} className="sr-only">
+            Identifier type
+          </label>
+          <select
+            id={`${fieldId}-kind`}
+            value={kind}
+            onChange={(event) => setKind(event.target.value as IdentifierKind)}
+            className={`${INPUT_CLASS} sm:w-44`}
+          >
+            {IDENTIFIER_KINDS.map((identifierKind) => (
+              <option key={identifierKind} value={identifierKind}>
+                {IDENTIFIER_KIND_LABELS[identifierKind]}
+              </option>
+            ))}
+          </select>
+          <label htmlFor={`${fieldId}-value`} className="sr-only">
+            Identifier value
+          </label>
+          <input
+            id={`${fieldId}-value`}
+            value={value}
+            placeholder="Value"
+            autoFocus
+            onChange={(event) => setValue(event.target.value)}
+            className={INPUT_CLASS}
+          />
+          <button type="submit" disabled={isSaving || !value.trim()} className={SECONDARY_BUTTON_CLASS}>
+            {isSaving ? "Adding..." : "Add"}
+          </button>
+          <button type="button" onClick={() => setIsAdding(false)} className={QUIET_BUTTON_CLASS}>
+            Cancel
+          </button>
+        </form>
+      )}
       {identifierError && (
         <p role="alert" className="text-sm text-danger">
           {identifierError}

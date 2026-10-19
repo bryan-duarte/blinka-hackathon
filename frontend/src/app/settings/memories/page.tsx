@@ -6,17 +6,16 @@ import { useReportError } from "@/components/settings/errors";
 import {
   CARD_CLASS,
   DANGER_TEXT_BUTTON_CLASS,
-  HINT_CLASS,
   QUIET_BUTTON_CLASS,
-  SECTION_HEADING_CLASS,
+  STATUS_TONE,
 } from "@/components/settings/styles";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { HumanAction, MemoryView } from "@/lib/types";
 
 const HUMAN_ACTION_BADGES: Record<HumanAction, { glyph: string; label: string; className: string }> = {
-  approved: { glyph: "✓", label: "Approved", className: "border-transparent bg-sunken text-nav-ink" },
-  rejected: { glyph: "✕", label: "Rejected", className: "border-night bg-panel text-night" },
+  approved: { glyph: "✓", label: "Approved", className: STATUS_TONE.settled },
+  rejected: { glyph: "✕", label: "Rejected", className: STATUS_TONE.stopped },
 };
 
 type PayeeMemories = { payeeKey: string; payee: string; memories: MemoryView[] };
@@ -68,13 +67,10 @@ export default function MemoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className={SECTION_HEADING_CLASS}>Agent memory</h2>
-        <p className={`${HINT_CLASS} mt-1 max-w-xl`}>
-          Lessons the agent keeps from approvals and rejections you asked it to remember. It reads them as context for
-          the same payee. They never override caps, budgets, the blocked list or the allowed payees.
-        </p>
-      </div>
+      <p className="max-w-[68ch] text-sm text-muted">
+        Lessons the agent keeps from approvals and rejections you asked it to remember. It reads them as context for
+        the same payee. They never override caps, budgets, the blocked list or the allowed payees.
+      </p>
 
       {pageError && (
         <p role="alert" className="text-sm text-danger">

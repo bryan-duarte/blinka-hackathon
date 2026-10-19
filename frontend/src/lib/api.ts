@@ -252,4 +252,9 @@ export const api = {
     post<TrustedForwarderView>("/trusted-forwarders", body),
   deleteTrustedForwarder: (forwarderId: string) => remove(`/trusted-forwarders/${forwarderId}`),
   openFile,
+  downloadFile: (file: EvidenceFileView) => downloadBlob(`/files/${file.file_id}/content`, file.filename),
 };
+
+export function canViewInBrowser(file: EvidenceFileView): boolean {
+  return inlineSafeMime(file.mime) !== null;
+}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MoneyWithUsd } from "@/components/money/MoneyWithUsd";
-import { EYEBROW_CLASS } from "@/components/settings/styles";
+import { EYEBROW_CLASS, STATUS_TONE } from "@/components/settings/styles";
 import { api } from "@/lib/api";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { ACTOR_LABELS, CATEGORY_LABELS, FIELD_LABELS, VERDICT_LABELS } from "@/lib/labels";
@@ -23,9 +23,9 @@ const CHECKER_RULE_PREFIX = "CHK";
 const PERCENT = 100;
 
 const VERDICT_CHIP: Record<Verdict, { className: string; glyph: string }> = {
-  pay: { className: "border-transparent bg-sunken text-nav-ink", glyph: "✓" },
-  hold: { className: "border-night bg-panel text-night", glyph: "✕" },
-  review: { className: "border-transparent bg-accent-wash text-accent", glyph: "!" },
+  pay: { className: STATUS_TONE.settled, glyph: "✓" },
+  hold: { className: STATUS_TONE.stopped, glyph: "✕" },
+  review: { className: STATUS_TONE.action, glyph: "!" },
 };
 
 const EFFECT_ROW: Record<RuleEffect, { glyph: string; glyphColor: string; label: string }> = {
@@ -41,7 +41,7 @@ const EFFECT_ORDER: Record<RuleEffect, number> = { hold: 0, review: 1, pass: 2 }
 const DISCLOSURE_SUMMARY_CLASS =
   "cursor-pointer list-none rounded text-sm text-muted select-none hover:text-ink focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden";
 
-const DUPLICATE_CHIP = { className: "border-line bg-panel text-muted", glyph: "" };
+const DUPLICATE_CHIP = { className: STATUS_TONE.neutral, glyph: "" };
 
 export function DecisionCard({ decision, onSelectEmail, isCompact = false }: DecisionCardProps) {
   const policyRules = decision.rule_results.filter((rule) => !isCheckerRule(rule));
